@@ -6,6 +6,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -115,20 +115,23 @@ fun SwipeableCard(
                 .border(1.dp, SdzColors.Hairline, RoundedCornerShape(28.dp))
                 .pointerInput(item.id, enabled) {
                     if (!enabled) return@pointerInput
-                    detectDrag(
-                        onDrag = { dx, dy ->
+                    val onEnd = {
+                        when {
+                            offsetY.value < -verticalCommit &&
+                                abs(offsetY.value) > abs(offsetX.value) -> flingOut(SwipeDirection.UP)
+                            offsetX.value > horizontalCommit -> flingOut(SwipeDirection.RIGHT)
+                            offsetX.value < -horizontalCommit -> flingOut(SwipeDirection.LEFT)
+                            else -> springBack()
+                        }
+                    }
+                    detectDragGestures(
+                        onDragEnd = onEnd,
+                        onDragCancel = onEnd,
+                        onDrag = { change, dragAmount ->
+                            change.consume()
                             scope.launch {
-                                offsetX.snapTo(offsetX.value + dx)
-                                offsetY.snapTo((offsetY.value + dy).coerceAtMost(0f))
-                            }
-                        },
-                        onEnd = {
-                            when {
-                                offsetY.value < -verticalCommit &&
-                                    abs(offsetY.value) > abs(offsetX.value) -> flingOut(SwipeDirection.UP)
-                                offsetX.value > horizontalCommit -> flingOut(SwipeDirection.RIGHT)
-                                offsetX.value < -horizontalCommit -> flingOut(SwipeDirection.LEFT)
-                                else -> springBack()
+                                offsetX.snapTo(offsetX.value + dragAmount.x)
+                                offsetY.snapTo((offsetY.value + dragAmount.y).coerceAtMost(0f))
                             }
                         },
                     )
@@ -175,21 +178,3 @@ private fun Modifier.edgeGlow(left: Float, right: Float, up: Float): Modifier =
         glow(SdzColors.ElectricEmerald, right)
         glow(SdzColors.StarGold, up)
     }
-
-/**
- * Small local re-implementation of drag detection so we can coerce the vertical
- * axis (up-only) and split X/Y deltas cleanly. Wraps [detectDragGestures].
- */
-private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.detectDrag(
-    onDrag: (dx: Float, dy: Float) -> Unit,
-    onEnd: () -> Unit,
-) {
-    androidx.compose.foundation.gestures.detectDragGestures(
-        onDragEnd = onEnd,
-        onDragCancel = onEnd,
-        onDrag = { change, dragAmount: Offset ->
-            change.consume()
-            onDrag(dragAmount.x, dragAmount.y)
-        },
-    )
-}

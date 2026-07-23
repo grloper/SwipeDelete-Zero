@@ -111,6 +111,9 @@ dependencies {
     // DataStore for lightweight settings
     implementation(libs.androidx.datastore.preferences)
 
+    // SAF document access for non-media (.apk/.zip) deletion
+    implementation(libs.androidx.documentfile)
+
     implementation(libs.kotlinx.coroutines.android)
 
     // Test
