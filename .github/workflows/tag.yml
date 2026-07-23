@@ -1,0 +1,33 @@
+name: Create Tag
+
+# Utility: creates a git tag at a given commit using the Actions token.
+# Exists because some remote sessions can push branches but not tags.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name to create (e.g. v2)"
+        required: true
+      sha:
+        description: "Commit SHA the tag should point at"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create tag ref
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/${{ toJSON(inputs.tag) }}`.replace(/"/g, ''),
+              sha: '${{ inputs.sha }}',
+            });
+            core.info(`Created refs/tags/${{ inputs.tag }} at ${{ inputs.sha }}`);
