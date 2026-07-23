@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      ╔══════════════════════════════════════════════════════════════════════╗
+      ║  HARD AIR-GAP PRIVACY RULE                                            ║
+      ║  This app MUST NEVER declare android.permission.INTERNET or           ║
+      ║  ACCESS_NETWORK_STATE. All scanning, hashing and purge operations     ║
+      ║  run 100% on-device. Do not add a network permission here — doing so  ║
+      ║  breaks the core product promise ("Zero Net-Permissions").           ║
+      ╚══════════════════════════════════════════════════════════════════════╝
+    -->
+
+    <!-- Granular media permissions (Android 13+/SDK 33+). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+    <!-- Android 14+ partial media access (user picks a subset). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+
+    <!-- Legacy read for API 29–32; scoped to maxSdk 32. -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!--
+      MANAGE_EXTERNAL_STORAGE is declared ONLY in the `play` flavor manifest
+      (src/play/AndroidManifest.xml), used strictly for purging non-media clutter
+      (.apk/.zip/raw downloads) that MediaStore cannot trash. The `fdroid` flavor
+      never declares it and falls back to the Storage Access Framework.
+      See StoragePermissionManager.
+    -->
+
+    <application
+        android:name=".SwipeDeleteApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SwipeDeleteZero"
+        tools:targetApi="35">
+
+        <!-- Disable WorkManager's default initializer; we provide a Hilt-aware
+             configuration via Configuration.Provider on the Application. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.SwipeDeleteZero">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Play-flavor-only overlay.
+
+  MANAGE_EXTERNAL_STORAGE lets the Play build purge NON-media clutter
+  (.apk/.zip/raw downloads) in a single tap. It is NEVER present in the F-Droid
+  flavor, which uses the Storage Access Framework instead. Note this still
+  declares ZERO network permissions — the air-gap rule holds across both flavors.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+</manifest>
