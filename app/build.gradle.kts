@@ -14,11 +14,24 @@ android {
         applicationId = "com.swipedelete.zero"
         minSdk = 29
         targetSdk = 35
-        versionCode = 3
-        versionName = "2.1.0"
+        versionCode = 4
+        versionName = "2.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+    }
+
+    signingConfigs {
+        // Deterministic debug keystore committed to the repo (standard debug
+        // password). Keeps the APK signature — and therefore the SHA-1 used by
+        // the Google OAuth Android client for Drive backup — stable across CI
+        // runners and local machines.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
@@ -35,18 +48,28 @@ android {
         }
     }
 
-    // F-Droid friendly build: two flavors abstract the "all-files" permission model.
-    // `fdroid` relies purely on MediaStore + SAF (no MANAGE_EXTERNAL_STORAGE);
-    // `play` may additionally request MANAGE_EXTERNAL_STORAGE for non-media purge.
+    // Three flavors abstract the permission model:
+    // `fdroid` — MediaStore + SAF only, zero network permissions (air-gapped);
+    // `play`  — may additionally request MANAGE_EXTERNAL_STORAGE, still no network;
+    // `cloud` — the ONLY flavor with android.permission.INTERNET, powering the
+    //           opt-in Google Drive backup. The air-gap promise holds for the
+    //           fdroid/play builds; cloud is a separate, clearly-labelled APK.
     flavorDimensions += "distribution"
     productFlavors {
         create("fdroid") {
             dimension = "distribution"
             buildConfigField("boolean", "ALLOW_MANAGE_STORAGE", "false")
+            buildConfigField("boolean", "SUPPORTS_DRIVE_BACKUP", "false")
         }
         create("play") {
             dimension = "distribution"
             buildConfigField("boolean", "ALLOW_MANAGE_STORAGE", "true")
+            buildConfigField("boolean", "SUPPORTS_DRIVE_BACKUP", "false")
+        }
+        create("cloud") {
+            dimension = "distribution"
+            buildConfigField("boolean", "ALLOW_MANAGE_STORAGE", "false")
+            buildConfigField("boolean", "SUPPORTS_DRIVE_BACKUP", "true")
         }
     }
 
@@ -115,6 +138,10 @@ dependencies {
     implementation(libs.androidx.documentfile)
 
     implementation(libs.kotlinx.coroutines.android)
+
+    // Cloud flavor only: Google Sign-In for the opt-in Drive backup. The
+    // fdroid/play flavors never compile against any network-capable library.
+    "cloudImplementation"(libs.play.services.auth)
 
     // Test
     testImplementation(libs.junit)

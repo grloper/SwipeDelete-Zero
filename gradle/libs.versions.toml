@@ -16,6 +16,7 @@ coil = "2.7.0"
 media3 = "1.5.1"
 datastore = "1.1.1"
 documentfile = "1.0.1"
+playServicesAuth = "21.3.0"
 junit = "4.13.2"
 androidxJunit = "1.2.1"
 espresso = "3.6.1"
@@ -59,6 +60,9 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+
+# Cloud flavor only — Google Sign-In for the opt-in Drive backup.
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxJunit" }

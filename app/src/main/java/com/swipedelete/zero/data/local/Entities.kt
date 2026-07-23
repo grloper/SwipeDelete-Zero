@@ -25,6 +25,36 @@ data class StagedFileEntity(
 )
 
 /**
+ * A file the user decided to protect — swiped right (keep) or up (star).
+ * This is the source set for the opt-in cloud backup: each row is backed up
+ * exactly once (see [BackedUpFileEntity]) and re-keeping a file is idempotent.
+ */
+@Entity(tableName = "kept_files")
+data class KeptFileEntity(
+    @PrimaryKey val contentUri: String,
+    val displayName: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val keptAtMillis: Long,
+    /** True when the keep came from an up-swipe (star). */
+    val starred: Boolean,
+)
+
+/**
+ * Ledger of files already uploaded to the backup destination. A kept file is
+ * pending backup iff it has no row here — that is what makes backup runs
+ * incremental instead of re-uploading everything.
+ */
+@Entity(tableName = "backed_up_files")
+data class BackedUpFileEntity(
+    @PrimaryKey val contentUri: String,
+    val sizeBytes: Long,
+    /** Remote file id (Google Drive file id for the cloud flavor). */
+    val remoteId: String,
+    val uploadedAtMillis: Long,
+)
+
+/**
  * Persisted progress for a deck so a session can resume mid-way
  * ("24/50 swiped in July 2024").
  */

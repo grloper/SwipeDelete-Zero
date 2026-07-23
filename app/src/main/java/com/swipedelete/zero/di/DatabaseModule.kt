@@ -3,8 +3,10 @@ package com.swipedelete.zero.di
 import android.content.Context
 import androidx.room.Room
 import com.swipedelete.zero.data.local.AppDatabase
+import com.swipedelete.zero.data.local.BackedUpFileDao
 import com.swipedelete.zero.data.local.DeckSessionDao
 import com.swipedelete.zero.data.local.ExclusionDao
+import com.swipedelete.zero.data.local.KeptFileDao
 import com.swipedelete.zero.data.local.MediaAnalysisDao
 import com.swipedelete.zero.data.local.StagedFileDao
 import dagger.Module
@@ -31,4 +33,6 @@ object DatabaseModule {
     @Provides fun provideDeckSessionDao(db: AppDatabase): DeckSessionDao = db.deckSessionDao()
     @Provides fun provideExclusionDao(db: AppDatabase): ExclusionDao = db.exclusionDao()
     @Provides fun provideMediaAnalysisDao(db: AppDatabase): MediaAnalysisDao = db.mediaAnalysisDao()
+    @Provides fun provideKeptFileDao(db: AppDatabase): KeptFileDao = db.keptFileDao()
+    @Provides fun provideBackedUpFileDao(db: AppDatabase): BackedUpFileDao = db.backedUpFileDao()
 }

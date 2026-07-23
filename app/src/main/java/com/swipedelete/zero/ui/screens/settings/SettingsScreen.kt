@@ -1,5 +1,7 @@
 package com.swipedelete.zero.ui.screens.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -7,8 +9,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Star
@@ -32,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.swipedelete.zero.data.local.ExclusionEntity
+import com.swipedelete.zero.domain.backup.BackupState
 import com.swipedelete.zero.ui.theme.SdzColors
 
 @Composable
@@ -40,6 +47,15 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val exclusions by viewModel.exclusions.collectAsStateWithLifecycle()
+    val backupState by viewModel.backupState.collectAsStateWithLifecycle()
+    val pendingBackupCount by viewModel.pendingBackupCount.collectAsStateWithLifecycle()
+    val backedUpCount by viewModel.backedUpCount.collectAsStateWithLifecycle()
+
+    val signInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.onSignInResult(result.data)
+    }
 
     Column(
         modifier = Modifier
@@ -64,6 +80,18 @@ fun SettingsScreen(
                 fontWeight = FontWeight.Black,
                 style = MaterialTheme.typography.titleLarge,
             )
+        }
+
+        if (backupState !is BackupState.Unsupported) {
+            DriveBackupSection(
+                state = backupState,
+                pendingCount = pendingBackupCount,
+                backedUpCount = backedUpCount,
+                onConnect = { viewModel.signInIntent()?.let { signInLauncher.launch(it) } },
+                onBackupNow = viewModel::backupNow,
+                onDisconnect = viewModel::disconnectBackup,
+            )
+            Spacer(Modifier.height(20.dp))
         }
 
         Text(
@@ -96,10 +124,133 @@ fun SettingsScreen(
         }
 
         Text(
-            "SwipeDelete Zero · GPL v3 · 100% Offline · Zero Net-Permissions",
+            if (backupState is BackupState.Unsupported) {
+                "SwipeDelete Zero · GPL v3 · 100% Offline · Zero Net-Permissions"
+            } else {
+                "SwipeDelete Zero · GPL v3 · Cloud build — network used only for opt-in Drive backup"
+            },
             color = SdzColors.MutedGray,
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(vertical = 20.dp),
+        )
+    }
+}
+
+@Composable
+private fun DriveBackupSection(
+    state: BackupState,
+    pendingCount: Int,
+    backedUpCount: Int,
+    onConnect: () -> Unit,
+    onBackupNow: () -> Unit,
+    onDisconnect: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(SdzColors.Obsidian)
+            .border(1.dp, SdzColors.Hairline, RoundedCornerShape(20.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(
+                Icons.Rounded.CloudUpload,
+                contentDescription = null,
+                tint = SdzColors.CrispCyan,
+                modifier = Modifier.size(22.dp),
+            )
+            Text(
+                "Google Drive Backup",
+                color = SdzColors.PureWhite,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+        Text(
+            "Kept & starred files are uploaded once each — new keeps are picked up by the next run, nothing is uploaded twice.",
+            color = SdzColors.MutedGray,
+            style = MaterialTheme.typography.labelMedium,
+        )
+
+        when (state) {
+            is BackupState.SignedOut -> {
+                state.message?.let {
+                    Text(it, color = SdzColors.HyperCoral, style = MaterialTheme.typography.labelMedium)
+                }
+                BackupButton(text = "Connect Google Drive", onClick = onConnect)
+            }
+
+            is BackupState.Ready -> {
+                Text(
+                    "${state.accountEmail} · $pendingCount pending · $backedUpCount backed up",
+                    color = SdzColors.CrispCyan,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                state.message?.let {
+                    Text(it, color = SdzColors.MutedGray, style = MaterialTheme.typography.labelMedium)
+                }
+                BackupButton(
+                    text = if (pendingCount > 0) "Back up $pendingCount file${if (pendingCount == 1) "" else "s"} now" else "Backed up — nothing pending",
+                    onClick = onBackupNow,
+                )
+                Text(
+                    "Disconnect",
+                    color = SdzColors.MutedGray,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onDisconnect)
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                )
+            }
+
+            is BackupState.Running -> {
+                Text(
+                    "Uploading ${state.done} of ${state.total}…",
+                    color = SdzColors.ElectricEmerald,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(SdzColors.Hairline),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(if (state.total == 0) 0f else state.done.toFloat() / state.total)
+                            .fillMaxHeight()
+                            .background(SdzColors.ElectricEmerald),
+                    )
+                }
+            }
+
+            BackupState.Unsupported -> Unit
+        }
+    }
+}
+
+@Composable
+private fun BackupButton(text: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(SdzColors.CrispCyan.copy(alpha = 0.15f))
+            .border(1.dp, SdzColors.CrispCyan.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            color = SdzColors.CrispCyan,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.labelLarge,
         )
     }
 }

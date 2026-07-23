@@ -3,6 +3,7 @@ package com.swipedelete.zero.ui.screens.swipe
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.swipedelete.zero.data.repository.BackupRepository
 import com.swipedelete.zero.data.repository.DeckRepository
 import com.swipedelete.zero.data.repository.ExclusionRepository
 import com.swipedelete.zero.data.repository.StagingRepository
@@ -34,6 +35,7 @@ class SwipeEngineViewModel @Inject constructor(
     private val deckRepository: DeckRepository,
     private val stagingRepository: StagingRepository,
     private val exclusionRepository: ExclusionRepository,
+    private val backupRepository: BackupRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -61,8 +63,12 @@ class SwipeEngineViewModel @Inject constructor(
         viewModelScope.launch {
             when (direction) {
                 SwipeDirection.LEFT -> stagingRepository.stage(item, deck.id)
-                SwipeDirection.UP -> exclusionRepository.starItem(item)
-                SwipeDirection.RIGHT, SwipeDirection.NONE -> Unit // keep
+                SwipeDirection.UP -> {
+                    exclusionRepository.starItem(item)
+                    backupRepository.recordKept(item, starred = true)
+                }
+                SwipeDirection.RIGHT -> backupRepository.recordKept(item, starred = false)
+                SwipeDirection.NONE -> Unit
             }
             val nextCursor = index + 1
             _state.update {
@@ -83,7 +89,7 @@ class SwipeEngineViewModel @Inject constructor(
             when (last.direction) {
                 SwipeDirection.LEFT -> stagingRepository.restore(last.item.contentUri.toString())
                 SwipeDirection.UP,
-                SwipeDirection.RIGHT,
+                SwipeDirection.RIGHT -> backupRepository.removeKept(last.item.contentUri.toString())
                 SwipeDirection.NONE -> Unit
             }
             _state.update { it.copy(cursor = last.deckIndex, lastAction = null) }

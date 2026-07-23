@@ -9,8 +9,10 @@ import androidx.room.RoomDatabase
         DeckSessionEntity::class,
         ExclusionEntity::class,
         MediaAnalysisEntity::class,
+        KeptFileEntity::class,
+        BackedUpFileEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -18,6 +20,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun deckSessionDao(): DeckSessionDao
     abstract fun exclusionDao(): ExclusionDao
     abstract fun mediaAnalysisDao(): MediaAnalysisDao
+    abstract fun keptFileDao(): KeptFileDao
+    abstract fun backedUpFileDao(): BackedUpFileDao
 
     companion object {
         const val NAME = "swipedelete-zero.db"

@@ -3,6 +3,7 @@ package com.swipedelete.zero.ui.screens.dual
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.swipedelete.zero.data.repository.BackupRepository
 import com.swipedelete.zero.data.repository.DeckRepository
 import com.swipedelete.zero.data.repository.StagingRepository
 import com.swipedelete.zero.domain.model.ComparisonPair
@@ -32,6 +33,7 @@ data class DualCardUiState(
 class DualCardViewModel @Inject constructor(
     private val deckRepository: DeckRepository,
     private val stagingRepository: StagingRepository,
+    private val backupRepository: BackupRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -51,13 +53,22 @@ class DualCardViewModel @Inject constructor(
         val pair = _state.value.current ?: return
         viewModelScope.launch {
             when (action) {
-                CompareAction.KEEP_A_TRASH_B -> stagingRepository.stage(pair.secondary, deckId)
-                CompareAction.KEEP_B_TRASH_A -> stagingRepository.stage(pair.primary, deckId)
+                CompareAction.KEEP_A_TRASH_B -> {
+                    stagingRepository.stage(pair.secondary, deckId)
+                    backupRepository.recordKept(pair.primary, starred = false)
+                }
+                CompareAction.KEEP_B_TRASH_A -> {
+                    stagingRepository.stage(pair.primary, deckId)
+                    backupRepository.recordKept(pair.secondary, starred = false)
+                }
                 CompareAction.TRASH_BOTH -> {
                     stagingRepository.stage(pair.primary, deckId)
                     stagingRepository.stage(pair.secondary, deckId)
                 }
-                CompareAction.KEEP_BOTH -> Unit
+                CompareAction.KEEP_BOTH -> {
+                    backupRepository.recordKept(pair.primary, starred = false)
+                    backupRepository.recordKept(pair.secondary, starred = false)
+                }
             }
             _state.update { it.copy(index = it.index + 1) }
         }
