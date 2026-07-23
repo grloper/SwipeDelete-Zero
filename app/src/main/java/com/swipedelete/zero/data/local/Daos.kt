@@ -37,6 +37,39 @@ interface StagedFileDao {
 }
 
 @Dao
+interface KeptFileDao {
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(file: KeptFileEntity)
+
+    @Query("DELETE FROM kept_files WHERE contentUri = :uri")
+    suspend fun remove(uri: String)
+
+    /** Kept files with no row in the backup ledger — the incremental work-list. */
+    @Query(
+        "SELECT * FROM kept_files WHERE contentUri NOT IN " +
+            "(SELECT contentUri FROM backed_up_files) ORDER BY keptAtMillis"
+    )
+    suspend fun pendingBackup(): List<KeptFileEntity>
+
+    @Query(
+        "SELECT COUNT(*) FROM kept_files WHERE contentUri NOT IN " +
+            "(SELECT contentUri FROM backed_up_files)"
+    )
+    fun observePendingBackupCount(): Flow<Int>
+}
+
+@Dao
+interface BackedUpFileDao {
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(file: BackedUpFileEntity)
+
+    @Query("SELECT COUNT(*) FROM backed_up_files")
+    fun observeCount(): Flow<Int>
+}
+
+@Dao
 interface DeckSessionDao {
 
     @Query("SELECT * FROM deck_sessions WHERE deckId = :deckId")

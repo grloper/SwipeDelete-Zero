@@ -59,28 +59,28 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/libs.versions.toml') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      - name: Build F-Droid debug APK
-        run: ./gradlew :app:assembleFdroidDebug --no-daemon --stacktrace
+      - name: Build debug APKs (fdroid + cloud)
+        run: ./gradlew :app:assembleFdroidDebug :app:assembleCloudDebug --no-daemon --stacktrace
 
-      - name: Stage APK artifact
+      - name: Stage APK artifacts
         id: stage
         run: |
           set -euo pipefail
-          SRC=$(find app/build/outputs/apk/fdroid/debug -name '*.apk' | head -n1)
-          test -n "$SRC"
+          FDROID=$(find app/build/outputs/apk/fdroid/debug -name '*.apk' | head -n1)
+          CLOUD=$(find app/build/outputs/apk/cloud/debug -name '*.apk' | head -n1)
+          test -n "$FDROID" && test -n "$CLOUD"
           mkdir -p dist
           VERSION=$(grep -m1 'versionName' app/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
-          OUT="dist/SwipeDeleteZero-${VERSION}-fdroid-debug.apk"
-          cp "$SRC" "$OUT"
+          cp "$FDROID" "dist/SwipeDeleteZero-${VERSION}-fdroid-debug.apk"
+          cp "$CLOUD" "dist/SwipeDeleteZero-${VERSION}-cloud-drive-debug.apk"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "apk=$OUT" >> "$GITHUB_OUTPUT"
           ls -la dist
 
-      - name: Upload APK as build artifact
+      - name: Upload APKs as build artifact
         uses: actions/upload-artifact@v4
         with:
           name: swipedelete-zero-apk
-          path: ${{ steps.stage.outputs.apk }}
+          path: dist/*.apk
 
       - name: Determine release metadata
         id: meta
@@ -102,15 +102,21 @@ jobs:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: ${{ steps.meta.outputs.name }}
           prerelease: ${{ steps.meta.outputs.prerelease }}
-          files: ${{ steps.stage.outputs.apk }}
+          files: dist/*.apk
           fail_on_unmatched_files: true
           body: |
-            **SwipeDelete Zero v${{ steps.stage.outputs.version }}** — 100% offline Android storage cleaner.
+            **SwipeDelete Zero v${{ steps.stage.outputs.version }}** — Android storage cleaner.
 
-            ### 📲 Install
-            1. Download the `.apk` below on your Android device.
+            ### 📲 Pick your APK
+            - **`fdroid`** — 100% offline, **zero network permissions**. The air-gap build.
+            - **`cloud-drive`** — same app **plus opt-in Google Drive backup** of kept & starred
+              files (the only build with the INTERNET permission). Requires a one-time OAuth
+              setup — see [docs/DRIVE_BACKUP_SETUP.md](${{ github.server_url }}/${{ github.repository }}/blob/main/docs/DRIVE_BACKUP_SETUP.md).
+
+            ### Install
+            1. Download an `.apk` below on your Android device.
             2. Open it and allow installing from unknown sources if prompted.
-            3. Grant media access on first launch — the app has **zero network permissions**.
+            3. Grant media access on first launch.
 
-            > This is the F-Droid **debug** variant (debug-signed, directly installable).
+            > Debug-signed with the repo's committed debug keystore (directly installable).
             > Built from commit `${{ github.sha }}`.

@@ -25,8 +25,8 @@ allow "unknown sources", and you're in.
 
 ## 🔒 The Air-Gap Guarantee
 
-SwipeDelete Zero is architecturally incapable of phoning home. The
-`AndroidManifest.xml` **does not declare `android.permission.INTERNET`** — so the
+The **fdroid** build of SwipeDelete Zero is architecturally incapable of phoning
+home. Its manifest **does not declare `android.permission.INTERNET`** — so the
 OS itself blocks every socket. All scanning, perceptual hashing, blur detection
 and deletion happen locally.
 
@@ -34,8 +34,17 @@ and deletion happen locally.
 - ✅ No cloud, no accounts, no background uploads
 - ✅ Open source (GPL v3) — audit every line
 
-> If you ever see this app try to open a network connection, it's a bug worth a
-> CVE. It cannot, by construction.
+> If you ever see the fdroid build try to open a network connection, it's a bug
+> worth a CVE. It cannot, by construction.
+
+### ☁️ Optional: the `cloud` build
+
+Each release also ships a clearly-labelled **cloud** APK — the *only* build with
+the INTERNET permission — adding **opt-in Google Drive backup** of the files you
+keep or star (each uploaded exactly once, incremental forever after). It talks
+only to Google's Drive API with the non-sensitive `drive.file` scope, on your
+own OAuth credentials. Setup guide: [docs/DRIVE_BACKUP_SETUP.md](docs/DRIVE_BACKUP_SETUP.md).
+If you want the hard air-gap, simply install the fdroid APK.
 
 ## ✨ Features
 
