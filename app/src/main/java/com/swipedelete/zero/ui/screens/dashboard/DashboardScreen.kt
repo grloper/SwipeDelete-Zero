@@ -47,6 +47,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,6 +72,7 @@ import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import com.swipedelete.zero.domain.model.Deck
 import com.swipedelete.zero.domain.model.DeckKind
+import com.swipedelete.zero.ui.components.SortChip
 import com.swipedelete.zero.ui.theme.SdzColors
 import com.swipedelete.zero.ui.util.toReadableSize
 
@@ -92,6 +97,11 @@ fun DashboardScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
+
+    // Feed ordering — survives rotation via the enum's name.
+    var deckSortName by rememberSaveable { mutableStateOf(DeckSort.FOR_YOU.name) }
+    val deckSort = DeckSort.valueOf(deckSortName)
+    val sortedDecks = remember(state.decks, deckSort) { deckSort.apply(state.decks) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -134,6 +144,28 @@ fun DashboardScreen(
                         )
                     }
                 }
+                if (!state.loading && state.decks.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            "Sort",
+                            color = SdzColors.MutedGray,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        SortChip("For you", deckSort == DeckSort.FOR_YOU) {
+                            deckSortName = DeckSort.FOR_YOU.name
+                        }
+                        SortChip("Date", deckSort == DeckSort.NEWEST) {
+                            deckSortName = DeckSort.NEWEST.name
+                        }
+                        SortChip("Size", deckSort == DeckSort.LARGEST) {
+                            deckSortName = DeckSort.LARGEST.name
+                        }
+                    }
+                }
             }
             when {
                 state.loading -> items(3, key = { "skeleton-$it" }) { SkeletonDeckRow() }
@@ -143,7 +175,7 @@ fun DashboardScreen(
                         onRequestAccess = { permissionLauncher.launch(MediaPermissions) },
                     )
                 }
-                else -> items(state.decks, key = { it.id }) { deck ->
+                else -> items(sortedDecks, key = { it.id }) { deck ->
                     DeckRow(deck = deck, onClick = { onOpenDeck(deck) })
                 }
             }
@@ -593,6 +625,24 @@ private fun StagingPill(
             contentDescription = null,
             tint = SdzColors.PureWhite,
         )
+    }
+}
+
+/** Ordering options for the deck feed. */
+private enum class DeckSort {
+    /** The curated order the deck builder produced. */
+    FOR_YOU,
+
+    /** Decks whose newest item is most recent first. */
+    NEWEST,
+
+    /** Most reclaimable bytes first. */
+    LARGEST;
+
+    fun apply(decks: List<Deck>): List<Deck> = when (this) {
+        FOR_YOU -> decks
+        NEWEST -> decks.sortedByDescending { deck -> deck.items.maxOfOrNull { it.dateAddedMillis } ?: 0L }
+        LARGEST -> decks.sortedByDescending { it.reclaimableBytes }
     }
 }
 

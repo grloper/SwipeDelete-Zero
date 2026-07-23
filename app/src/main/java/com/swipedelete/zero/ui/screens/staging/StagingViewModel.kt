@@ -19,11 +19,21 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** How the staged queue is ordered in the drawer. */
+enum class StagingSort {
+    /** Most recently swiped first. */
+    NEWEST,
+
+    /** Biggest reclaimable files first. */
+    LARGEST,
+}
+
 data class StagingUiState(
     val items: List<StagedFileEntity> = emptyList(),
     val totalBytes: Long = 0,
     val mode: ExecutionMode = ExecutionMode.OS_TRASH_30_DAY,
     val purging: Boolean = false,
+    val sort: StagingSort = StagingSort.NEWEST,
 ) {
     val count: Int get() = items.size
 }
@@ -44,6 +54,7 @@ class StagingViewModel @Inject constructor(
 
     private val modeState = MutableStateFlow(ExecutionMode.OS_TRASH_30_DAY)
     private val purgingState = MutableStateFlow(false)
+    private val sortState = MutableStateFlow(StagingSort.NEWEST)
 
     private val effects = Channel<PurgeEffect>(Channel.BUFFERED)
     val effect = effects.receiveAsFlow()
@@ -58,11 +69,17 @@ class StagingViewModel @Inject constructor(
             stagingRepository.observeStagedBytes(),
             modeState,
             purgingState,
-        ) { items, bytes, mode, purging ->
-            StagingUiState(items = items, totalBytes = bytes, mode = mode, purging = purging)
+            sortState,
+        ) { items, bytes, mode, purging, sort ->
+            val sorted = when (sort) {
+                StagingSort.NEWEST -> items.sortedByDescending { it.stagedAtMillis }
+                StagingSort.LARGEST -> items.sortedByDescending { it.sizeBytes }
+            }
+            StagingUiState(items = sorted, totalBytes = bytes, mode = mode, purging = purging, sort = sort)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StagingUiState())
 
     fun setMode(mode: ExecutionMode) { modeState.value = mode }
+    fun setSort(sort: StagingSort) { sortState.value = sort }
 
     fun restore(uri: String) = viewModelScope.launch { stagingRepository.restore(uri) }
     fun clearQueue() = viewModelScope.launch { stagingRepository.clearQueue() }
