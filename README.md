@@ -13,6 +13,12 @@
 time — swipe left to trash, right to keep, up to star. Nothing ever leaves your
 device.
 
+### [⬇️ Download the latest APK](../../releases/latest)
+
+Every push builds a fresh, directly-installable APK and attaches it to the
+[Releases page](../../releases). Grab the `.apk`, open it on your Android device,
+allow "unknown sources", and you're in.
+
 </div>
 
 ---
