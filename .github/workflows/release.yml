@@ -1,0 +1,116 @@
+name: Build & Release APK
+
+# Produces a directly-installable Android APK and attaches it to a GitHub Release.
+#
+#  • Push a tag like `v1.0.0`  -> a permanent, versioned release.
+#  • Push to the dev branch or run manually -> a rolling "latest" pre-release
+#    whose APK is overwritten each time, so there is always a fresh build to
+#    sideload from the Releases page.
+#
+# The APK is the F-Droid *debug* variant: it is signed with the standard Android
+# debug key, so it installs on any device with "unknown sources" enabled — no
+# signing secrets required. For Play-store-grade signing, add a keystore secret
+# and switch to `assembleFdroidRelease` (see README).
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+      - 'claude/**'
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/libs.versions.toml') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Build F-Droid debug APK
+        run: ./gradlew :app:assembleFdroidDebug --no-daemon --stacktrace
+
+      - name: Stage APK artifact
+        id: stage
+        run: |
+          set -euo pipefail
+          SRC=$(find app/build/outputs/apk/fdroid/debug -name '*.apk' | head -n1)
+          test -n "$SRC"
+          mkdir -p dist
+          VERSION=$(grep -m1 'versionName' app/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
+          OUT="dist/SwipeDeleteZero-${VERSION}-fdroid-debug.apk"
+          cp "$SRC" "$OUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "apk=$OUT" >> "$GITHUB_OUTPUT"
+          ls -la dist
+
+      - name: Upload APK as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: swipedelete-zero-apk
+          path: ${{ steps.stage.outputs.apk }}
+
+      - name: Determine release metadata
+        id: meta
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "name=SwipeDelete Zero ${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=rolling" >> "$GITHUB_OUTPUT"
+            echo "name=SwipeDelete Zero — rolling build" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.name }}
+          prerelease: ${{ steps.meta.outputs.prerelease }}
+          files: ${{ steps.stage.outputs.apk }}
+          fail_on_unmatched_files: true
+          body: |
+            **SwipeDelete Zero v${{ steps.stage.outputs.version }}** — 100% offline Android storage cleaner.
+
+            ### 📲 Install
+            1. Download the `.apk` below on your Android device.
+            2. Open it and allow installing from unknown sources if prompted.
+            3. Grant media access on first launch — the app has **zero network permissions**.
+
+            > This is the F-Droid **debug** variant (debug-signed, directly installable).
+            > Built from commit `${{ github.sha }}`.
