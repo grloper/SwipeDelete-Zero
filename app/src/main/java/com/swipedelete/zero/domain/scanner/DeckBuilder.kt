@@ -84,9 +84,8 @@ class DeckBuilder @Inject constructor(
                     idPrefix = "time:$key",
                     kind = DeckKind.TIME_MACHINE,
                     title = monthLabel(key),
-                    subtitle = "${monthItems.size} memories",
                     items = monthItems.sortedByDescending { it.dateAddedMillis },
-                )
+                ) { chunk -> "${chunk.size} memories" }
             }
     }
 
@@ -100,9 +99,8 @@ class DeckBuilder @Inject constructor(
             idPrefix = "heavy",
             kind = DeckKind.HEAVY_HITTERS,
             title = "Heavy Hitters",
-            subtitle = "Biggest space hogs first",
             items = heavy,
-        )
+        ) { "Biggest space hogs first" }
     }
 
     // --- Clutter Hotspots -----------------------------------------------------
@@ -125,9 +123,8 @@ class DeckBuilder @Inject constructor(
                 idPrefix = "hotspot:${label.lowercase(Locale.US).replace(' ', '_')}",
                 kind = DeckKind.CLUTTER_HOTSPOT,
                 title = label,
-                subtitle = "${matched.size} files in this hotspot",
                 items = matched,
-            )
+            ) { chunk -> "${chunk.size} files in this hotspot" }
         }
 
     // --- Blurry ---------------------------------------------------------------
@@ -140,9 +137,8 @@ class DeckBuilder @Inject constructor(
             idPrefix = "blurry",
             kind = DeckKind.BLURRY,
             title = "Blurry & Soft",
-            subtitle = "Likely out-of-focus shots",
             items = blurry,
-        )
+        ) { "Likely out-of-focus shots" }
     }
 
     // --- Duplicates (comparison pairs) ---------------------------------------
@@ -223,8 +219,10 @@ class DeckBuilder @Inject constructor(
         idPrefix: String,
         kind: DeckKind,
         title: String,
-        subtitle: String,
         items: List<MediaItem>,
+        // Computed per chunk so a 238-item month split into parts of ≤50 never
+        // claims "238 memories" on every part.
+        subtitleFor: (List<MediaItem>) -> String,
     ): List<Deck> {
         if (items.isEmpty()) return emptyList()
         return items.chunked(MAX_DECK_SIZE).mapIndexed { index, chunk ->
@@ -233,7 +231,7 @@ class DeckBuilder @Inject constructor(
                 id = if (index == 0) idPrefix else "$idPrefix:$index",
                 kind = kind,
                 title = title + suffix,
-                subtitle = subtitle,
+                subtitle = subtitleFor(chunk),
                 items = chunk,
             )
         }
