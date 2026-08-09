@@ -45,7 +45,7 @@ class DeckGroupTest {
         val groups = DeckGroup.from(decks)
         assertEquals(2, groups.size)
         assertEquals(3, groups[0].totalCount)
-        assertEquals(600L, groups[0].reclaimableBytes)
+        assertEquals(600L, groups[0].remainingBytes)
         assertEquals("August 2026", groups[0].title)
     }
 

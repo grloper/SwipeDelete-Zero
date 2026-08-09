@@ -1,26 +1,102 @@
 [
     {
-        "merged": "com.swipedelete.zero.app-fdroidDebug-4:/xml_backup_rules.xml.flat",
-        "source": "com.swipedelete.zero.app-main-8:/xml/backup_rules.xml"
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_launcher_foreground.xml"
     },
     {
-        "merged": "com.swipedelete.zero.app-fdroidDebug-4:/layout_view_top_card_player.xml.flat",
-        "source": "com.swipedelete.zero.app-main-8:/layout/view_top_card_player.xml"
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/font_inter_semibold.ttf.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/font/inter_semibold.ttf"
     },
     {
-        "merged": "com.swipedelete.zero.app-fdroidDebug-4:/mipmap-anydpi-v26_ic_launcher.xml.flat",
-        "source": "com.swipedelete.zero.app-main-8:/mipmap-anydpi-v26/ic_launcher.xml"
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_action_trash.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_action_trash.xml"
     },
     {
-        "merged": "com.swipedelete.zero.app-fdroidDebug-4:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
-        "source": "com.swipedelete.zero.app-main-8:/mipmap-anydpi-v26/ic_launcher_round.xml"
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_action_keep.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_action_keep.xml"
     },
     {
-        "merged": "com.swipedelete.zero.app-fdroidDebug-4:/xml_data_extraction_rules.xml.flat",
-        "source": "com.swipedelete.zero.app-main-8:/xml/data_extraction_rules.xml"
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/font_inter_medium.ttf.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/font/inter_medium.ttf"
     },
     {
-        "merged": "com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_launcher_foreground.xml.flat",
-        "source": "com.swipedelete.zero.app-main-8:/drawable/ic_launcher_foreground.xml"
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_logo_concept_3.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_logo_concept_3.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_bucket_blurry.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_bucket_blurry.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_logo_concept_2.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_logo_concept_2.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_action_undo.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_action_undo.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_bucket_screenshot.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_bucket_screenshot.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/layout_view_top_card_player.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/layout/view_top_card_player.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_action_cloud.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_action_cloud.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_bucket_duplicates.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_bucket_duplicates.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/xml_data_extraction_rules.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/xml/data_extraction_rules.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_bucket_document.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_bucket_document.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_logo_mark.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_logo_mark.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/font_inter_regular.ttf.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/font/inter_regular.ttf"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/xml_backup_rules.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/xml/backup_rules.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/font_space_grotesk_medium.ttf.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/font/space_grotesk_medium.ttf"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/font_space_grotesk_bold.ttf.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/font/space_grotesk_bold.ttf"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_bucket_video.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_bucket_video.xml"
+    },
+    {
+        "merged": "com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_action_back.xml.flat",
+        "source": "com.swipedelete.zero.app-main-8:/drawable/ic_action_back.xml"
+    },
+    {
+        "merged": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-fdroidDebug-4:/drawable_ic_launcher_background.xml.flat",
+        "source": "/root/.gradle/daemon/8.11.1/com.swipedelete.zero.app-main-8:/drawable/ic_launcher_background.xml"
     }
 ]

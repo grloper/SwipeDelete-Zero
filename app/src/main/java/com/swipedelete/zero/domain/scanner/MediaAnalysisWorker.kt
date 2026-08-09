@@ -12,6 +12,7 @@ import com.swipedelete.zero.data.local.MediaAnalysisEntity
 import com.swipedelete.zero.data.repository.MediaStoreRepository
 import com.swipedelete.zero.domain.algorithm.BlurDetector
 import com.swipedelete.zero.domain.algorithm.PerceptualHasher
+import com.swipedelete.zero.domain.algorithm.TextDetector
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +63,8 @@ class MediaAnalysisWorker @AssistedInject constructor(
                 val dHash = PerceptualHasher.dHash(matrix, MATRIX, MATRIX)
                 val pHash = PerceptualHasher.pHash(matrix, MATRIX, MATRIX)
                 val blur = BlurDetector.analyze(matrix, MATRIX, MATRIX)
+                // Free: reuses the matrix already decoded for hashing.
+                val bimodality = TextDetector.bimodality(matrix)
 
                 batch += MediaAnalysisEntity(
                     mediaId = item.id,
@@ -73,6 +76,7 @@ class MediaAnalysisWorker @AssistedInject constructor(
                     isBlurry = blur.isBlurry,
                     sizeBytes = item.sizeBytes,
                     analyzedAtMillis = System.currentTimeMillis(),
+                    bimodality = bimodality,
                 )
                 flush()
             }

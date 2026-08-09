@@ -542,7 +542,7 @@ public final class DaggerSwipeDeleteApplication_HiltComponents_SingletonC {
           return (T) new StagingViewModel(singletonCImpl.stagingRepositoryProvider.get(), singletonCImpl.purgeEngineProvider.get(), singletonCImpl.statsStoreProvider.get());
 
           case 5: // com.swipedelete.zero.ui.screens.swipe.SwipeEngineViewModel 
-          return (T) new SwipeEngineViewModel(singletonCImpl.deckRepositoryProvider.get(), singletonCImpl.stagingRepositoryProvider.get(), singletonCImpl.exclusionRepositoryProvider.get(), singletonCImpl.backupRepositoryProvider.get(), singletonCImpl.googlePhotosArchiveProvider.get(), singletonCImpl.videoMetadataExtractorProvider.get(), singletonCImpl.mediaAnalysisDao(), singletonCImpl.mediaPreloaderProvider.get(), viewModelCImpl.savedStateHandle);
+          return (T) new SwipeEngineViewModel(singletonCImpl.deckRepositoryProvider.get(), singletonCImpl.stagingRepositoryProvider.get(), singletonCImpl.exclusionRepositoryProvider.get(), singletonCImpl.backupRepositoryProvider.get(), singletonCImpl.googlePhotosArchiveProvider.get(), singletonCImpl.videoMetadataExtractorProvider.get(), singletonCImpl.mediaAnalysisDao(), singletonCImpl.mediaPreloaderProvider.get(), singletonCImpl.statsStoreProvider.get(), viewModelCImpl.savedStateHandle);
 
           default: throw new AssertionError(id);
         }

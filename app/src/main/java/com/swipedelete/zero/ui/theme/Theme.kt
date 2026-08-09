@@ -12,27 +12,46 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 /**
- * The app is intentionally dark-only: an OLED pitch-black aesthetic is core to
- * the brand and to the battery/contrast benefits. We therefore ignore the system
- * light/dark setting and always apply the obsidian scheme.
+ * Dark-only by design: a darkroom does not have a light mode.
+ *
+ * The scheme maps Material's slots onto [SdzColor] so any stray M3 component
+ * inherits the system instead of falling back to Material purple. Screens
+ * should still reference [SdzColor] directly — the semantic role names carry
+ * meaning that `primary`/`secondary` do not.
  */
 private val SdzDarkScheme = darkColorScheme(
-    primary = SdzColors.ElectricEmerald,
-    onPrimary = SdzColors.PitchBlack,
-    secondary = SdzColors.CrispCyan,
-    onSecondary = SdzColors.PitchBlack,
-    tertiary = SdzColors.StarGold,
-    onTertiary = SdzColors.PitchBlack,
-    error = SdzColors.HyperCoral,
-    onError = SdzColors.PitchBlack,
-    background = SdzColors.PitchBlack,
-    onBackground = SdzColors.PureWhite,
-    surface = SdzColors.Obsidian,
-    onSurface = SdzColors.PureWhite,
-    surfaceVariant = SdzColors.Obsidian,
-    onSurfaceVariant = SdzColors.MutedGray,
-    outline = SdzColors.MutedGray,
-    outlineVariant = Color(0x1AFFFFFF),
+    primary = SdzColor.Azure,
+    onPrimary = SdzColor.OnAccent,
+    primaryContainer = SdzColor.AzureDim,
+    onPrimaryContainer = SdzColor.Azure,
+
+    secondary = SdzColor.Amber,
+    onSecondary = SdzColor.OnAccent,
+    secondaryContainer = SdzColor.AmberDim,
+    onSecondaryContainer = SdzColor.Amber,
+
+    tertiary = SdzColor.Teal,
+    onTertiary = SdzColor.OnAccent,
+
+    error = SdzColor.Safelight,
+    onError = SdzColor.OnAccent,
+    errorContainer = SdzColor.SafelightDim,
+    onErrorContainer = SdzColor.Safelight,
+
+    background = SdzColor.Surface0,
+    onBackground = SdzColor.Phosphor,
+    surface = SdzColor.Surface1,
+    onSurface = SdzColor.Phosphor,
+    surfaceVariant = SdzColor.Surface2,
+    onSurfaceVariant = SdzColor.TextSecondary,
+    surfaceContainerLowest = SdzColor.Surface0,
+    surfaceContainerLow = SdzColor.Surface1,
+    surfaceContainer = SdzColor.Surface2,
+    surfaceContainerHigh = SdzColor.Surface3,
+    surfaceContainerHighest = SdzColor.Surface4,
+    outline = SdzColor.TextTertiary,
+    outlineVariant = SdzColor.Hairline,
+    scrim = SdzColor.Scrim,
 )
 
 @Composable
@@ -45,8 +64,8 @@ fun SwipeDeleteZeroTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Transparent bars: the palette backdrop bleeds edge-to-edge behind
-            // them; screens inset their own headers with statusBarsPadding().
+            // Transparent bars: content draws edge-to-edge beneath them and each
+            // screen insets its own chrome.
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
             val controller = WindowCompat.getInsetsController(window, view)

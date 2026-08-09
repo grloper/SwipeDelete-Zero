@@ -1,16 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.swipedelete.zero.DeckGroupTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-08-09T08:42:53" hostname="vm" time="2.029">
+<testsuite name="com.swipedelete.zero.DeckGroupTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-08-09T14:16:21" hostname="vm" time="0.044">
   <properties/>
-  <testcase name="parts of one month collapse into a single group" classname="com.swipedelete.zero.DeckGroupTest" time="1.925"/>
-  <testcase name="progress aggregates across parts" classname="com.swipedelete.zero.DeckGroupTest" time="0.079"/>
-  <testcase name="nextDeck resumes at the first unfinished part" classname="com.swipedelete.zero.DeckGroupTest" time="0.014"/>
-  <testcase name="empty input yields no groups" classname="com.swipedelete.zero.DeckGroupTest" time="0.003"/>
-  <testcase name="fully finished group still offers a deck to reopen" classname="com.swipedelete.zero.DeckGroupTest" time="0.004"/>
+  <testcase name="parts of one month collapse into a single group" classname="com.swipedelete.zero.DeckGroupTest" time="0.005"/>
+  <testcase name="progress aggregates across parts" classname="com.swipedelete.zero.DeckGroupTest" time="0.036"/>
+  <testcase name="nextDeck resumes at the first unfinished part" classname="com.swipedelete.zero.DeckGroupTest" time="0.001"/>
+  <testcase name="empty input yields no groups" classname="com.swipedelete.zero.DeckGroupTest" time="0.0"/>
+  <testcase name="fully finished group still offers a deck to reopen" classname="com.swipedelete.zero.DeckGroupTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build what is described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org/mockito/Mockito.html#0.3
-WARNING: A Java agent has been loaded dynamically (/root/.gradle/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy-agent/1.15.4/58e850dde88f3cf20f41f659440bef33f6c4fe02/byte-buddy-agent-1.15.4.jar)
-WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
-WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
-WARNING: Dynamic loading of agents will be disallowed by default in a future release
-]]></system-err>
+  <system-err><![CDATA[]]></system-err>
 </testsuite>

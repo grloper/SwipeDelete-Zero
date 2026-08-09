@@ -19,7 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.theme.SdzColor
 
 /**
  * Per-card cloud verification chip: "Cloud Backed Up" (in the backup ledger)
@@ -28,12 +28,12 @@ import com.swipedelete.zero.ui.theme.SdzColors
  */
 @Composable
 fun CloudChip(backedUp: Boolean, modifier: Modifier = Modifier) {
-    val tint = if (backedUp) SdzColors.CrispCyan else SdzColors.MutedGray
+    val tint = if (backedUp) SdzColor.TextSecondary else SdzColor.TextSecondary
     val shape = RoundedCornerShape(50)
     Row(
         modifier = modifier
             .clip(shape)
-            .background(SdzColors.PitchBlack.copy(alpha = 0.55f))
+            .background(SdzColor.Surface0.copy(alpha = 0.55f))
             .border(1.dp, tint.copy(alpha = 0.45f), shape)
             .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,

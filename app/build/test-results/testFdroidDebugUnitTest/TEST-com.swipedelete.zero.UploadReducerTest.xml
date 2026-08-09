@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.swipedelete.zero.UploadReducerTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-08-09T08:42:55" hostname="vm" time="0.013">
+<testsuite name="com.swipedelete.zero.UploadReducerTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-08-09T14:16:21" hostname="vm" time="0.007">
   <properties/>
-  <testcase name="happy path reaches verified" classname="com.swipedelete.zero.UploadReducerTest" time="0.007"/>
-  <testcase name="terminal http error fails immediately" classname="com.swipedelete.zero.UploadReducerTest" time="0.003"/>
-  <testcase name="chunk size rounds to granularity" classname="com.swipedelete.zero.UploadReducerTest" time="0.0"/>
+  <testcase name="happy path reaches verified" classname="com.swipedelete.zero.UploadReducerTest" time="0.004"/>
+  <testcase name="terminal http error fails immediately" classname="com.swipedelete.zero.UploadReducerTest" time="0.001"/>
+  <testcase name="chunk size rounds to granularity" classname="com.swipedelete.zero.UploadReducerTest" time="0.001"/>
   <testcase name="retryable classification" classname="com.swipedelete.zero.UploadReducerTest" time="0.0"/>
   <testcase name="blank mediaItemId can never verify" classname="com.swipedelete.zero.UploadReducerTest" time="0.0"/>
   <testcase name="attempt cap turns retryable into terminal" classname="com.swipedelete.zero.UploadReducerTest" time="0.0"/>

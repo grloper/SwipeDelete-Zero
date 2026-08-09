@@ -7,6 +7,7 @@ import com.swipedelete.zero.data.repository.DeckRepository;
 import com.swipedelete.zero.data.repository.ExclusionRepository;
 import com.swipedelete.zero.data.repository.MediaPreloader;
 import com.swipedelete.zero.data.repository.StagingRepository;
+import com.swipedelete.zero.data.repository.StatsStore;
 import com.swipedelete.zero.domain.backup.PhotosArchive;
 import com.swipedelete.zero.domain.scanner.VideoMetadataExtractor;
 import dagger.internal.DaggerGenerated;
@@ -49,6 +50,8 @@ public final class SwipeEngineViewModel_Factory implements Factory<SwipeEngineVi
 
   private final Provider<MediaPreloader> mediaPreloaderProvider;
 
+  private final Provider<StatsStore> statsStoreProvider;
+
   private final Provider<SavedStateHandle> savedStateHandleProvider;
 
   public SwipeEngineViewModel_Factory(Provider<DeckRepository> deckRepositoryProvider,
@@ -58,7 +61,7 @@ public final class SwipeEngineViewModel_Factory implements Factory<SwipeEngineVi
       Provider<PhotosArchive> photosArchiveProvider,
       Provider<VideoMetadataExtractor> videoMetadataExtractorProvider,
       Provider<MediaAnalysisDao> analysisDaoProvider,
-      Provider<MediaPreloader> mediaPreloaderProvider,
+      Provider<MediaPreloader> mediaPreloaderProvider, Provider<StatsStore> statsStoreProvider,
       Provider<SavedStateHandle> savedStateHandleProvider) {
     this.deckRepositoryProvider = deckRepositoryProvider;
     this.stagingRepositoryProvider = stagingRepositoryProvider;
@@ -68,12 +71,13 @@ public final class SwipeEngineViewModel_Factory implements Factory<SwipeEngineVi
     this.videoMetadataExtractorProvider = videoMetadataExtractorProvider;
     this.analysisDaoProvider = analysisDaoProvider;
     this.mediaPreloaderProvider = mediaPreloaderProvider;
+    this.statsStoreProvider = statsStoreProvider;
     this.savedStateHandleProvider = savedStateHandleProvider;
   }
 
   @Override
   public SwipeEngineViewModel get() {
-    return newInstance(deckRepositoryProvider.get(), stagingRepositoryProvider.get(), exclusionRepositoryProvider.get(), backupRepositoryProvider.get(), photosArchiveProvider.get(), videoMetadataExtractorProvider.get(), analysisDaoProvider.get(), mediaPreloaderProvider.get(), savedStateHandleProvider.get());
+    return newInstance(deckRepositoryProvider.get(), stagingRepositoryProvider.get(), exclusionRepositoryProvider.get(), backupRepositoryProvider.get(), photosArchiveProvider.get(), videoMetadataExtractorProvider.get(), analysisDaoProvider.get(), mediaPreloaderProvider.get(), statsStoreProvider.get(), savedStateHandleProvider.get());
   }
 
   public static SwipeEngineViewModel_Factory create(Provider<DeckRepository> deckRepositoryProvider,
@@ -83,16 +87,16 @@ public final class SwipeEngineViewModel_Factory implements Factory<SwipeEngineVi
       Provider<PhotosArchive> photosArchiveProvider,
       Provider<VideoMetadataExtractor> videoMetadataExtractorProvider,
       Provider<MediaAnalysisDao> analysisDaoProvider,
-      Provider<MediaPreloader> mediaPreloaderProvider,
+      Provider<MediaPreloader> mediaPreloaderProvider, Provider<StatsStore> statsStoreProvider,
       Provider<SavedStateHandle> savedStateHandleProvider) {
-    return new SwipeEngineViewModel_Factory(deckRepositoryProvider, stagingRepositoryProvider, exclusionRepositoryProvider, backupRepositoryProvider, photosArchiveProvider, videoMetadataExtractorProvider, analysisDaoProvider, mediaPreloaderProvider, savedStateHandleProvider);
+    return new SwipeEngineViewModel_Factory(deckRepositoryProvider, stagingRepositoryProvider, exclusionRepositoryProvider, backupRepositoryProvider, photosArchiveProvider, videoMetadataExtractorProvider, analysisDaoProvider, mediaPreloaderProvider, statsStoreProvider, savedStateHandleProvider);
   }
 
   public static SwipeEngineViewModel newInstance(DeckRepository deckRepository,
       StagingRepository stagingRepository, ExclusionRepository exclusionRepository,
       BackupRepository backupRepository, PhotosArchive photosArchive,
       VideoMetadataExtractor videoMetadataExtractor, MediaAnalysisDao analysisDao,
-      MediaPreloader mediaPreloader, SavedStateHandle savedStateHandle) {
-    return new SwipeEngineViewModel(deckRepository, stagingRepository, exclusionRepository, backupRepository, photosArchive, videoMetadataExtractor, analysisDao, mediaPreloader, savedStateHandle);
+      MediaPreloader mediaPreloader, StatsStore statsStore, SavedStateHandle savedStateHandle) {
+    return new SwipeEngineViewModel(deckRepository, stagingRepository, exclusionRepository, backupRepository, photosArchive, videoMetadataExtractor, analysisDao, mediaPreloader, statsStore, savedStateHandle);
   }
 }

@@ -47,7 +47,7 @@ public final class MediaAnalysisDao_Impl implements MediaAnalysisDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT INTO `media_analysis` (`mediaId`,`contentUri`,`dHash`,`pHash`,`sharpnessVariance`,`meanLuma`,`isBlurry`,`sizeBytes`,`analyzedAtMillis`,`videoCodec`,`frameRate`,`bitrateBps`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
+        return "INSERT INTO `media_analysis` (`mediaId`,`contentUri`,`dHash`,`pHash`,`sharpnessVariance`,`meanLuma`,`isBlurry`,`sizeBytes`,`analyzedAtMillis`,`videoCodec`,`frameRate`,`bitrateBps`,`bimodality`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
       }
 
       @Override
@@ -97,13 +97,18 @@ public final class MediaAnalysisDao_Impl implements MediaAnalysisDao {
           statement.bindNull(12);
         } else {
           statement.bindLong(12, entity.getBitrateBps());
+        }
+        if (entity.getBimodality() == null) {
+          statement.bindNull(13);
+        } else {
+          statement.bindDouble(13, entity.getBimodality());
         }
       }
     }, new EntityDeletionOrUpdateAdapter<MediaAnalysisEntity>(__db) {
       @Override
       @NonNull
       protected String createQuery() {
-        return "UPDATE `media_analysis` SET `mediaId` = ?,`contentUri` = ?,`dHash` = ?,`pHash` = ?,`sharpnessVariance` = ?,`meanLuma` = ?,`isBlurry` = ?,`sizeBytes` = ?,`analyzedAtMillis` = ?,`videoCodec` = ?,`frameRate` = ?,`bitrateBps` = ? WHERE `mediaId` = ?";
+        return "UPDATE `media_analysis` SET `mediaId` = ?,`contentUri` = ?,`dHash` = ?,`pHash` = ?,`sharpnessVariance` = ?,`meanLuma` = ?,`isBlurry` = ?,`sizeBytes` = ?,`analyzedAtMillis` = ?,`videoCodec` = ?,`frameRate` = ?,`bitrateBps` = ?,`bimodality` = ? WHERE `mediaId` = ?";
       }
 
       @Override
@@ -154,7 +159,12 @@ public final class MediaAnalysisDao_Impl implements MediaAnalysisDao {
         } else {
           statement.bindLong(12, entity.getBitrateBps());
         }
-        statement.bindLong(13, entity.getMediaId());
+        if (entity.getBimodality() == null) {
+          statement.bindNull(13);
+        } else {
+          statement.bindDouble(13, entity.getBimodality());
+        }
+        statement.bindLong(14, entity.getMediaId());
       }
     });
   }
@@ -222,6 +232,7 @@ public final class MediaAnalysisDao_Impl implements MediaAnalysisDao {
           final int _cursorIndexOfVideoCodec = CursorUtil.getColumnIndexOrThrow(_cursor, "videoCodec");
           final int _cursorIndexOfFrameRate = CursorUtil.getColumnIndexOrThrow(_cursor, "frameRate");
           final int _cursorIndexOfBitrateBps = CursorUtil.getColumnIndexOrThrow(_cursor, "bitrateBps");
+          final int _cursorIndexOfBimodality = CursorUtil.getColumnIndexOrThrow(_cursor, "bimodality");
           final MediaAnalysisEntity _result;
           if (_cursor.moveToFirst()) {
             final long _tmpMediaId;
@@ -282,7 +293,13 @@ public final class MediaAnalysisDao_Impl implements MediaAnalysisDao {
             } else {
               _tmpBitrateBps = _cursor.getLong(_cursorIndexOfBitrateBps);
             }
-            _result = new MediaAnalysisEntity(_tmpMediaId,_tmpContentUri,_tmpDHash,_tmpPHash,_tmpSharpnessVariance,_tmpMeanLuma,_tmpIsBlurry,_tmpSizeBytes,_tmpAnalyzedAtMillis,_tmpVideoCodec,_tmpFrameRate,_tmpBitrateBps);
+            final Double _tmpBimodality;
+            if (_cursor.isNull(_cursorIndexOfBimodality)) {
+              _tmpBimodality = null;
+            } else {
+              _tmpBimodality = _cursor.getDouble(_cursorIndexOfBimodality);
+            }
+            _result = new MediaAnalysisEntity(_tmpMediaId,_tmpContentUri,_tmpDHash,_tmpPHash,_tmpSharpnessVariance,_tmpMeanLuma,_tmpIsBlurry,_tmpSizeBytes,_tmpAnalyzedAtMillis,_tmpVideoCodec,_tmpFrameRate,_tmpBitrateBps,_tmpBimodality);
           } else {
             _result = null;
           }
@@ -344,6 +361,7 @@ public final class MediaAnalysisDao_Impl implements MediaAnalysisDao {
           final int _cursorIndexOfVideoCodec = CursorUtil.getColumnIndexOrThrow(_cursor, "videoCodec");
           final int _cursorIndexOfFrameRate = CursorUtil.getColumnIndexOrThrow(_cursor, "frameRate");
           final int _cursorIndexOfBitrateBps = CursorUtil.getColumnIndexOrThrow(_cursor, "bitrateBps");
+          final int _cursorIndexOfBimodality = CursorUtil.getColumnIndexOrThrow(_cursor, "bimodality");
           final List<MediaAnalysisEntity> _result = new ArrayList<MediaAnalysisEntity>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final MediaAnalysisEntity _item;
@@ -405,7 +423,13 @@ public final class MediaAnalysisDao_Impl implements MediaAnalysisDao {
             } else {
               _tmpBitrateBps = _cursor.getLong(_cursorIndexOfBitrateBps);
             }
-            _item = new MediaAnalysisEntity(_tmpMediaId,_tmpContentUri,_tmpDHash,_tmpPHash,_tmpSharpnessVariance,_tmpMeanLuma,_tmpIsBlurry,_tmpSizeBytes,_tmpAnalyzedAtMillis,_tmpVideoCodec,_tmpFrameRate,_tmpBitrateBps);
+            final Double _tmpBimodality;
+            if (_cursor.isNull(_cursorIndexOfBimodality)) {
+              _tmpBimodality = null;
+            } else {
+              _tmpBimodality = _cursor.getDouble(_cursorIndexOfBimodality);
+            }
+            _item = new MediaAnalysisEntity(_tmpMediaId,_tmpContentUri,_tmpDHash,_tmpPHash,_tmpSharpnessVariance,_tmpMeanLuma,_tmpIsBlurry,_tmpSizeBytes,_tmpAnalyzedAtMillis,_tmpVideoCodec,_tmpFrameRate,_tmpBitrateBps,_tmpBimodality);
             _result.add(_item);
           }
           return _result;
@@ -440,6 +464,7 @@ public final class MediaAnalysisDao_Impl implements MediaAnalysisDao {
           final int _cursorIndexOfVideoCodec = CursorUtil.getColumnIndexOrThrow(_cursor, "videoCodec");
           final int _cursorIndexOfFrameRate = CursorUtil.getColumnIndexOrThrow(_cursor, "frameRate");
           final int _cursorIndexOfBitrateBps = CursorUtil.getColumnIndexOrThrow(_cursor, "bitrateBps");
+          final int _cursorIndexOfBimodality = CursorUtil.getColumnIndexOrThrow(_cursor, "bimodality");
           final List<MediaAnalysisEntity> _result = new ArrayList<MediaAnalysisEntity>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final MediaAnalysisEntity _item;
@@ -501,7 +526,13 @@ public final class MediaAnalysisDao_Impl implements MediaAnalysisDao {
             } else {
               _tmpBitrateBps = _cursor.getLong(_cursorIndexOfBitrateBps);
             }
-            _item = new MediaAnalysisEntity(_tmpMediaId,_tmpContentUri,_tmpDHash,_tmpPHash,_tmpSharpnessVariance,_tmpMeanLuma,_tmpIsBlurry,_tmpSizeBytes,_tmpAnalyzedAtMillis,_tmpVideoCodec,_tmpFrameRate,_tmpBitrateBps);
+            final Double _tmpBimodality;
+            if (_cursor.isNull(_cursorIndexOfBimodality)) {
+              _tmpBimodality = null;
+            } else {
+              _tmpBimodality = _cursor.getDouble(_cursorIndexOfBimodality);
+            }
+            _item = new MediaAnalysisEntity(_tmpMediaId,_tmpContentUri,_tmpDHash,_tmpPHash,_tmpSharpnessVariance,_tmpMeanLuma,_tmpIsBlurry,_tmpSizeBytes,_tmpAnalyzedAtMillis,_tmpVideoCodec,_tmpFrameRate,_tmpBitrateBps,_tmpBimodality);
             _result.add(_item);
           }
           return _result;

@@ -26,7 +26,7 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.swipedelete.zero.domain.model.MediaItem
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.theme.SdzColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -36,8 +36,8 @@ data class CardPalette(val top: Color, val mid: Color)
 
 /** Neutral obsidian ambience shown before extraction lands / for null items. */
 val NeutralCardPalette = CardPalette(
-    top = SdzColors.Obsidian,
-    mid = SdzColors.PitchBlack,
+    top = SdzColor.Surface1,
+    mid = SdzColor.Surface0,
 )
 
 // Session-wide memo so revisiting a card (or Undo) never re-extracts.
@@ -87,8 +87,8 @@ fun rememberDominantColors(item: MediaItem?): State<CardPalette> {
             ?: return@LaunchedEffect
         val base = Color(swatch.rgb)
         val cardPalette = CardPalette(
-            top = lerp(base, SdzColors.PitchBlack, 0.55f),
-            mid = lerp(base, SdzColors.PitchBlack, 0.82f),
+            top = lerp(base, SdzColor.Surface0, 0.55f),
+            mid = lerp(base, SdzColor.Surface0, 0.82f),
         )
         paletteCache.put(target.id, cardPalette)
         state.value = cardPalette
@@ -116,7 +116,7 @@ fun PaletteBackdrop(palette: CardPalette, modifier: Modifier = Modifier) {
                 Brush.verticalGradient(
                     0f to top,
                     0.55f to mid,
-                    1f to SdzColors.PitchBlack,
+                    1f to SdzColor.Surface0,
                 )
             ),
     )

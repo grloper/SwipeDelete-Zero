@@ -13,7 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.theme.SdzColor
 
 /** Small pill toggle used by the sort rows on the dashboard and staging drawer. */
 @Composable
@@ -25,15 +25,15 @@ fun SortChip(
 ) {
     Text(
         label,
-        color = if (selected) SdzColors.CrispCyan else SdzColors.MutedGray,
+        color = if (selected) SdzColor.TextSecondary else SdzColor.TextSecondary,
         fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
         style = MaterialTheme.typography.labelMedium,
         modifier = modifier
             .clip(RoundedCornerShape(50))
-            .background(if (selected) SdzColors.CrispCyan.copy(alpha = 0.14f) else Color.Transparent)
+            .background(if (selected) SdzColor.TextSecondary.copy(alpha = 0.14f) else Color.Transparent)
             .border(
                 1.dp,
-                if (selected) SdzColors.CrispCyan.copy(alpha = 0.5f) else SdzColors.Hairline,
+                if (selected) SdzColor.TextSecondary.copy(alpha = 0.5f) else SdzColor.Hairline,
                 RoundedCornerShape(50),
             )
             .clickable(onClick = onClick)

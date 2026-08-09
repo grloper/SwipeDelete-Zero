@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CONCEPT 3 (explored, not shipped): "the aperture".
+
+  Six iris blades stopping down to a perfect circular opening — the opening
+  is the zero, the blade edges double as motion lines. The most beautiful of
+  the three at large sizes, but it is fundamentally a radial pattern of thin
+  wedges: at 16px the blades alias into a grey disc and the "0" reads as a
+  dot. It also collides visually with every camera app icon ever made.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- outer barrel, opening cut through as the zero -->
+    <path
+        android:fillColor="#F2EDE4"
+        android:fillType="evenOdd"
+        android:pathData="M24,3 a21,21 0 1,0 0,42 a21,21 0 1,0 0,-42 z M24,15 a9,9 0 1,0 0,18 a9,9 0 1,0 0,-18 z" />
+    <!-- six blade seams radiating from the opening -->
+    <group android:pivotX="24" android:pivotY="24">
+        <path android:fillColor="#0D0C0B" android:pathData="M24,6 l2.6,0 l-2.6,9.2 z" />
+    </group>
+    <group android:pivotX="24" android:pivotY="24" android:rotation="60">
+        <path android:fillColor="#0D0C0B" android:pathData="M24,6 l2.6,0 l-2.6,9.2 z" />
+    </group>
+    <group android:pivotX="24" android:pivotY="24" android:rotation="120">
+        <path android:fillColor="#0D0C0B" android:pathData="M24,6 l2.6,0 l-2.6,9.2 z" />
+    </group>
+    <group android:pivotX="24" android:pivotY="24" android:rotation="180">
+        <path android:fillColor="#0D0C0B" android:pathData="M24,6 l2.6,0 l-2.6,9.2 z" />
+    </group>
+    <group android:pivotX="24" android:pivotY="24" android:rotation="240">
+        <path android:fillColor="#0D0C0B" android:pathData="M24,6 l2.6,0 l-2.6,9.2 z" />
+    </group>
+    <group android:pivotX="24" android:pivotY="24" android:rotation="300">
+        <path android:fillColor="#0D0C0B" android:pathData="M24,6 l2.6,0 l-2.6,9.2 z" />
+    </group>
+</vector>

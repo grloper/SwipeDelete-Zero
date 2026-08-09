@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Stylised swipe-card mark: a card being flicked left toward "trash". -->
+<!--
+  Adaptive icon foreground — Concept 1 mark, scaled into the safe zone.
+
+  Adaptive icons are 108dp but only the central 66dp circle is guaranteed
+  visible under every OEM mask. The frame is therefore 50x50 centred at
+  (54,54): its half-diagonal is 35.4, and because the corners carry a 9dp
+  radius the true extent stays inside the safe circle on circular masks.
+
+  Single flat colour, one evenOdd path — so this doubles as the monochrome
+  (themed icon) layer without modification.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group android:pivotX="54" android:pivotY="54" android:rotation="-15">
-        <path
-            android:fillColor="#00E676"
-            android:pathData="M38,30 h32 a6,6 0 0 1 6,6 v36 a6,6 0 0 1 -6,6 h-32 a6,6 0 0 1 -6,-6 v-36 a6,6 0 0 1 6,-6 z" />
-        <path
-            android:fillColor="#0D0F12"
-            android:pathData="M43,37 h22 a3,3 0 0 1 3,3 v28 a3,3 0 0 1 -3,3 h-22 a3,3 0 0 1 -3,-3 v-28 a3,3 0 0 1 3,-3 z" />
-    </group>
     <path
-        android:fillColor="#FF3B30"
-        android:pathData="M74,48 l14,0 M74,54 l14,0 M74,60 l10,0"
-        android:strokeColor="#FF3B30"
-        android:strokeWidth="3"
-        android:strokeLineCap="round" />
+        android:fillColor="#F2EDE4"
+        android:fillType="evenOdd"
+        android:pathData="M38,29 h32 a9,9 0 0 1 9,9 v32 a9,9 0 0 1 -9,9 h-32 a9,9 0 0 1 -9,-9 v-32 a9,9 0 0 1 9,-9 z M24,45 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 z M24,63 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 z M74,45 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 z M74,63 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 z M43,54 a11,14 0 1,0 22,0 a11,14 0 1,0 -22,0 z" />
 </vector>
