@@ -8,8 +8,8 @@ public final class BuildConfig {
   public static final String APPLICATION_ID = "com.swipedelete.zero.debug";
   public static final String BUILD_TYPE = "debug";
   public static final String FLAVOR = "fdroid";
-  public static final int VERSION_CODE = 7;
-  public static final String VERSION_NAME = "4.0.0";
+  public static final int VERSION_CODE = 8;
+  public static final String VERSION_NAME = "4.1.0";
   // Field from product flavor: fdroid
   public static final boolean ALLOW_MANAGE_STORAGE = false;
   // Field from product flavor: fdroid
