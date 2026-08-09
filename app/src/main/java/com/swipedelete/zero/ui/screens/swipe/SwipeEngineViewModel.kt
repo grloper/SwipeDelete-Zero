@@ -7,6 +7,7 @@ import com.swipedelete.zero.data.local.MediaAnalysisDao
 import com.swipedelete.zero.data.repository.BackupRepository
 import com.swipedelete.zero.data.repository.DeckRepository
 import com.swipedelete.zero.data.repository.ExclusionRepository
+import com.swipedelete.zero.data.repository.MediaPreloader
 import com.swipedelete.zero.data.repository.StagingRepository
 import com.swipedelete.zero.domain.backup.PhotosArchive
 import com.swipedelete.zero.domain.model.Deck
@@ -50,6 +51,7 @@ class SwipeEngineViewModel @Inject constructor(
     private val photosArchive: PhotosArchive,
     private val videoMetadataExtractor: VideoMetadataExtractor,
     private val analysisDao: MediaAnalysisDao,
+    private val mediaPreloader: MediaPreloader,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -76,6 +78,12 @@ class SwipeEngineViewModel @Inject constructor(
             val deck = deckRepository.getDeck(deckId)
             _state.update {
                 it.copy(loading = false, deck = deck, cursor = deck?.completedCount ?: 0)
+            }
+        }
+        // Keep the N±2 window warm in Coil's caches as the cursor advances.
+        viewModelScope.launch {
+            _state.map { it.deck to it.cursor }.distinctUntilChanged().collect { (deck, cursor) ->
+                deck?.let { mediaPreloader.preloadAround(it.items, cursor) }
             }
         }
         // Refresh the video spec sheet whenever the top card changes: Room's

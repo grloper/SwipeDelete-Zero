@@ -62,6 +62,9 @@ import com.swipedelete.zero.ui.components.SwipeStamps
 import com.swipedelete.zero.ui.components.SwipeableCard
 import com.swipedelete.zero.ui.components.rememberDominantColors
 import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.video.FilmstripScrubber
+import com.swipedelete.zero.ui.video.TopCardPlayerState
+import com.swipedelete.zero.ui.video.rememberTopCardPlayer
 import kotlinx.coroutines.delay
 
 @Composable
@@ -75,6 +78,12 @@ fun SwipeEngineScreen(
 
     // Ambient backdrop tracks the top card's dominant palette.
     val palette by rememberDominantColors(state.topItem)
+
+    // One ExoPlayer for the whole screen, re-targeted at each top video card.
+    val playerState = rememberTopCardPlayer()
+    LaunchedEffect(state.topItem?.id) {
+        playerState.showItem(state.topItem)
+    }
 
     Box(
         modifier = Modifier
@@ -129,7 +138,7 @@ fun SwipeEngineScreen(
                 when {
                     state.loading -> Text("Loading…", color = SdzColors.MutedGray)
                     state.isComplete -> DeckCompleteView(onBack)
-                    else -> CardStack(state, viewModel, topVideoMeta, backedUpUris)
+                    else -> CardStack(state, viewModel, topVideoMeta, backedUpUris, playerState)
                 }
             }
 
@@ -169,6 +178,7 @@ private fun CardStack(
     viewModel: SwipeEngineViewModel,
     topVideoMeta: VideoMeta?,
     backedUpUris: Set<String>,
+    playerState: TopCardPlayerState,
 ) {
     val topItem = state.topItem ?: return
     var dragProgress by remember { mutableFloatStateOf(0f) }
@@ -212,7 +222,11 @@ private fun CardStack(
                 upAccent = upColor,
             ) { leftGlow, rightGlow, upGlow ->
                 Box(Modifier.fillMaxSize()) {
-                    MediaPreview(item = topItem, modifier = Modifier.fillMaxSize())
+                    MediaPreview(
+                        item = topItem,
+                        modifier = Modifier.fillMaxSize(),
+                        playerState = playerState,
+                    )
                     SwipeStamps(
                         leftGlow = leftGlow,
                         rightGlow = rightGlow,
@@ -227,13 +241,23 @@ private fun CardStack(
                             .align(Alignment.TopEnd)
                             .padding(16.dp),
                     )
-                    MetadataPill(
-                        item = topItem,
-                        videoMeta = topVideoMeta,
+                    Column(
                         modifier = Modifier
-                            .align(Alignment.BottomStart)
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
                             .padding(16.dp),
-                    )
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalAlignment = Alignment.Start,
+                    ) {
+                        if (topItem.isVideo) {
+                            FilmstripScrubber(
+                                item = topItem,
+                                playerState = playerState,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        MetadataPill(item = topItem, videoMeta = topVideoMeta)
+                    }
                 }
             }
         }
