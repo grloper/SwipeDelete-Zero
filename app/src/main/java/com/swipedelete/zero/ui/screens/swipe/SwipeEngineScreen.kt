@@ -142,6 +142,11 @@ fun SwipeEngineScreen(
                 }
             }
 
+            // Live cloud archive status — renders nothing when the queue is
+            // empty (always the case in the fdroid/play flavors).
+            val uploadQueue by viewModel.uploadQueue.collectAsStateWithLifecycle()
+            UploadStatusStrip(uploadQueue, Modifier.fillMaxWidth())
+
             // Action buttons — thumb zone (bottom 40%).
             if (!state.isComplete) {
                 ActionBar(
@@ -261,6 +266,54 @@ private fun CardStack(
                 }
             }
         }
+    }
+}
+
+/** One-line summary of the Photos upload queue: uploading % · queued · verified. */
+@Composable
+private fun UploadStatusStrip(
+    queue: Map<String, com.swipedelete.zero.domain.backup.ArchiveItemState>,
+    modifier: Modifier = Modifier,
+) {
+    if (queue.isEmpty()) return
+    val uploading = queue.values.filterIsInstance<com.swipedelete.zero.domain.backup.ArchiveItemState.Uploading>()
+    val queued = queue.values.count { it is com.swipedelete.zero.domain.backup.ArchiveItemState.Queued }
+    val verified = queue.values.count { it is com.swipedelete.zero.domain.backup.ArchiveItemState.Verified }
+    val failed = queue.values.count { it is com.swipedelete.zero.domain.backup.ArchiveItemState.Failed }
+
+    val parts = buildList {
+        if (uploading.isNotEmpty()) {
+            val pct = (uploading.map { it.progress }.average() * 100).toInt()
+            add("${uploading.size} uploading $pct%")
+        }
+        if (queued > 0) add("$queued queued")
+        if (verified > 0) add("$verified in Google Photos")
+        if (failed > 0) add("$failed failed")
+    }
+    if (parts.isEmpty()) return
+
+    Row(
+        modifier = modifier
+            .padding(top = 8.dp)
+            .clip(RoundedCornerShape(50))
+            .background(SdzColors.Obsidian.copy(alpha = 0.85f))
+            .border(1.dp, SdzColors.CrispCyan.copy(alpha = 0.35f), RoundedCornerShape(50))
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            Icons.Rounded.CloudUpload,
+            contentDescription = null,
+            tint = SdzColors.CrispCyan,
+            modifier = Modifier.size(16.dp),
+        )
+        Text(
+            parts.joinToString(" · "),
+            color = SdzColors.CrispCyan,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.labelMedium,
+        )
     }
 }
 

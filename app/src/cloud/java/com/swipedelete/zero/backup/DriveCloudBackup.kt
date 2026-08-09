@@ -63,7 +63,11 @@ class DriveCloudBackup @Inject constructor(
         context,
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
-            .requestScopes(Scope(DRIVE_FILE_SCOPE))
+            // One consent covers Drive backup AND the swipe-up Photos archive.
+            .requestScopes(
+                Scope(DRIVE_FILE_SCOPE),
+                Scope(com.swipedelete.zero.photos.PhotosUploader.PHOTOS_APPEND_SCOPE),
+            )
             .build(),
     )
 

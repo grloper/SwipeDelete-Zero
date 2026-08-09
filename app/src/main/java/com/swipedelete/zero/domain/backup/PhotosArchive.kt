@@ -46,6 +46,11 @@ interface PhotosArchive {
 
     /** Deep-link into the Google Photos app (manual-backup fallback), or null. */
     fun openInPhotosIntent(): Intent?
+
+    companion object {
+        /** sourceDeckId marking staged rows that came from a VERIFIED upload. */
+        const val VERIFIED_SOURCE_DECK = "photos:verified"
+    }
 }
 
 @Singleton

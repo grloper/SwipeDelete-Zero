@@ -60,6 +60,7 @@ import coil.compose.AsyncImage
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import com.swipedelete.zero.data.local.StagedFileEntity
+import com.swipedelete.zero.domain.backup.PhotosArchive
 import com.swipedelete.zero.domain.model.ExecutionMode
 import com.swipedelete.zero.domain.model.MediaType
 import com.swipedelete.zero.ui.components.SortChip
@@ -261,6 +262,13 @@ internal fun StagedRow(
                 color = SdzColors.MutedGray,
                 style = MaterialTheme.typography.labelMedium,
             )
+            if (item.sourceDeckId == PhotosArchive.VERIFIED_SOURCE_DECK) {
+                Text(
+                    "☁ Verified in Google Photos — safe to delete",
+                    color = SdzColors.CrispCyan,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
         }
         Row(
             modifier = Modifier

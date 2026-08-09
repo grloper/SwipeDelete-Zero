@@ -9,6 +9,7 @@ import com.swipedelete.zero.data.repository.DeckRepository
 import com.swipedelete.zero.data.repository.ExclusionRepository
 import com.swipedelete.zero.data.repository.MediaPreloader
 import com.swipedelete.zero.data.repository.StagingRepository
+import com.swipedelete.zero.domain.backup.ArchiveItemState
 import com.swipedelete.zero.domain.backup.PhotosArchive
 import com.swipedelete.zero.domain.model.Deck
 import com.swipedelete.zero.domain.model.MediaItem
@@ -72,6 +73,11 @@ class SwipeEngineViewModel @Inject constructor(
         backupRepository.observeBackedUpUris()
             .map { it.toSet() }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /** Live Photos upload queue (always empty in fdroid/play). */
+    val uploadQueue: StateFlow<Map<String, ArchiveItemState>> =
+        photosArchive.queue
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     init {
         viewModelScope.launch {
