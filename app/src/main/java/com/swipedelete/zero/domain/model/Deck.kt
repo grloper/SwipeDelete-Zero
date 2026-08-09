@@ -6,7 +6,8 @@ enum class DeckKind {
     HEAVY_HITTERS,
     CLUTTER_HOTSPOT,
     DUPLICATES,
-    BLURRY;
+    BLURRY,
+    SCREENSHOTS;
 
     /**
      * Only DUPLICATES use the top/bottom A-vs-B comparison screen — a duplicate

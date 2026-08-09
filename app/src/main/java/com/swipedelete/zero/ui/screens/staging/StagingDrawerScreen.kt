@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -58,6 +60,7 @@ import coil.compose.AsyncImage
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import com.swipedelete.zero.data.local.StagedFileEntity
+import com.swipedelete.zero.domain.backup.PhotosArchive
 import com.swipedelete.zero.domain.model.ExecutionMode
 import com.swipedelete.zero.domain.model.MediaType
 import com.swipedelete.zero.ui.components.SortChip
@@ -119,6 +122,8 @@ fun StagingDrawerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(SdzColors.PitchBlack)
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .padding(horizontal = 20.dp),
         ) {
             Row(
@@ -226,7 +231,7 @@ fun StagingDrawerScreen(
 }
 
 @Composable
-private fun StagedRow(
+internal fun StagedRow(
     item: StagedFileEntity,
     onPreview: () -> Unit,
     onRestore: () -> Unit,
@@ -257,6 +262,13 @@ private fun StagedRow(
                 color = SdzColors.MutedGray,
                 style = MaterialTheme.typography.labelMedium,
             )
+            if (item.sourceDeckId == PhotosArchive.VERIFIED_SOURCE_DECK) {
+                Text(
+                    "☁ Verified in Google Photos — safe to delete",
+                    color = SdzColors.CrispCyan,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
         }
         Row(
             modifier = Modifier
@@ -330,6 +342,8 @@ private fun StagedPreviewOverlay(
         modifier = Modifier
             .fillMaxSize()
             .background(SdzColors.PitchBlack)
+            .statusBarsPadding()
+            .navigationBarsPadding()
             .padding(20.dp),
     ) {
         Row(
@@ -483,7 +497,7 @@ private fun StagedFileEntity.stagedAtLabel(): String =
     SimpleDateFormat("MMM d, HH:mm", Locale.US).format(Date(stagedAtMillis))
 
 @Composable
-private fun ExecutionModeToggle(
+internal fun ExecutionModeToggle(
     mode: ExecutionMode,
     onSelect: (ExecutionMode) -> Unit,
     modifier: Modifier = Modifier,
@@ -543,7 +557,7 @@ private fun SegmentButton(
 }
 
 @Composable
-private fun PurgeCta(
+internal fun PurgeCta(
     bytes: Long,
     enabled: Boolean,
     onClick: () -> Unit,

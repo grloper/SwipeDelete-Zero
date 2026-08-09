@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.swipedelete.zero.app-mergeFdroidDebugResources-2:/values-v23/values-v23.xml",
+            "map": [
+                {
+                    "source": "/root/.gradle/caches/8.11.1/transforms/37489eba7def87a4a9568d493b998e92/transformed/work-runtime-2.10.0/res/values-v23/values-v23.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,121",
+                        "endColumns": "65,62",
+                        "endOffsets": "116,179"
+                    }
+                }
+            ]
+        }
+    ]
+}

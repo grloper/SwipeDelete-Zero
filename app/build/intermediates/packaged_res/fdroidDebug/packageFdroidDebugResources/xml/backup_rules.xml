@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- No cloud backup: staging queues and the local Room DB stay on-device only. -->
+<full-backup-content>
+    <exclude domain="database" path="swipedelete-zero.db" />
+</full-backup-content>

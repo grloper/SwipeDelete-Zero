@@ -43,6 +43,9 @@ class BackupRepository @Inject constructor(
 
     fun observeBackedUpCount(): Flow<Int> = backedUpFileDao.observeCount()
 
+    /** Every backed-up uri — powers the per-card cloud verification chip. */
+    fun observeBackedUpUris(): Flow<List<String>> = backedUpFileDao.observeBackedUpUris()
+
     suspend fun markBackedUp(file: KeptFileEntity, remoteId: String) {
         backedUpFileDao.insert(
             BackedUpFileEntity(

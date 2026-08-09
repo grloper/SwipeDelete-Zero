@@ -1,0 +1,10 @@
+-keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.swipe.SwipeEngineViewModel
+-keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.swipe.SwipeEngineViewModel
+-keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.settings.SettingsViewModel
+-keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.settings.SettingsViewModel
+-keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.staging.StagingViewModel
+-keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.staging.StagingViewModel
+-keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.dashboard.DashboardViewModel
+-keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.dashboard.DashboardViewModel
+-keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.dual.DualCardViewModel
+-keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.dual.DualCardViewModel

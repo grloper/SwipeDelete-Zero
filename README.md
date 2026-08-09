@@ -40,23 +40,54 @@ and deletion happen locally.
 ### ☁️ Optional: the `cloud` build
 
 Each release also ships a clearly-labelled **cloud** APK — the *only* build with
-the INTERNET permission — adding **opt-in Google Drive backup** of the files you
-keep or star (each uploaded exactly once, incremental forever after). It talks
-only to Google's Drive API with the non-sensitive `drive.file` scope, on your
-own OAuth credentials. Setup guide: [docs/DRIVE_BACKUP_SETUP.md](docs/DRIVE_BACKUP_SETUP.md).
-If you want the hard air-gap, simply install the fdroid APK.
+the INTERNET permission — adding two opt-in features on your own OAuth
+credentials:
+
+- **Google Drive backup** of the files you keep or star (each uploaded exactly
+  once, incremental forever after), via the non-sensitive `drive.file` scope.
+- **Swipe-up "Archive to Google Photos"**: the up-swipe uploads the card to
+  Google Photos with resumable, process-death-surviving chunked uploads
+  (`photoslibrary.appendonly`, upload-only scope). The local copy is **only**
+  offered for deletion after a verification handshake returns a valid
+  `mediaItemId` — and even then it goes through the normal Safety Staging queue
+  and OS confirmation dialog. Every card shows a live
+  `[ Cloud Backed Up ]` / `[ Local Only ]` chip from the verified ledger.
+
+Setup guide: [docs/DRIVE_BACKUP_SETUP.md](docs/DRIVE_BACKUP_SETUP.md).
+If you want the hard air-gap, simply install the fdroid APK (there, swipe-up
+keeps its offline meaning: star & exclude).
 
 ## ✨ Features
 
 | Deck | What it surfaces |
 |------|------------------|
-| ⏳ **Time Machine** | Media grouped month-by-month ("July 2024", "3 Years Ago Today") |
+| ⏳ **Cleanup Sprints** | Month-by-month sprints on a horizontal rail with progress rings ("May 2024 — 45% complete") |
 | 🐘 **Heavy Hitters** | Biggest files first — 100 MB+ videos, `.apk`, `.zip`, huge audio |
+| 🎬 **Large Videos** | AI bucket for single files ≥1 GB — the fastest storage wins |
 | 🔥 **Clutter Hotspots** | Screenshots, WhatsApp Media, Telegram, Camera Bursts, Downloads |
 | 👯 **Duplicates & Blurry** | pHash/dHash near-dupes + Laplacian-variance blur, side-by-side |
+| 🧾 **Screenshots & Receipts** | AI bucket from path/filename heuristics (screenshots, receipts, invoices, scans) |
 
 Every deck is capped at **50 cards** to keep sessions snackable, with resumable
 progress ("24/50 swiped in July 2024").
+
+### 🎥 Video Review Engine
+
+Videos auto-loop **muted** on the top card through a single reused ExoPlayer
+(one hardware decoder for the whole session — no per-card re-allocation lag),
+layered over the Coil thumbnail so there is never a black flash. A
+**10-thumbnail filmstrip scrubber** at the card's foot drags through the
+timeline with closest-sync-frame seeks; the metadata pill reads like a spec
+sheet (`2.4 GB • 4K 60fps • HEVC`), with a coral flame accent on >1 GB /
+>25 Mbps / 4K storage hogs.
+
+### 🌈 Dynamic backdrop & motion
+
+The screen behind the card stack is a blurred gradient sampled from the active
+card's dominant palette (androidx.palette over a 64px sidecar decode, blended
+toward pitch black). Cards commit positionally *or* by velocity — a fast flick
+commits early — with progressive haptics: a tick at 50% of the threshold, a
+pulse when it arms, and distinct reject/confirm/double-tick signatures.
 
 ## 🛟 3-Tier Safety Pipeline
 
@@ -66,8 +97,9 @@ progress ("24/50 swiped in July 2024").
 ```
 
 1. **Active Deck** — flick cards; a 5-second Undo toast recovers any mistake.
-2. **Staging Drawer** — a local queue you can review, restore or clear. Live
-   readout: *"38 files • 2.4 GB ready to purge"*.
+2. **Safety Staging** — a bottom-sheet queue you can review, restore or clear.
+   Live readout: *"38 files • 2.4 GB ready to purge"*, plus a lifetime
+   *"14.2 GB Reclaimed"* counter fed only by verified deletions.
 3. **Disk Execution** — choose **30-Day OS Trash**
    (`MediaStore.createTrashRequest`) or **Permanent Purge**
    (`createDeleteRequest` / SAF). Batched into a single OS confirmation.
@@ -96,16 +128,19 @@ Clean Architecture, single-activity Jetpack Compose, Hilt DI.
 ```
 app/
 ├── ui/
-│   ├── components/   # SwipeableCard (gesture physics), StorageRing, DiffBadges, MetadataPill
-│   ├── screens/      # dashboard, swipe, dual, staging, settings
+│   ├── components/   # SwipeableCard (velocity physics), PaletteBackdrop, CloudChip, MetadataPill
+│   ├── video/        # TopCardPlayer (single ExoPlayer), FilmstripScrubber
+│   ├── haptics/      # SdzHaptics (progressive, API-tiered)
+│   ├── screens/      # dashboard (sprints + AI buckets), swipe, dual, staging (+sheet), settings
 │   └── theme/        # Color.kt, Theme.kt, Type.kt (OLED tokens)
 ├── domain/
 │   ├── algorithm/    # PerceptualHasher (pHash/dHash), BlurDetector (Laplacian variance)
-│   ├── model/        # MediaItem, Deck, SwipeAction
-│   └── scanner/      # DeckBuilder, MediaAnalysisWorker (WorkManager), AnalysisScheduler
+│   ├── backup/       # CloudBackup + PhotosArchive seams, UploadReducer (pure)
+│   ├── model/        # MediaItem, Deck, SwipeAction, SwipeCommitDecider, PlaybackReducer, Filmstrip
+│   └── scanner/      # DeckBuilder, MediaAnalysisWorker, VideoMetadataExtractor, AnalysisScheduler
 └── data/
-    ├── local/        # Room: StagedFile, DeckSession, Exclusion, MediaAnalysis
-    └── repository/   # MediaStore + SAF bridge, PurgeEngine, StoragePermissionManager
+    ├── local/        # Room v3: StagedFile, DeckSession, Exclusion, MediaAnalysis, CloudUpload
+    └── repository/   # MediaStore + SAF bridge, PurgeEngine, MediaPreloader, StatsStore
 ```
 
 ### Engineered safeguards
@@ -116,8 +151,9 @@ app/
   degrades to an empty result, never a crash.
 - **Battery:** hashing/blur run in WorkManager with `setRequiresCharging(true)` +
   `setRequiresDeviceIdle(true)`; bitmaps downsampled to 32×32 grayscale first.
-- **OOM:** previews decode capped to card bounds; **videos never auto-play** —
-  static `VideoFrameDecoder` thumbnail, ExoPlayer only on explicit tap.
+- **OOM:** previews decode capped to card bounds; video playback goes through
+  **one shared, muted ExoPlayer** (top card only) — never a decoder per card;
+  filmstrip thumbnails are 96×54 Coil decodes riding the shared caches.
 - **Data drift:** strict existence re-check before purge; cloud/`IS_PENDING`
   tombstones excluded; partial-success transactional queue updates.
 - **Prompt batching:** all trashable media grouped into one OS request.

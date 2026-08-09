@@ -23,6 +23,8 @@ fun AppNavigation() {
 
     NavHost(navController = navController, startDestination = Routes.DASHBOARD) {
         composable(Routes.DASHBOARD) {
+            // Staging now presents as a modal bottom sheet hosted by the
+            // dashboard itself; Routes.STAGING stays as a full-screen fallback.
             DashboardScreen(
                 onOpenDeck = { deck: Deck ->
                     if (deck.kind.isComparison) {
@@ -31,7 +33,6 @@ fun AppNavigation() {
                         navController.navigate(Routes.swipeEngine(deck.id))
                     }
                 },
-                onOpenStaging = { navController.navigate(Routes.STAGING) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
             )
         }

@@ -11,8 +11,9 @@ import androidx.room.RoomDatabase
         MediaAnalysisEntity::class,
         KeptFileEntity::class,
         BackedUpFileEntity::class,
+        CloudUploadEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -22,6 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun mediaAnalysisDao(): MediaAnalysisDao
     abstract fun keptFileDao(): KeptFileDao
     abstract fun backedUpFileDao(): BackedUpFileDao
+    abstract fun cloudUploadDao(): CloudUploadDao
 
     companion object {
         const val NAME = "swipedelete-zero.db"

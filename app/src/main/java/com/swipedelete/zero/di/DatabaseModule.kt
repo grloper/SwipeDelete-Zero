@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.swipedelete.zero.data.local.AppDatabase
 import com.swipedelete.zero.data.local.BackedUpFileDao
+import com.swipedelete.zero.data.local.CloudUploadDao
 import com.swipedelete.zero.data.local.DeckSessionDao
 import com.swipedelete.zero.data.local.ExclusionDao
 import com.swipedelete.zero.data.local.KeptFileDao
@@ -35,4 +36,5 @@ object DatabaseModule {
     @Provides fun provideMediaAnalysisDao(db: AppDatabase): MediaAnalysisDao = db.mediaAnalysisDao()
     @Provides fun provideKeptFileDao(db: AppDatabase): KeptFileDao = db.keptFileDao()
     @Provides fun provideBackedUpFileDao(db: AppDatabase): BackedUpFileDao = db.backedUpFileDao()
+    @Provides fun provideCloudUploadDao(db: AppDatabase): CloudUploadDao = db.cloudUploadDao()
 }

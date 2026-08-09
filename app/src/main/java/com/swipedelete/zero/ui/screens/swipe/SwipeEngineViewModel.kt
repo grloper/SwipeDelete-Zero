@@ -3,18 +3,29 @@ package com.swipedelete.zero.ui.screens.swipe
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.swipedelete.zero.data.local.MediaAnalysisDao
 import com.swipedelete.zero.data.repository.BackupRepository
 import com.swipedelete.zero.data.repository.DeckRepository
 import com.swipedelete.zero.data.repository.ExclusionRepository
+import com.swipedelete.zero.data.repository.MediaPreloader
 import com.swipedelete.zero.data.repository.StagingRepository
+import com.swipedelete.zero.domain.backup.ArchiveItemState
+import com.swipedelete.zero.domain.backup.PhotosArchive
 import com.swipedelete.zero.domain.model.Deck
+import com.swipedelete.zero.domain.model.MediaItem
 import com.swipedelete.zero.domain.model.SwipeAction
 import com.swipedelete.zero.domain.model.SwipeDirection
+import com.swipedelete.zero.domain.scanner.VideoMeta
+import com.swipedelete.zero.domain.scanner.VideoMetadataExtractor
 import com.swipedelete.zero.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -28,6 +39,8 @@ data class SwipeUiState(
 ) {
     val isComplete: Boolean get() = deck != null && cursor >= deck.totalCount
     val remaining: Int get() = deck?.let { it.totalCount - cursor } ?: 0
+    val topItem: MediaItem? get() = deck?.items?.getOrNull(cursor)
+    val nextItem: MediaItem? get() = deck?.items?.getOrNull(cursor + 1)
 }
 
 @HiltViewModel
@@ -36,6 +49,10 @@ class SwipeEngineViewModel @Inject constructor(
     private val stagingRepository: StagingRepository,
     private val exclusionRepository: ExclusionRepository,
     private val backupRepository: BackupRepository,
+    private val photosArchive: PhotosArchive,
+    private val videoMetadataExtractor: VideoMetadataExtractor,
+    private val analysisDao: MediaAnalysisDao,
+    private val mediaPreloader: MediaPreloader,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -44,11 +61,50 @@ class SwipeEngineViewModel @Inject constructor(
     private val _state = MutableStateFlow(SwipeUiState())
     val state: StateFlow<SwipeUiState> = _state.asStateFlow()
 
+    private val _topVideoMeta = MutableStateFlow<VideoMeta?>(null)
+    /** Codec/fps/bitrate of the top card when it is a video, null otherwise. */
+    val topVideoMeta: StateFlow<VideoMeta?> = _topVideoMeta.asStateFlow()
+
+    /** True when the up-swipe archives to Google Photos (cloud flavor only). */
+    val cloudArchiveEnabled: Boolean get() = photosArchive.isAvailable
+
+    /** URIs already verified in the backup ledger — drives the cloud chip. */
+    val backedUpUris: StateFlow<Set<String>> =
+        backupRepository.observeBackedUpUris()
+            .map { it.toSet() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /** Live Photos upload queue (always empty in fdroid/play). */
+    val uploadQueue: StateFlow<Map<String, ArchiveItemState>> =
+        photosArchive.queue
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
     init {
         viewModelScope.launch {
             val deck = deckRepository.getDeck(deckId)
             _state.update {
                 it.copy(loading = false, deck = deck, cursor = deck?.completedCount ?: 0)
+            }
+        }
+        // Keep the N±2 window warm in Coil's caches as the cursor advances.
+        viewModelScope.launch {
+            _state.map { it.deck to it.cursor }.distinctUntilChanged().collect { (deck, cursor) ->
+                deck?.let { mediaPreloader.preloadAround(it.items, cursor) }
+            }
+        }
+        // Refresh the video spec sheet whenever the top card changes: Room's
+        // analysis cache first, header parse as the fallback.
+        viewModelScope.launch {
+            _state.map { it.topItem }.distinctUntilChanged().collect { item ->
+                _topVideoMeta.value = null
+                if (item == null || !item.isVideo) return@collect
+                val cached = analysisDao.get(item.id)
+                _topVideoMeta.value =
+                    if (cached != null && (cached.videoCodec != null || cached.bitrateBps != null)) {
+                        VideoMeta(cached.videoCodec, cached.frameRate, cached.bitrateBps)
+                    } else {
+                        videoMetadataExtractor.extract(item)
+                    }
             }
         }
     }
@@ -64,8 +120,15 @@ class SwipeEngineViewModel @Inject constructor(
             when (direction) {
                 SwipeDirection.LEFT -> stagingRepository.stage(item, deck.id)
                 SwipeDirection.UP -> {
-                    exclusionRepository.starItem(item)
-                    backupRepository.recordKept(item, starred = true)
+                    if (photosArchive.isAvailable) {
+                        // Cloud flavor: queue the Photos upload. The local file
+                        // is only ever staged for deletion after verification.
+                        photosArchive.enqueue(item)
+                        backupRepository.recordKept(item, starred = true)
+                    } else {
+                        exclusionRepository.starItem(item)
+                        backupRepository.recordKept(item, starred = true)
+                    }
                 }
                 SwipeDirection.RIGHT -> backupRepository.recordKept(item, starred = false)
                 SwipeDirection.NONE -> Unit
@@ -88,7 +151,10 @@ class SwipeEngineViewModel @Inject constructor(
         viewModelScope.launch {
             when (last.direction) {
                 SwipeDirection.LEFT -> stagingRepository.restore(last.item.contentUri.toString())
-                SwipeDirection.UP,
+                SwipeDirection.UP -> {
+                    photosArchive.cancelIfQueued(last.item.contentUri.toString())
+                    backupRepository.removeKept(last.item.contentUri.toString())
+                }
                 SwipeDirection.RIGHT -> backupRepository.removeKept(last.item.contentUri.toString())
                 SwipeDirection.NONE -> Unit
             }

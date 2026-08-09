@@ -67,6 +67,10 @@ interface BackedUpFileDao {
 
     @Query("SELECT COUNT(*) FROM backed_up_files")
     fun observeCount(): Flow<Int>
+
+    /** Every backed-up uri — powers the per-card Cloud Verification chip. */
+    @Query("SELECT contentUri FROM backed_up_files")
+    fun observeBackedUpUris(): Flow<List<String>>
 }
 
 @Dao
@@ -102,6 +106,33 @@ interface ExclusionDao {
 
     @Query("DELETE FROM exclusions WHERE id = :id")
     suspend fun remove(id: Long)
+}
+
+@Dao
+interface CloudUploadDao {
+
+    @Query("SELECT * FROM cloud_uploads ORDER BY enqueuedAtMillis")
+    fun observeAll(): Flow<List<CloudUploadEntity>>
+
+    @Query("SELECT * FROM cloud_uploads WHERE contentUri = :uri")
+    suspend fun get(uri: String): CloudUploadEntity?
+
+    /** Oldest row that still needs work (not yet verified, not terminally failed). */
+    @Query(
+        "SELECT * FROM cloud_uploads WHERE state IN " +
+            "('QUEUED', 'UPLOADING', 'VERIFYING') ORDER BY enqueuedAtMillis LIMIT 1"
+    )
+    suspend fun nextPending(): CloudUploadEntity?
+
+    @Upsert
+    suspend fun upsert(entity: CloudUploadEntity)
+
+    /** Cancel an up-swipe that hasn't started uploading yet (Undo path). */
+    @Query("DELETE FROM cloud_uploads WHERE contentUri = :uri AND state = 'QUEUED'")
+    suspend fun deleteIfQueued(uri: String): Int
+
+    @Query("DELETE FROM cloud_uploads WHERE contentUri = :uri")
+    suspend fun delete(uri: String)
 }
 
 @Dao

@@ -3,10 +3,26 @@
   Cloud-flavor-only overlay.
 
   This is the ONLY flavor that declares android.permission.INTERNET, used
-  exclusively for the opt-in Google Drive backup of kept & starred files.
-  The fdroid and play flavors keep the hard air-gap (zero network permissions).
-  If you want the fully offline guarantee, install the fdroid APK instead.
+  exclusively for the opt-in Google Drive backup and the swipe-up Google
+  Photos archive of kept & starred files. The fdroid and play flavors keep
+  the hard air-gap (zero network permissions). If you want the fully offline
+  guarantee, install the fdroid APK instead.
+
+  The dataSync foreground service lets multi-gigabyte Photos uploads outlive
+  WorkManager's ~10-minute background budget; Android 14+ requires the typed
+  permission and the service-type declaration below.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <application>
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+    </application>
 </manifest>
