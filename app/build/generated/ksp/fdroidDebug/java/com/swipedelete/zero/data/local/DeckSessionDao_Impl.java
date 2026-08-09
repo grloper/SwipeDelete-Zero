@@ -224,6 +224,50 @@ public final class DeckSessionDao_Impl implements DeckSessionDao {
     });
   }
 
+  @Override
+  public Object getAll(final Continuation<? super List<DeckSessionEntity>> $completion) {
+    final String _sql = "SELECT * FROM deck_sessions";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<List<DeckSessionEntity>>() {
+      @Override
+      @NonNull
+      public List<DeckSessionEntity> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfDeckId = CursorUtil.getColumnIndexOrThrow(_cursor, "deckId");
+          final int _cursorIndexOfKind = CursorUtil.getColumnIndexOrThrow(_cursor, "kind");
+          final int _cursorIndexOfTitle = CursorUtil.getColumnIndexOrThrow(_cursor, "title");
+          final int _cursorIndexOfCursor = CursorUtil.getColumnIndexOrThrow(_cursor, "cursor");
+          final int _cursorIndexOfTotalCount = CursorUtil.getColumnIndexOrThrow(_cursor, "totalCount");
+          final int _cursorIndexOfUpdatedAtMillis = CursorUtil.getColumnIndexOrThrow(_cursor, "updatedAtMillis");
+          final List<DeckSessionEntity> _result = new ArrayList<DeckSessionEntity>(_cursor.getCount());
+          while (_cursor.moveToNext()) {
+            final DeckSessionEntity _item;
+            final String _tmpDeckId;
+            _tmpDeckId = _cursor.getString(_cursorIndexOfDeckId);
+            final String _tmpKind;
+            _tmpKind = _cursor.getString(_cursorIndexOfKind);
+            final String _tmpTitle;
+            _tmpTitle = _cursor.getString(_cursorIndexOfTitle);
+            final int _tmpCursor;
+            _tmpCursor = _cursor.getInt(_cursorIndexOfCursor);
+            final int _tmpTotalCount;
+            _tmpTotalCount = _cursor.getInt(_cursorIndexOfTotalCount);
+            final long _tmpUpdatedAtMillis;
+            _tmpUpdatedAtMillis = _cursor.getLong(_cursorIndexOfUpdatedAtMillis);
+            _item = new DeckSessionEntity(_tmpDeckId,_tmpKind,_tmpTitle,_tmpCursor,_tmpTotalCount,_tmpUpdatedAtMillis);
+            _result.add(_item);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
   @NonNull
   public static List<Class<?>> getRequiredConverters() {
     return Collections.emptyList();

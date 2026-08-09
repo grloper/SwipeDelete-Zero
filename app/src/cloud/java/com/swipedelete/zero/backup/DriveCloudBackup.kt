@@ -13,11 +13,15 @@ import com.swipedelete.zero.data.local.KeptFileEntity
 import com.swipedelete.zero.data.repository.BackupRepository
 import com.swipedelete.zero.domain.backup.BackupState
 import com.swipedelete.zero.domain.backup.CloudBackup
+import com.swipedelete.zero.domain.backup.ConnectionCheck
+import com.swipedelete.zero.domain.setup.AuthDiagnostic
+import com.swipedelete.zero.photos.PhotosUploader
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.OutputStream
@@ -64,10 +68,7 @@ class DriveCloudBackup @Inject constructor(
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             // One consent covers Drive backup AND the swipe-up Photos archive.
-            .requestScopes(
-                Scope(DRIVE_FILE_SCOPE),
-                Scope(com.swipedelete.zero.photos.PhotosUploader.PHOTOS_APPEND_SCOPE),
-            )
+            .requestScopes(Scope(DRIVE_FILE_SCOPE), Scope(PHOTOS_APPEND_SCOPE))
             .build(),
     )
 
@@ -79,9 +80,12 @@ class DriveCloudBackup @Inject constructor(
                 .getResult(ApiException::class.java)
             _state.value = BackupState.Ready(account.email ?: "Google account")
         } catch (e: ApiException) {
+            // Decode the bare status code into a cause and a fix the setup
+            // wizard can act on, instead of surfacing "code 10" to the user.
+            val diagnostic = AuthDiagnostic.decode(e.statusCode)
             _state.value = BackupState.SignedOut(
-                "Sign-in failed (code ${e.statusCode}). Is the OAuth client configured? " +
-                    "See docs/DRIVE_BACKUP_SETUP.md."
+                message = diagnostic.headline,
+                diagnostic = diagnostic,
             )
         }
     }
@@ -161,6 +165,78 @@ class DriveCloudBackup @Inject constructor(
         } catch (e: Exception) {
             _state.value = BackupState.Ready(email, "Backup failed: ${e.message ?: e.javaClass.simpleName}")
         }
+    }
+
+    /**
+     * Probe the real APIs so the wizard can prove the setup works.
+     *
+     * Drive is checked with an actual `about` request — that only succeeds when
+     * the client is registered, consent was granted and the API is enabled.
+     * Photos has no read endpoint under the upload-only `appendonly` scope, so
+     * the strongest side-effect-free check is minting a token for that scope,
+     * which proves the scope was granted to this OAuth client. Uploads are not
+     * attempted here — a probe must never create content in someone's library.
+     */
+    override suspend fun verifyConnection(): ConnectionCheck = withContext(Dispatchers.IO) {
+        val account = GoogleSignIn.getLastSignedInAccount(context)
+        val androidAccount = account?.account
+        if (account == null || androidAccount == null) {
+            return@withContext ConnectionCheck(
+                signedIn = false,
+                diagnostic = AuthDiagnostic.decode(AuthDiagnostic.SIGN_IN_REQUIRED),
+                message = "Not connected yet — finish step 5 first.",
+            )
+        }
+        val email = account.email
+
+        var driveOk = false
+        var photosOk = false
+        var diagnostic: AuthDiagnostic? = null
+        val notes = mutableListOf<String>()
+
+        try {
+            val token = GoogleAuthUtil.getToken(context, androidAccount, "oauth2:$DRIVE_FILE_SCOPE")
+            httpGet("https://www.googleapis.com/drive/v3/about?fields=user", token)
+            driveOk = true
+        } catch (e: UserRecoverableAuthException) {
+            diagnostic = AuthDiagnostic.decode(AuthDiagnostic.SIGN_IN_REQUIRED)
+            notes += "Drive needs consent again."
+        } catch (e: HttpStatusException) {
+            diagnostic = AuthDiagnostic.decode(
+                if (e.code == 403) AuthDiagnostic.API_NOT_CONNECTED else AuthDiagnostic.DEVELOPER_ERROR
+            )
+            notes += "Drive API returned HTTP ${e.code}."
+        } catch (e: Exception) {
+            notes += "Drive check failed: ${e.message ?: e.javaClass.simpleName}"
+        }
+
+        try {
+            GoogleAuthUtil.getToken(context, androidAccount, "oauth2:$PHOTOS_APPEND_SCOPE")
+            photosOk = true
+        } catch (e: UserRecoverableAuthException) {
+            diagnostic = diagnostic ?: AuthDiagnostic.decode(AuthDiagnostic.SIGN_IN_REQUIRED)
+            notes += "Photos scope not granted — reconnect and accept the Photos permission."
+        } catch (e: Exception) {
+            diagnostic = diagnostic ?: AuthDiagnostic.decode(AuthDiagnostic.API_NOT_CONNECTED)
+            notes += "Photos scope check failed: ${e.message ?: e.javaClass.simpleName}"
+        }
+
+        val message = when {
+            driveOk && photosOk ->
+                "Signed in as $email. Drive answered a live request and the Photos " +
+                    "upload scope is granted, so swipe-up archiving will work."
+            notes.isEmpty() -> "Connected as $email."
+            else -> notes.joinToString(" ")
+        }
+
+        ConnectionCheck(
+            signedIn = true,
+            accountEmail = email,
+            driveOk = driveOk,
+            photosOk = photosOk,
+            diagnostic = diagnostic,
+            message = message,
+        )
     }
 
     /** Returns the id of the backup folder, creating it on first run. */
@@ -264,6 +340,7 @@ class DriveCloudBackup @Inject constructor(
 
     private companion object {
         const val DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
+        const val PHOTOS_APPEND_SCOPE = PhotosUploader.PHOTOS_APPEND_SCOPE
         const val FOLDER_NAME = "SwipeDelete Zero Backup"
         const val FOLDER_MIME = "application/vnd.google-apps.folder"
         const val BOUNDARY = "sdz-backup-boundary-7f2a"

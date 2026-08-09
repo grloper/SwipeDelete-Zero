@@ -1,6 +1,7 @@
 package com.swipedelete.zero.domain.backup
 
 import android.content.Intent
+import com.swipedelete.zero.domain.setup.AuthDiagnostic
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
@@ -11,19 +12,41 @@ sealed interface BackupState {
     /** Backup exists only in the cloud flavor; fdroid/play always report this. */
     data object Unsupported : BackupState
 
-    data class SignedOut(val message: String? = null) : BackupState
+    /**
+     * Not connected. [diagnostic] is non-null after a *failed* attempt and
+     * carries the decoded cause and the exact fix, so the UI never has to show
+     * a bare status code.
+     */
+    data class SignedOut(
+        val message: String? = null,
+        val diagnostic: AuthDiagnostic? = null,
+    ) : BackupState
 
     data class Ready(val accountEmail: String, val message: String? = null) : BackupState
 
     data class Running(val done: Int, val total: Int) : BackupState
 }
 
+/** Result of actively probing the connection rather than trusting cached state. */
+data class ConnectionCheck(
+    val signedIn: Boolean,
+    val accountEmail: String? = null,
+    /** Null when not probed; true/false once the API answered. */
+    val driveOk: Boolean? = null,
+    val photosOk: Boolean? = null,
+    val diagnostic: AuthDiagnostic? = null,
+    val message: String,
+) {
+    val allGood: Boolean get() = signedIn && driveOk == true && photosOk == true
+}
+
 /**
- * Flavor seam for the opt-in cloud backup of kept & starred files.
+ * Flavor seam for the opt-in cloud features (Drive backup of kept files and the
+ * swipe-up Google Photos archive).
  *
  * The fdroid/play flavors bind [NoOpCloudBackup] — no network code is even
- * compiled into those builds. The cloud flavor binds a Google Drive
- * implementation. UI code talks only to this interface.
+ * compiled into those builds. The cloud flavor binds a Google implementation.
+ * UI code talks only to this interface.
  */
 interface CloudBackup {
     val state: StateFlow<BackupState>
@@ -38,6 +61,12 @@ interface CloudBackup {
     fun backupNow()
 
     fun signOut()
+
+    /**
+     * Actively call the APIs and report exactly what works. Used by the setup
+     * wizard's "Verify connection" step so success is proven, not assumed.
+     */
+    suspend fun verifyConnection(): ConnectionCheck
 }
 
 @Singleton
@@ -47,4 +76,8 @@ class NoOpCloudBackup @Inject constructor() : CloudBackup {
     override fun onSignInResult(data: Intent?) = Unit
     override fun backupNow() = Unit
     override fun signOut() = Unit
+    override suspend fun verifyConnection() = ConnectionCheck(
+        signedIn = false,
+        message = "This build has no network access by design.",
+    )
 }

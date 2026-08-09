@@ -13,6 +13,22 @@ Google requires every app that touches Drive to have an OAuth client. Because th
 project ships no secrets, **you** create that client in your own (free) Google
 Cloud project. It takes about ten minutes, once.
 
+> ### 👉 Use the in-app wizard instead of this document
+>
+> Open **Settings → Open setup wizard**. It walks the same five steps, opens each
+> Google Cloud page directly, and — critically — shows the package name and
+> SHA-1 **read from the app installed on your device**, with copy buttons.
+>
+> That matters because the fingerprint below is only valid for APKs signed with
+> this repo's committed debug keystore. Rebuild locally, or install a
+> differently-signed build, and the real fingerprint changes while this document
+> does not — which is exactly how you end up staring at
+> `Sign-in failed (code 10)` while believing everything is configured correctly.
+> The wizard cannot go stale, and it decodes every sign-in error into the step
+> that fixes it.
+>
+> The steps below remain as a reference for setting things up from a desktop.
+
 ## 1. Create a Google Cloud project
 
 1. Open <https://console.cloud.google.com/projectcreate>.
@@ -45,25 +61,47 @@ Cloud project. It takes about ten minutes, once.
    ```
 
    (Debug builds append `.debug` to the application id.)
-4. SHA-1 certificate fingerprint — the repo ships a committed debug keystore so
-   this value is stable for every APK built by CI:
+4. SHA-1 certificate fingerprint. **The authoritative value is the one the app
+   shows in Settings → setup wizard → step 3**, because it is read from the
+   installed APK's actual signing certificate.
+
+   For APKs built by this repo's CI with the committed debug keystore it is:
 
    ```
    BB:3D:21:3A:EE:FA:11:D4:65:C7:77:6C:6E:99:2B:8B:98:1B:1E:DB
    ```
 
-   To verify it yourself: `keytool -list -v -keystore app/debug.keystore -alias androiddebugkey -storepass android | grep SHA1`
+   If the wizard shows something different, **trust the wizard** — your APK was
+   signed with a different key, and this value will not work.
+
+   To check a keystore yourself: `keytool -list -v -keystore app/debug.keystore -alias androiddebugkey -storepass android | grep SHA1`
 5. **Create**. No client id needs to be pasted anywhere — Android OAuth clients
    are matched by package name + signature automatically.
 
 ## 5. Use it
 
 1. Install the **cloud** APK from the Releases page.
-2. App → ⚙ Settings → **Google Drive Backup** → *Connect Google Drive*.
-3. Sign in with the test-user account and accept the `drive.file` scope — the
-   app can only see files it created, never your whole Drive.
-4. Tap **Back up now**. Files land in a Drive folder named
-   **SwipeDelete Zero Backup**.
+2. App → ⚙ Settings → **Open setup wizard** → *Connect Google account*.
+3. Sign in with the test-user account and accept both scopes — `drive.file`
+   (the app sees only files it created, never your whole Drive) and
+   `photoslibrary.appendonly` (upload-only; it can add to your Photos library
+   but can never read or delete from it).
+4. Tap **Verify connection**. This makes a real Drive API call and checks the
+   Photos scope was granted, then reports exactly what responded — so you know
+   it works before trusting it with anything.
+5. Tap **Back up now** for Drive, or swipe a card up to archive it to Google
+   Photos. Drive files land in a folder named **SwipeDelete Zero Backup**.
+
+## Troubleshooting
+
+The wizard decodes errors for you, but for reference:
+
+| Error | Cause | Fix |
+|---|---|---|
+| `code 10` DEVELOPER_ERROR | No OAuth client matches this app's package **and** signing fingerprint | Wizard step 3 — copy both values from the app, not from this doc |
+| `code 5` INVALID_ACCOUNT | Account isn't on the test-user list | Wizard step 4 |
+| `code 17` API_NOT_CONNECTED | Photos or Drive API not enabled | Wizard step 2 |
+| `code 12501` | You dismissed the account picker | Just try again |
 
 ## Privacy notes
 

@@ -36,12 +36,57 @@ data class Deck(
     val items: List<MediaItem>,
     /** How many of [items] have already been swiped in a resumed session. */
     val completedCount: Int = 0,
+    /**
+     * Identity of the logical collection this deck belongs to. A month with 240
+     * photos becomes five ≤50-card decks that all share one groupId, so the
+     * dashboard can present "August 2026" once instead of five near-identical
+     * "· Part N" cards while sessions stay snackable.
+     */
+    val groupId: String = id,
+    /** Human title of the group, without any "· Part N" suffix. */
+    val groupTitle: String = title,
 ) {
     val totalCount: Int get() = items.size
     val remainingCount: Int get() = (totalCount - completedCount).coerceAtLeast(0)
     val progress: Float
         get() = if (totalCount == 0) 0f else completedCount.toFloat() / totalCount
     val reclaimableBytes: Long get() = items.sumOf { it.sizeBytes }
+}
+
+/**
+ * Several decks of the same logical collection, presented as one dashboard
+ * entry. Totals are summed across parts; [nextDeck] is where "continue" goes.
+ */
+data class DeckGroup(
+    val id: String,
+    val kind: DeckKind,
+    val title: String,
+    val parts: List<Deck>,
+) {
+    val totalCount: Int get() = parts.sumOf { it.totalCount }
+    val completedCount: Int get() = parts.sumOf { it.completedCount }
+    val remainingCount: Int get() = parts.sumOf { it.remainingCount }
+    val reclaimableBytes: Long get() = parts.sumOf { it.reclaimableBytes }
+    val progress: Float
+        get() = if (totalCount == 0) 0f else completedCount.toFloat() / totalCount
+
+    /** First part with cards left, so the user always resumes where they stopped. */
+    val nextDeck: Deck? get() = parts.firstOrNull { it.remainingCount > 0 } ?: parts.firstOrNull()
+
+    val coverItem get() = parts.firstOrNull()?.items?.firstOrNull()
+
+    companion object {
+        /** Collapse a flat deck list into groups, preserving order. */
+        fun from(decks: List<Deck>): List<DeckGroup> =
+            decks.groupBy { it.groupId }.map { (groupId, parts) ->
+                DeckGroup(
+                    id = groupId,
+                    kind = parts.first().kind,
+                    title = parts.first().groupTitle,
+                    parts = parts,
+                )
+            }
+    }
 }
 
 /**

@@ -4,7 +4,7 @@
             "outputFile": "com.swipedelete.zero.app-mergeFdroidDebugResources-2:/values-v21/values-v21.xml",
             "map": [
                 {
-                    "source": "/root/.gradle/caches/8.11.1/transforms/c9cca40c39e366cf82f803c4bae134ef/transformed/media-1.7.0/res/values-v21/values-v21.xml",
+                    "source": "/root/.gradle/caches/8.11.1/transforms/c69217c43b69471a6830bf1b9ea3d499/transformed/media-1.7.0/res/values-v21/values-v21.xml",
                     "from": {
                         "startLines": "2,5,8,11",
                         "startColumns": "4,4,4,4",
@@ -23,7 +23,7 @@
                     }
                 },
                 {
-                    "source": "/root/.gradle/caches/8.11.1/transforms/f7af5de87d25a5ab9302dc0d18923a26/transformed/core-1.15.0/res/values-v21/values-v21.xml",
+                    "source": "/root/.gradle/caches/8.11.1/transforms/97dcc2bdbe80d9f9e18cdf8ebf674a28/transformed/core-1.15.0/res/values-v21/values-v21.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,13",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4",
@@ -42,7 +42,7 @@
                     }
                 },
                 {
-                    "source": "/root/.gradle/caches/8.11.1/transforms/e06c8605eb856c2b252154749db5f329/transformed/media3-ui-1.5.1/res/values-v21/values-v21.xml",
+                    "source": "/root/.gradle/caches/8.11.1/transforms/2a2fdde6c3fdce842176565bf459477b/transformed/media3-ui-1.5.1/res/values-v21/values-v21.xml",
                     "from": {
                         "startLines": "2,3",
                         "startColumns": "4,4",

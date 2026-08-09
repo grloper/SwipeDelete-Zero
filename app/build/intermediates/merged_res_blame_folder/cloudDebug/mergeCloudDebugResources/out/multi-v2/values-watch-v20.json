@@ -4,7 +4,7 @@
             "outputFile": "com.swipedelete.zero.app-mergeCloudDebugResources-2:/values-watch-v20/values-watch-v20.xml",
             "map": [
                 {
-                    "source": "/root/.gradle/caches/8.11.1/transforms/bdeb0570065675bffd24fc5d19613f57/transformed/play-services-auth-21.3.0/res/values-watch-v20/values.xml",
+                    "source": "/root/.gradle/caches/8.11.1/transforms/42c22807bc6055157f0e08fe80de5008/transformed/play-services-auth-21.3.0/res/values-watch-v20/values.xml",
                     "from": {
                         "startLines": "4,5,6,7,8,9,10,11",
                         "startColumns": "0,0,0,0,0,0,0,0",

@@ -10,6 +10,7 @@ import com.swipedelete.zero.domain.model.Deck
 import com.swipedelete.zero.ui.screens.dashboard.DashboardScreen
 import com.swipedelete.zero.ui.screens.dual.DualCardSplitScreen
 import com.swipedelete.zero.ui.screens.settings.SettingsScreen
+import com.swipedelete.zero.ui.screens.setup.CloudSetupScreen
 import com.swipedelete.zero.ui.screens.staging.StagingDrawerScreen
 import com.swipedelete.zero.ui.screens.swipe.SwipeEngineScreen
 
@@ -56,7 +57,14 @@ fun AppNavigation() {
         }
 
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = { navController.popBackStack() })
+            SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenCloudSetup = { navController.navigate(Routes.CLOUD_SETUP) },
+            )
+        }
+
+        composable(Routes.CLOUD_SETUP) {
+            CloudSetupScreen(onBack = { navController.popBackStack() })
         }
     }
 }

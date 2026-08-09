@@ -82,6 +82,10 @@ interface DeckSessionDao {
     @Query("SELECT * FROM deck_sessions")
     fun observeAll(): Flow<List<DeckSessionEntity>>
 
+    /** All sessions in one round trip — avoids a query per deck when merging progress. */
+    @Query("SELECT * FROM deck_sessions")
+    suspend fun getAll(): List<DeckSessionEntity>
+
     @Upsert
     suspend fun upsert(session: DeckSessionEntity)
 

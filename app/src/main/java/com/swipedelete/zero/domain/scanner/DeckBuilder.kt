@@ -34,12 +34,29 @@ class DeckBuilder @Inject constructor(
     /** Large-video threshold for Heavy Hitters (100 MB). */
     private val heavyVideoBytes = 100L * 1024 * 1024
 
+    /** Any non-video this big is also worth surfacing (40 MB). */
+    private val stillImageHeavyBytes = 40L * 1024 * 1024
+
     /** Hamming distance under which two dHashes are treated as near-duplicates. */
     private val duplicateHammingThreshold = 6
 
     data class ScanResult(
         val decks: List<Deck>,
         val comparisonDecks: Map<String, List<ComparisonPair>>,
+        /**
+         * Bytes held by files flagged as cleanup candidates, counted **once**
+         * each.
+         *
+         * Summing every deck's bytes multi-counts badly: one large video is
+         * simultaneously in its month deck, Heavy Hitters and Large Videos, so
+         * the naive total can exceed the device's entire used space and read as
+         * a fabricated number. Time Machine is excluded because it contains the
+         * whole library by construction — including it would just report
+         * "everything you own" as reclaimable.
+         */
+        val candidateBytes: Long = 0,
+        /** Distinct files flagged as candidates. */
+        val candidateCount: Int = 0,
     )
 
     suspend fun buildAll(): ScanResult = withContext(Dispatchers.Default) {
@@ -70,9 +87,21 @@ class DeckBuilder @Inject constructor(
             addAll(screenshotsDecks(items))
         }
         val comparisons = duplicateComparisonDecks(items)
+        val allDecks = decks + comparisons.keys.map { placeholderDeckFor(it, comparisons) }
 
-        ScanResult(decks = decks + comparisons.keys.map { placeholderDeckFor(it, comparisons) },
-            comparisonDecks = comparisons)
+        val candidates = allDecks
+            .asSequence()
+            .filter { it.kind != DeckKind.TIME_MACHINE }
+            .flatMap { it.items.asSequence() }
+            .distinctBy { it.contentUri }
+            .toList()
+
+        ScanResult(
+            decks = allDecks,
+            comparisonDecks = comparisons,
+            candidateBytes = candidates.sumOf { it.sizeBytes },
+            candidateCount = candidates.size,
+        )
     }
 
     // --- Time Machine ---------------------------------------------------------
@@ -95,7 +124,10 @@ class DeckBuilder @Inject constructor(
 
     private fun heavyHitterDecks(items: List<MediaItem>): List<Deck> {
         val heavy = items
-            .filter { it.isVideo && it.sizeBytes >= heavyVideoBytes || it.sizeBytes >= 40L * 1024 * 1024 }
+            // Parenthesised deliberately: `&&` binds tighter than `||`, so the
+            // unbracketed form collapsed to "any file ≥ 40 MB" and the video
+            // threshold never applied at all.
+            .filter { (it.isVideo && it.sizeBytes >= heavyVideoBytes) || it.sizeBytes >= stillImageHeavyBytes }
             .sortedByDescending { it.sizeBytes }
         return chunkIntoDecks(
             idPrefix = "heavy",
@@ -133,11 +165,16 @@ class DeckBuilder @Inject constructor(
 
     // --- Clutter Hotspots -----------------------------------------------------
 
+    // "Hotspot" must mean a genuinely clutter-prone folder. Matching
+    // "dcim/camera" swept in the entire camera roll, which then re-chunked into
+    // hundreds of near-identical "Camera Bursts · Part N" decks — the whole
+    // library duplicated under a misleading label, since Time Machine already
+    // covers it.
     private val hotspotMatchers = linkedMapOf(
         "Screenshots" to listOf("screenshot"),
         "WhatsApp Media" to listOf("whatsapp"),
         "Telegram" to listOf("telegram"),
-        "Camera Bursts" to listOf("burst", "dcim/camera"),
+        "Camera Bursts" to listOf("burst"),
         "Downloads" to listOf("download"),
     )
 
@@ -228,6 +265,8 @@ class DeckBuilder @Inject constructor(
             title = "Duplicates",
             subtitle = "${pairs.size} sets to compare",
             items = items,
+            groupId = "duplicates",
+            groupTitle = "Duplicates",
         )
     }
 
@@ -261,6 +300,8 @@ class DeckBuilder @Inject constructor(
                 title = title + suffix,
                 subtitle = subtitleFor(chunk),
                 items = chunk,
+                groupId = idPrefix,
+                groupTitle = title,
             )
         }
     }
