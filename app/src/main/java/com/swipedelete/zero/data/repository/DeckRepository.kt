@@ -25,13 +25,33 @@ class DeckRepository @Inject constructor(
     private val mutex = Mutex()
     @Volatile private var cache: DeckBuilder.ScanResult? = null
 
-    suspend fun getDecks(forceRefresh: Boolean = false): List<Deck> {
+    /** Decks plus the de-duplicated totals the dashboard headline needs. */
+    data class LibrarySummary(
+        val decks: List<Deck>,
+        val candidateBytes: Long,
+        val candidateCount: Int,
+    )
+
+    suspend fun getDecks(forceRefresh: Boolean = false): List<Deck> =
+        getSummary(forceRefresh).decks
+
+    suspend fun getSummary(forceRefresh: Boolean = false): LibrarySummary {
         val result = scan(forceRefresh)
-        // Merge persisted progress so the dashboard shows accurate rings.
-        return result.decks.map { deck ->
-            val session = sessionDao.get(deck.id)
+        // Merge persisted progress so the dashboard shows accurate rings. One
+        // query for the whole table, not one per deck — a large library builds
+        // hundreds of decks, and the per-deck lookup made every dashboard load
+        // (and every deck open, which calls through here) pay that many
+        // sequential round trips.
+        val sessions = sessionDao.getAll().associateBy { it.deckId }
+        val decks = result.decks.map { deck ->
+            val session = sessions[deck.id]
             if (session != null) deck.copy(completedCount = session.cursor) else deck
         }
+        return LibrarySummary(
+            decks = decks,
+            candidateBytes = result.candidateBytes,
+            candidateCount = result.candidateCount,
+        )
     }
 
     suspend fun getDeck(deckId: String): Deck? =

@@ -14,8 +14,8 @@ android {
         applicationId = "com.swipedelete.zero"
         minSdk = 29
         targetSdk = 35
-        versionCode = 5
-        versionName = "3.0.0"
+        versionCode = 6
+        versionName = "3.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -152,6 +152,8 @@ dependencies {
     // Test
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Stubs android.net.Uri so pure-JVM tests can build MediaItem fixtures.
+    testImplementation(libs.mockito.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.room.testing)

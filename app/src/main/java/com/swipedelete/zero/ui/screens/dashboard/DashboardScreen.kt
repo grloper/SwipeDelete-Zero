@@ -23,6 +23,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -74,6 +77,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,6 +88,7 @@ import coil.compose.AsyncImage
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import com.swipedelete.zero.domain.model.Deck
+import com.swipedelete.zero.domain.model.DeckGroup
 import com.swipedelete.zero.domain.model.DeckKind
 import com.swipedelete.zero.domain.scanner.DeckBuilder
 import com.swipedelete.zero.ui.components.SortChip
@@ -180,7 +185,16 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 120.dp),
+            // The gesture bar's height varies by device, so add the real inset
+            // on top of the floating pill's clearance instead of guessing with
+            // a fixed dp — otherwise the last bucket row hides behind it.
+            contentPadding = PaddingValues(
+                start = 20.dp,
+                end = 20.dp,
+                top = 24.dp,
+                bottom = 120.dp +
+                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item(key = "header") { BrandHeader(onOpenSettings) }
@@ -196,8 +210,11 @@ fun DashboardScreen(
                 }
                 item(key = "sprints-row") {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(sections.sprints, key = { it.id }) { deck ->
-                            SprintCard(deck = deck, onClick = { onOpenDeck(deck) })
+                        items(sections.sprints, key = { it.id }) { group ->
+                            SprintCard(
+                                group = group,
+                                onClick = { group.nextDeck?.let(onOpenDeck) },
+                            )
                         }
                     }
                 }
@@ -209,7 +226,13 @@ fun DashboardScreen(
                     SectionTitle("AI Smart Buckets", null)
                 }
                 item(key = "buckets-grid") {
-                    BucketGrid(sections, onOpenDeck)
+                    BucketGrid(
+                        sections = sections,
+                        needsScan = !state.hasAnalysis,
+                        scanning = state.isScanning,
+                        onOpenDeck = onOpenDeck,
+                        onScanNow = viewModel::scanNow,
+                    )
                 }
             }
 
@@ -247,8 +270,8 @@ fun DashboardScreen(
                         onRequestAccess = { permissionLauncher.launch(MediaPermissions) },
                     )
                 }
-                else -> items(sortedOthers, key = { it.id }) { deck ->
-                    DeckRow(deck = deck, onClick = { onOpenDeck(deck) })
+                else -> items(sortedOthers, key = { it.id }) { group ->
+                    DeckRow(group = group, onClick = { group.nextDeck?.let(onOpenDeck) })
                 }
             }
         }
@@ -285,12 +308,14 @@ fun DashboardScreen(
 
 /** Deck grouping for the three dashboard sections. */
 private data class DashboardSections(
-    val sprints: List<Deck>,
+    /** One entry per month, not per 50-card part. */
+    val sprints: List<DeckGroup>,
     val duplicates: List<Deck>,
     val blurry: List<Deck>,
     val largeVideos: List<Deck>,
     val screenshots: List<Deck>,
-    val others: List<Deck>,
+    /** Clutter hotspots and remaining heavy hitters, also collapsed by group. */
+    val others: List<DeckGroup>,
 ) {
     val hasBuckets: Boolean
         get() = duplicates.isNotEmpty() || blurry.isNotEmpty() ||
@@ -303,15 +328,17 @@ private data class DashboardSections(
                     it.id.startsWith("${DeckBuilder.LARGE_VIDEO_DECK_ID}:")
             }
             return DashboardSections(
-                sprints = decks.filter { it.kind == DeckKind.TIME_MACHINE },
+                sprints = DeckGroup.from(decks.filter { it.kind == DeckKind.TIME_MACHINE }),
                 duplicates = decks.filter { it.kind == DeckKind.DUPLICATES },
                 blurry = decks.filter { it.kind == DeckKind.BLURRY },
                 largeVideos = largeVideos,
                 screenshots = decks.filter { it.kind == DeckKind.SCREENSHOTS },
-                others = decks.filter { deck ->
-                    deck.kind == DeckKind.CLUTTER_HOTSPOT ||
-                        (deck.kind == DeckKind.HEAVY_HITTERS && deck !in largeVideos)
-                },
+                others = DeckGroup.from(
+                    decks.filter { deck ->
+                        deck.kind == DeckKind.CLUTTER_HOTSPOT ||
+                            (deck.kind == DeckKind.HEAVY_HITTERS && deck !in largeVideos)
+                    }
+                ),
             )
         }
     }
@@ -340,7 +367,7 @@ private fun SectionTitle(title: String, count: Int?) {
  * ring, and "% complete" so a half-finished month invites you back.
  */
 @Composable
-private fun SprintCard(deck: Deck, onClick: () -> Unit) {
+private fun SprintCard(group: DeckGroup, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .width(150.dp)
@@ -350,7 +377,7 @@ private fun SprintCard(deck: Deck, onClick: () -> Unit) {
             .border(1.dp, SdzColors.Hairline, RoundedCornerShape(20.dp))
             .clickable(onClick = onClick),
     ) {
-        deck.items.firstOrNull()?.let { cover ->
+        group.coverItem?.let { cover ->
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(cover.contentUri)
@@ -374,7 +401,7 @@ private fun SprintCard(deck: Deck, onClick: () -> Unit) {
                 )
         )
         ProgressRing(
-            progress = deck.progress,
+            progress = group.progress,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(10.dp)
@@ -387,7 +414,7 @@ private fun SprintCard(deck: Deck, onClick: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
-                deck.title,
+                group.title,
                 color = SdzColors.PureWhite,
                 fontWeight = FontWeight.Black,
                 maxLines = 2,
@@ -395,18 +422,20 @@ private fun SprintCard(deck: Deck, onClick: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                if (deck.completedCount > 0) {
-                    "${(deck.progress * 100).roundToInt()}% complete"
+                if (group.completedCount > 0) {
+                    "${(group.progress * 100).roundToInt()}% complete"
                 } else {
-                    "${deck.totalCount} cards"
+                    "${group.totalCount} cards"
                 },
-                color = if (deck.completedCount > 0) SdzColors.ElectricEmerald else SdzColors.MutedGray,
+                color = if (group.completedCount > 0) SdzColors.ElectricEmerald else SdzColors.MutedGray,
+                fontFamily = FontFamily.Monospace,
                 style = MaterialTheme.typography.labelMedium,
             )
             Text(
-                deck.reclaimableBytes.toReadableSize(),
+                group.reclaimableBytes.toReadableSize(),
                 color = SdzColors.CrispCyan,
                 fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
                 style = MaterialTheme.typography.labelMedium,
             )
         }
@@ -452,7 +481,13 @@ private fun ProgressRing(progress: Float, modifier: Modifier = Modifier) {
 
 /** 2×2 grid of the four AI buckets, each aggregating its decks. */
 @Composable
-private fun BucketGrid(sections: DashboardSections, onOpenDeck: (Deck) -> Unit) {
+private fun BucketGrid(
+    sections: DashboardSections,
+    needsScan: Boolean,
+    scanning: Boolean,
+    onOpenDeck: (Deck) -> Unit,
+    onScanNow: () -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             BucketCard(
@@ -460,7 +495,12 @@ private fun BucketGrid(sections: DashboardSections, onOpenDeck: (Deck) -> Unit) 
                 icon = Icons.Rounded.ContentCopy,
                 accent = SdzColors.StarGold,
                 decks = sections.duplicates,
+                // These two are the only buckets built from on-device analysis,
+                // so they are the only ones that can be "not scanned yet".
+                needsScan = needsScan,
+                scanning = scanning,
                 onOpenDeck = onOpenDeck,
+                onScanNow = onScanNow,
                 modifier = Modifier.weight(1f),
             )
             BucketCard(
@@ -468,7 +508,10 @@ private fun BucketGrid(sections: DashboardSections, onOpenDeck: (Deck) -> Unit) 
                 icon = Icons.Rounded.BlurOn,
                 accent = SdzColors.CrispCyan,
                 decks = sections.blurry,
+                needsScan = needsScan,
+                scanning = scanning,
                 onOpenDeck = onOpenDeck,
+                onScanNow = onScanNow,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -501,18 +544,28 @@ private fun BucketCard(
     decks: List<Deck>,
     onOpenDeck: (Deck) -> Unit,
     modifier: Modifier = Modifier,
+    needsScan: Boolean = false,
+    scanning: Boolean = false,
+    onScanNow: () -> Unit = {},
 ) {
     val itemCount = decks.sumOf { it.remainingCount }
     val bytes = decks.sumOf { it.reclaimableBytes }
     val target = decks.firstOrNull { it.remainingCount > 0 } ?: decks.firstOrNull()
-    val enabled = target != null
+    val hasResults = target != null
+    // Empty because we never looked is a completely different state from empty
+    // because there is nothing to find — never label the first one "All clean".
+    val unscanned = !hasResults && needsScan
 
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
             .background(SdzColors.Obsidian)
-            .border(1.dp, if (enabled) accent.copy(alpha = 0.35f) else SdzColors.Hairline, RoundedCornerShape(20.dp))
-            .clickable(enabled = enabled) { target?.let(onOpenDeck) }
+            .border(
+                1.dp,
+                if (hasResults || unscanned) accent.copy(alpha = 0.35f) else SdzColors.Hairline,
+                RoundedCornerShape(20.dp),
+            )
+            .clickable(enabled = hasResults) { target?.let(onOpenDeck) }
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -520,29 +573,64 @@ private fun BucketCard(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(accent.copy(alpha = if (enabled) 0.18f else 0.08f)),
+                .background(accent.copy(alpha = if (hasResults || unscanned) 0.18f else 0.08f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 icon,
                 contentDescription = null,
-                tint = if (enabled) accent else SdzColors.MutedGray,
+                tint = if (hasResults || unscanned) accent else SdzColors.MutedGray,
                 modifier = Modifier.size(20.dp),
             )
         }
         Text(
             title,
-            color = if (enabled) SdzColors.PureWhite else SdzColors.MutedGray,
+            color = if (hasResults || unscanned) SdzColors.PureWhite else SdzColors.MutedGray,
             fontWeight = FontWeight.Bold,
             maxLines = 2,
             minLines = 2,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyMedium,
         )
+        when {
+            hasResults -> Text(
+                "$itemCount items · ${bytes.toReadableSize()}",
+                color = accent,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            scanning && needsScan -> Text(
+                "Scanning…",
+                color = accent,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            unscanned -> ScanNowChip(accent = accent, onClick = onScanNow)
+            else -> Text(
+                "All clean",
+                color = SdzColors.MutedGray,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ScanNowChip(accent: Color, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(accent.copy(alpha = 0.16f))
+            .border(1.dp, accent.copy(alpha = 0.6f), RoundedCornerShape(50))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
         Text(
-            if (enabled) "$itemCount items · ${bytes.toReadableSize()}" else "All clean",
-            color = if (enabled) accent else SdzColors.MutedGray,
-            fontWeight = FontWeight.Bold,
+            "Scan now",
+            color = accent,
+            fontWeight = FontWeight.Black,
             style = MaterialTheme.typography.labelMedium,
         )
     }
@@ -602,7 +690,10 @@ private fun BrandHeader(onOpenSettings: () -> Unit) {
 
 @Composable
 private fun HeroCard(state: DashboardUiState) {
-    val reclaimable = state.decks.sumOf { it.reclaimableBytes }
+    // Each candidate file counted once, capped at what the device actually
+    // holds — the previous total summed overlapping decks and could exceed the
+    // disk's used space, which reads as a made-up number.
+    val reclaimable = state.headlineReclaimableBytes
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -615,6 +706,7 @@ private fun HeroCard(state: DashboardUiState) {
         Text(
             "READY TO REVIEW",
             style = MaterialTheme.typography.labelMedium,
+            fontFamily = FontFamily.Monospace,
             color = SdzColors.MutedGray,
         )
         val pulse = rememberInfiniteTransition(label = "hero-pulse")
@@ -628,7 +720,7 @@ private fun HeroCard(state: DashboardUiState) {
             when {
                 state.loading -> "Scanning…"
                 reclaimable == 0L -> "All clean"
-                else -> "up to " + reclaimable.toReadableSize()
+                else -> reclaimable.toReadableSize()
             },
             style = MaterialTheme.typography.displayLarge,
             color = SdzColors.ElectricEmerald,
@@ -640,7 +732,8 @@ private fun HeroCard(state: DashboardUiState) {
             when {
                 state.loading -> "building decks from your library"
                 reclaimable == 0L -> "your library is already lean"
-                else -> "across ${state.decks.size} decks · nothing leaves this device"
+                else -> "flagged across ${state.candidateCount} files · " +
+                    "de-duplicated, no file counted twice"
             },
             style = MaterialTheme.typography.labelMedium,
             color = SdzColors.MutedGray,
@@ -709,13 +802,14 @@ private fun LegendItem(color: Color, label: String, bytes: Long) {
         Text(
             "$label ${bytes.toReadableSize()}",
             style = MaterialTheme.typography.labelMedium,
+            fontFamily = FontFamily.Monospace,
             color = SdzColors.MutedGray,
         )
     }
 }
 
 @Composable
-private fun DeckRow(deck: Deck, onClick: () -> Unit) {
+private fun DeckRow(group: DeckGroup, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -727,10 +821,10 @@ private fun DeckRow(deck: Deck, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        DeckThumbFan(deck)
+        DeckThumbFan(group)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                deck.title,
+                group.title,
                 color = SdzColors.PureWhite,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -738,17 +832,24 @@ private fun DeckRow(deck: Deck, onClick: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                if (deck.completedCount > 0) {
-                    "${deck.remainingCount} of ${deck.totalCount} left · ${deck.reclaimableBytes.toReadableSize()}"
-                } else {
-                    "${deck.totalCount} cards · ${deck.reclaimableBytes.toReadableSize()}"
+                buildString {
+                    if (group.completedCount > 0) {
+                        append("${group.remainingCount} of ${group.totalCount} left")
+                    } else {
+                        append("${group.totalCount} cards")
+                    }
+                    append(" · ${group.reclaimableBytes.toReadableSize()}")
+                    // Sessions stay ≤50 cards; say so instead of splitting the
+                    // dashboard into near-identical "Part N" rows.
+                    if (group.parts.size > 1) append(" · ${group.parts.size} sessions")
                 },
                 color = SdzColors.MutedGray,
+                fontFamily = FontFamily.Monospace,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.labelMedium,
             )
-            if (deck.completedCount > 0) {
+            if (group.completedCount > 0) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -758,10 +859,10 @@ private fun DeckRow(deck: Deck, onClick: () -> Unit) {
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(deck.progress.coerceIn(0f, 1f))
+                            .fillMaxWidth(group.progress.coerceIn(0f, 1f))
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(2.dp))
-                            .background(deck.kind.accent()),
+                            .background(group.kind.accent()),
                     )
                 }
             }
@@ -779,8 +880,8 @@ private fun DeckRow(deck: Deck, onClick: () -> Unit) {
  * shows the actual photos at stake, not an abstract stat.
  */
 @Composable
-private fun DeckThumbFan(deck: Deck) {
-    val thumbs = deck.items.take(3)
+private fun DeckThumbFan(group: DeckGroup) {
+    val thumbs = group.parts.firstOrNull()?.items.orEmpty().take(3)
     Box(Modifier.size(76.dp)) {
         thumbs.asReversed().forEachIndexed { revIndex, item ->
             val depth = thumbs.lastIndex - revIndex // 2 back … 0 front (drawn last)
@@ -811,7 +912,7 @@ private fun DeckThumbFan(deck: Deck) {
                 )
             }
         }
-        KindBadge(deck.kind, Modifier.align(Alignment.BottomStart))
+        KindBadge(group.kind, Modifier.align(Alignment.BottomStart))
     }
 }
 
@@ -979,16 +1080,20 @@ private enum class DeckSort {
     /** The curated order the deck builder produced. */
     FOR_YOU,
 
-    /** Decks whose newest item is most recent first. */
+    /** Groups whose newest item is most recent first. */
     NEWEST,
 
     /** Most reclaimable bytes first. */
     LARGEST;
 
-    fun apply(decks: List<Deck>): List<Deck> = when (this) {
-        FOR_YOU -> decks
-        NEWEST -> decks.sortedByDescending { deck -> deck.items.maxOfOrNull { it.dateAddedMillis } ?: 0L }
-        LARGEST -> decks.sortedByDescending { it.reclaimableBytes }
+    fun apply(groups: List<DeckGroup>): List<DeckGroup> = when (this) {
+        FOR_YOU -> groups
+        NEWEST -> groups.sortedByDescending { group ->
+            group.parts.maxOfOrNull { deck ->
+                deck.items.maxOfOrNull { it.dateAddedMillis } ?: 0L
+            } ?: 0L
+        }
+        LARGEST -> groups.sortedByDescending { it.reclaimableBytes }
     }
 }
 

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -45,6 +46,7 @@ import com.swipedelete.zero.ui.theme.SdzColors
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenCloudSetup: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val exclusions by viewModel.exclusions.collectAsStateWithLifecycle()
@@ -63,6 +65,7 @@ fun SettingsScreen(
             .fillMaxSize()
             .background(SdzColors.PitchBlack)
             .statusBarsPadding()
+            .navigationBarsPadding()
             .padding(horizontal = 20.dp),
     ) {
         Row(
@@ -92,6 +95,7 @@ fun SettingsScreen(
                 onConnect = { viewModel.signInIntent()?.let { signInLauncher.launch(it) } },
                 onBackupNow = viewModel::backupNow,
                 onDisconnect = viewModel::disconnectBackup,
+                onOpenSetup = onOpenCloudSetup,
             )
             Spacer(Modifier.height(20.dp))
         }
@@ -110,9 +114,23 @@ fun SettingsScreen(
         )
 
         if (exclusions.isEmpty()) {
-            Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) {
-                Text("Vault is empty. Swipe up on a card to star & exclude it.", color = SdzColors.MutedGray)
+            // A compact card, not a centred label in a weight(1f) box — that
+            // stretched to fill the screen and left the text marooned mid-page.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(SdzColors.Obsidian)
+                    .border(1.dp, SdzColors.Hairline, RoundedCornerShape(16.dp))
+                    .padding(16.dp),
+            ) {
+                Text(
+                    "Vault is empty. Swipe up on a card to star & exclude it.",
+                    color = SdzColors.MutedGray,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
+            Spacer(Modifier.weight(1f))
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f),
@@ -146,6 +164,7 @@ private fun DriveBackupSection(
     onConnect: () -> Unit,
     onBackupNow: () -> Unit,
     onDisconnect: () -> Unit,
+    onOpenSetup: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -178,10 +197,36 @@ private fun DriveBackupSection(
 
         when (state) {
             is BackupState.SignedOut -> {
-                state.message?.let {
-                    Text(it, color = SdzColors.HyperCoral, style = MaterialTheme.typography.labelMedium)
+                // A raw status code helps nobody: when a decoded diagnosis
+                // exists, say what broke and send the user to the step that
+                // fixes it rather than to a docs file they have to go find.
+                val diagnostic = state.diagnostic
+                if (diagnostic != null) {
+                    Text(
+                        diagnostic.headline,
+                        color = SdzColors.HyperCoral,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Text(
+                        diagnostic.fix,
+                        color = SdzColors.MutedGray,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    BackupButton(text = "Fix in setup wizard", onClick = onOpenSetup)
+                } else {
+                    state.message?.let {
+                        Text(it, color = SdzColors.HyperCoral, style = MaterialTheme.typography.labelMedium)
+                    }
+                    BackupButton(text = "Connect Google account", onClick = onConnect)
+                    Text(
+                        "First time? The setup wizard walks through it and shows the exact "
+                            + "values Google needs.",
+                        color = SdzColors.MutedGray,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    BackupButton(text = "Open setup wizard", onClick = onOpenSetup)
                 }
-                BackupButton(text = "Connect Google Drive", onClick = onConnect)
             }
 
             is BackupState.Ready -> {

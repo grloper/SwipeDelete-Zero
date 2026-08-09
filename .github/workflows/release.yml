@@ -120,3 +120,32 @@ jobs:
 
             > Debug-signed with the repo's committed debug keystore (directly installable).
             > Built from commit `${{ github.sha }}`.
+
+      # The rolling pre-release is meant to hold exactly one build: the latest.
+      # Because asset filenames carry the version, a new build never overwrites
+      # the old one — it just piles up alongside it, so the page grows an
+      # ever-longer list of stale APKs and it stops being obvious which one to
+      # install. Drop everything that is not the version we just published.
+      # Permanent v* releases are untouched; they keep their own asset copies.
+      - name: Prune stale rolling assets
+        if: steps.meta.outputs.tag == 'rolling'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.stage.outputs.version }}
+        run: |
+          set -euo pipefail
+          api="repos/${{ github.repository }}/releases"
+          release_id=$(gh api "$api/tags/rolling" --jq '.id')
+          gh api "$api/$release_id/assets" --paginate > /tmp/rolling-assets.json
+          # `contains` (not a regex) — version strings have dots in them.
+          jq -r --arg v "$VERSION" \
+            '.[] | select(.name | contains("-" + $v + "-") | not) | "\(.id)\t\(.name)"' \
+            /tmp/rolling-assets.json > /tmp/stale.tsv
+          if [ ! -s /tmp/stale.tsv ]; then
+            echo "No stale assets on the rolling release."
+            exit 0
+          fi
+          while IFS=$'\t' read -r id name; do
+            echo "Removing stale asset: $name"
+            gh api -X DELETE "$api/assets/$id"
+          done < /tmp/stale.tsv

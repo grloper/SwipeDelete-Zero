@@ -5,6 +5,7 @@ object Routes {
     const val DASHBOARD = "dashboard"
     const val STAGING = "staging"
     const val SETTINGS = "settings"
+    const val CLOUD_SETUP = "cloud-setup"
 
     private const val DECK_ARG = "deckId"
     const val SWIPE_ENGINE = "deck/{$DECK_ARG}"
