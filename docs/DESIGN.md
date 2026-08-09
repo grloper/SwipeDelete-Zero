@@ -237,3 +237,46 @@ a red/green collision that repeated the palette bug at 48 dp.
 - No decision depends on hue: icon silhouette, position and text all carry it.
 - The storage meter exposes a spoken summary; the celebration is an assertive
   live region so the result is announced rather than skipped.
+
+---
+
+## 10. What the app is allowed to claim about the cloud
+
+The backup UI used to say "Cloud Backed Up" or "Local Only", and Settings said
+"12 backed up". All three were claims the app could not support.
+
+**The constraint.** The Google Photos scope this app holds is
+`photoslibrary.appendonly` — upload-only. The read scope that survived the 2025
+API changes, `photoslibrary.readonly.appcreateddata`, sees only items *this app*
+created. There is no scope on this app's consent screen that can enumerate the
+user's library. Therefore the app can never know whether the Google Photos app
+already backed a photo up on its own. "Local Only" asserted exactly that, and
+was wrong for every photo Photos had auto-backed.
+
+**The rules the UI now follows.**
+
+1. **Name the destination.** Kept/starred files go to Drive; swipe-up archives
+   go to Photos. They are not interchangeable — only the Photos copy appears in
+   the user's photo library — so the ledger records `destination` per row and
+   every surface says which one.
+2. **"Uploaded" ≠ "Verified".** A 200 at write time proves the request was
+   accepted, not that the item survived. `RemoteState` separates `RECORDED`
+   (acknowledged), `CONFIRMED` (read back from the provider afterwards),
+   `MISSING` (the provider says it is gone) and `UNKNOWN` (the check itself
+   failed). Only `CONFIRMED` gets the word "verified".
+3. **Never assert a negative.** Absence from the ledger is rendered as "Not sent
+   by this app", not "Local Only". The Cloud monitor states the limitation in
+   full and points at the Photos app for the library-wide view.
+4. **Missing is red, and actionable.** `Safelight` appears here because a copy
+   the user believes exists and does not is the same class of problem as an
+   irreversible delete. The row offers "Forget & back up again", which drops the
+   ledger row so the file re-enters the pending-backup work-list.
+
+**The screens.** `CloudMonitorScreen` lists every file this app has sent —
+destination, status, size, time, remote id, error — merged with the live upload
+queue so in-flight work sorts to the top and problems sort above receipts.
+"Check my backups" runs `CloudBackup.reconcile()`, which reads every ledger row
+back from Drive (`files/{id}?fields=id,trashed`) or Photos
+(`mediaItems/{id}`) and records what it found. It is reachable from Settings in
+both the connected and the mid-upload states — "Uploading 4 of 51…" is a number
+with nothing behind it unless you can see which four.

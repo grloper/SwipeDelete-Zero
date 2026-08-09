@@ -67,6 +67,17 @@ interface CloudBackup {
      * wizard's "Verify connection" step so success is proven, not assumed.
      */
     suspend fun verifyConnection(): ConnectionCheck
+
+    /**
+     * Read every ledger row back from its provider and record whether the copy
+     * is still there.
+     *
+     * A 200 at upload time proves the request was accepted, not that the item
+     * survived — the user may have deleted it since, and a batch can fail
+     * silently. Nothing should be described to the user as "safe in the cloud"
+     * on the strength of a months-old write acknowledgement alone.
+     */
+    suspend fun reconcile(): ReconcileResult
 }
 
 @Singleton
@@ -78,6 +89,9 @@ class NoOpCloudBackup @Inject constructor() : CloudBackup {
     override fun signOut() = Unit
     override suspend fun verifyConnection() = ConnectionCheck(
         signedIn = false,
+        message = "This build has no network access by design.",
+    )
+    override suspend fun reconcile() = ReconcileResult(
         message = "This build has no network access by design.",
     )
 }

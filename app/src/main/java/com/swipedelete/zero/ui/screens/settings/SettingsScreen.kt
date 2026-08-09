@@ -49,12 +49,14 @@ import com.swipedelete.zero.ui.theme.SdzColor
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenCloudSetup: () -> Unit = {},
+    onOpenCloudMonitor: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val exclusions by viewModel.exclusions.collectAsStateWithLifecycle()
     val backupState by viewModel.backupState.collectAsStateWithLifecycle()
     val pendingBackupCount by viewModel.pendingBackupCount.collectAsStateWithLifecycle()
-    val backedUpCount by viewModel.backedUpCount.collectAsStateWithLifecycle()
+    val driveCount by viewModel.driveCount.collectAsStateWithLifecycle()
+    val photosCount by viewModel.photosCount.collectAsStateWithLifecycle()
 
     val signInLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -92,11 +94,13 @@ fun SettingsScreen(
             DriveBackupSection(
                 state = backupState,
                 pendingCount = pendingBackupCount,
-                backedUpCount = backedUpCount,
+                driveCount = driveCount,
+                photosCount = photosCount,
                 onConnect = { viewModel.signInIntent()?.let { signInLauncher.launch(it) } },
                 onBackupNow = viewModel::backupNow,
                 onDisconnect = viewModel::disconnectBackup,
                 onOpenSetup = onOpenCloudSetup,
+                onOpenMonitor = onOpenCloudMonitor,
             )
             Spacer(Modifier.height(20.dp))
         }
@@ -161,11 +165,13 @@ fun SettingsScreen(
 private fun DriveBackupSection(
     state: BackupState,
     pendingCount: Int,
-    backedUpCount: Int,
+    driveCount: Int,
+    photosCount: Int,
     onConnect: () -> Unit,
     onBackupNow: () -> Unit,
     onDisconnect: () -> Unit,
     onOpenSetup: () -> Unit,
+    onOpenMonitor: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -184,14 +190,15 @@ private fun DriveBackupSection(
                 modifier = Modifier.size(22.dp),
             )
             Text(
-                "Google Drive Backup",
+                "Cloud backup",
                 color = SdzColor.Phosphor,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium,
             )
         }
         Text(
-            "Kept & starred files are uploaded once each — new keeps are picked up by the next run, nothing is uploaded twice.",
+            "Kept & starred files go to Google Drive; swipe-up archives go to Google Photos. "
+                + "Each file is uploaded once — new keeps are picked up by the next run.",
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
         )
@@ -232,7 +239,12 @@ private fun DriveBackupSection(
 
             is BackupState.Ready -> {
                 Text(
-                    "${state.accountEmail} · $pendingCount pending · $backedUpCount backed up",
+                    state.accountEmail,
+                    color = SdzColor.TextSecondary,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Text(
+                    "$driveCount in Drive · $photosCount in Photos · $pendingCount pending",
                     color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -243,6 +255,7 @@ private fun DriveBackupSection(
                     text = if (pendingCount > 0) "Back up $pendingCount file${if (pendingCount == 1) "" else "s"} now" else "Backed up — nothing pending",
                     onClick = onBackupNow,
                 )
+                BackupButton(text = "See what's been uploaded", onClick = onOpenMonitor)
                 Text(
                     "Disconnect",
                     color = SdzColor.TextSecondary,
@@ -275,6 +288,9 @@ private fun DriveBackupSection(
                             .background(SdzColor.Teal),
                     )
                 }
+                // "Uploading 4 of 51…" is a number with nothing behind it unless
+                // the user can see *which* four and whether they landed.
+                BackupButton(text = "See what's been uploaded", onClick = onOpenMonitor)
             }
 
             BackupState.Unsupported -> Unit

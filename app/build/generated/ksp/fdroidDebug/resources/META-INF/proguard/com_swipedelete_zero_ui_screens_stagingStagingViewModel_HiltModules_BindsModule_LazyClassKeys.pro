@@ -4,4 +4,6 @@
 -keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.settings.SettingsViewModel
 -keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.setup.CloudSetupViewModel
 -keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.setup.CloudSetupViewModel
+-keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.cloud.CloudMonitorViewModel
+-keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.cloud.CloudMonitorViewModel
 -keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.staging.StagingViewModel

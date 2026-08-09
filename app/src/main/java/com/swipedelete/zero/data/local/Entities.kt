@@ -49,9 +49,23 @@ data class KeptFileEntity(
 data class BackedUpFileEntity(
     @PrimaryKey val contentUri: String,
     val sizeBytes: Long,
-    /** Remote file id (Google Drive file id for the cloud flavor). */
+    /** Drive file id, or the Google Photos mediaItemId. */
     val remoteId: String,
     val uploadedAtMillis: Long,
+    /**
+     * Which provider holds this copy. Without it the app can say "backed up"
+     * but not where, and a Drive copy is not a Photos copy — only the latter
+     * appears in the user's photo library.
+     */
+    val destination: String = "DRIVE",
+    /** Display name, so the monitor can list uploads without re-querying MediaStore. */
+    val displayName: String = "",
+    /** RECORDED / CONFIRMED / MISSING / UNKNOWN — see RemoteState. */
+    val remoteState: String = "RECORDED",
+    /** When the copy was last read back from the provider, 0 if never. */
+    val verifiedAtMillis: Long = 0,
+    /** Why a verification failed, when it did. */
+    val lastError: String? = null,
 )
 
 /**

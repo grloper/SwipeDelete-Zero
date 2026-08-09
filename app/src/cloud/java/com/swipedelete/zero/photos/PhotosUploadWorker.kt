@@ -12,9 +12,8 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.swipedelete.zero.data.local.BackedUpFileDao
-import com.swipedelete.zero.data.local.BackedUpFileEntity
 import com.swipedelete.zero.data.local.CloudUploadDao
+import com.swipedelete.zero.data.repository.BackupRepository
 import com.swipedelete.zero.data.local.CloudUploadEntity
 import com.swipedelete.zero.data.local.StagedFileDao
 import com.swipedelete.zero.data.local.StagedFileEntity
@@ -47,7 +46,7 @@ class PhotosUploadWorker @AssistedInject constructor(
     @Assisted private val appContext: Context,
     @Assisted params: WorkerParameters,
     private val uploadDao: CloudUploadDao,
-    private val backedUpFileDao: BackedUpFileDao,
+    private val backupRepository: BackupRepository,
     private val stagedFileDao: StagedFileDao,
     private val uploader: PhotosUploader,
 ) : CoroutineWorker(appContext, params) {
@@ -186,13 +185,13 @@ class PhotosUploadWorker @AssistedInject constructor(
     /** Ledger + staging — never a direct delete. */
     private suspend fun onVerified(row: CloudUploadEntity) {
         val now = System.currentTimeMillis()
-        backedUpFileDao.insert(
-            BackedUpFileEntity(
-                contentUri = row.contentUri,
-                sizeBytes = row.sizeBytes,
-                remoteId = "photos:${row.mediaItemId}",
-                uploadedAtMillis = now,
-            )
+        // Goes through the repository so the row carries its destination and
+        // starts CONFIRMED — batchCreate returning an id is a real handshake.
+        backupRepository.markArchived(
+            contentUri = row.contentUri,
+            displayName = row.displayName,
+            sizeBytes = row.sizeBytes,
+            mediaItemId = row.mediaItemId.orEmpty(),
         )
         stagedFileDao.stage(
             StagedFileEntity(

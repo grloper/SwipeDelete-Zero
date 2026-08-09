@@ -54,6 +54,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.swipedelete.zero.domain.model.SwipeDirection
 import com.swipedelete.zero.domain.scanner.VideoMeta
+import com.swipedelete.zero.domain.backup.CloudCopy
 import com.swipedelete.zero.ui.components.CloudChip
 import com.swipedelete.zero.ui.components.MediaPreview
 import com.swipedelete.zero.ui.components.MetadataPill
@@ -80,7 +81,7 @@ fun SwipeEngineScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val topVideoMeta by viewModel.topVideoMeta.collectAsStateWithLifecycle()
-    val backedUpUris by viewModel.backedUpUris.collectAsStateWithLifecycle()
+    val cloudCopies by viewModel.cloudCopies.collectAsStateWithLifecycle()
 
     // Ambient backdrop tracks the top card's dominant palette.
     val palette by rememberDominantColors(state.topItem)
@@ -147,7 +148,7 @@ fun SwipeEngineScreen(
                         fileCount = state.sessionReclaimedCount,
                         onDone = onBack,
                     )
-                    else -> CardStack(state, viewModel, topVideoMeta, backedUpUris, playerState)
+                    else -> CardStack(state, viewModel, topVideoMeta, cloudCopies, playerState)
                 }
             }
 
@@ -198,7 +199,7 @@ private fun CardStack(
     state: SwipeUiState,
     viewModel: SwipeEngineViewModel,
     topVideoMeta: VideoMeta?,
-    backedUpUris: Set<String>,
+    cloudCopies: Map<String, CloudCopy>,
     playerState: TopCardPlayerState,
 ) {
     val topItem = state.topItem ?: return
@@ -276,8 +277,10 @@ private fun CardStack(
                                 .padding(16.dp),
                         )
                     }
+                    val copy = cloudCopies[topItem.contentUri.toString()]
                     CloudChip(
-                        backedUp = topItem.contentUri.toString() in backedUpUris,
+                        destination = copy?.destination,
+                        remoteState = copy?.state,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(16.dp),

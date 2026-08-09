@@ -51,6 +51,10 @@ import com.swipedelete.zero.photos.GooglePhotosArchive;
 import com.swipedelete.zero.photos.PhotosUploadWorker;
 import com.swipedelete.zero.photos.PhotosUploadWorker_AssistedFactory;
 import com.swipedelete.zero.photos.PhotosUploader;
+import com.swipedelete.zero.ui.screens.cloud.CloudMonitorViewModel;
+import com.swipedelete.zero.ui.screens.cloud.CloudMonitorViewModel_HiltModules;
+import com.swipedelete.zero.ui.screens.cloud.CloudMonitorViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
+import com.swipedelete.zero.ui.screens.cloud.CloudMonitorViewModel_HiltModules_KeyModule_Provide_LazyMapKey;
 import com.swipedelete.zero.ui.screens.dashboard.DashboardViewModel;
 import com.swipedelete.zero.ui.screens.dashboard.DashboardViewModel_HiltModules;
 import com.swipedelete.zero.ui.screens.dashboard.DashboardViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
@@ -434,7 +438,7 @@ public final class DaggerSwipeDeleteApplication_HiltComponents_SingletonC {
 
     @Override
     public Map<Class<?>, Boolean> getViewModelKeys() {
-      return LazyClassKeyMap.<Boolean>of(ImmutableMap.<String, Boolean>builderWithExpectedSize(6).put(CloudSetupViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, CloudSetupViewModel_HiltModules.KeyModule.provide()).put(DashboardViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, DashboardViewModel_HiltModules.KeyModule.provide()).put(DualCardViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, DualCardViewModel_HiltModules.KeyModule.provide()).put(SettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, SettingsViewModel_HiltModules.KeyModule.provide()).put(StagingViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, StagingViewModel_HiltModules.KeyModule.provide()).put(SwipeEngineViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, SwipeEngineViewModel_HiltModules.KeyModule.provide()).build());
+      return LazyClassKeyMap.<Boolean>of(ImmutableMap.<String, Boolean>builderWithExpectedSize(7).put(CloudMonitorViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, CloudMonitorViewModel_HiltModules.KeyModule.provide()).put(CloudSetupViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, CloudSetupViewModel_HiltModules.KeyModule.provide()).put(DashboardViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, DashboardViewModel_HiltModules.KeyModule.provide()).put(DualCardViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, DualCardViewModel_HiltModules.KeyModule.provide()).put(SettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, SettingsViewModel_HiltModules.KeyModule.provide()).put(StagingViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, StagingViewModel_HiltModules.KeyModule.provide()).put(SwipeEngineViewModel_HiltModules_KeyModule_Provide_LazyMapKey.lazyClassKeyName, SwipeEngineViewModel_HiltModules.KeyModule.provide()).build());
     }
 
     @Override
@@ -462,6 +466,8 @@ public final class DaggerSwipeDeleteApplication_HiltComponents_SingletonC {
 
     private final ViewModelCImpl viewModelCImpl = this;
 
+    private Provider<CloudMonitorViewModel> cloudMonitorViewModelProvider;
+
     private Provider<CloudSetupViewModel> cloudSetupViewModelProvider;
 
     private Provider<DashboardViewModel> dashboardViewModelProvider;
@@ -487,17 +493,18 @@ public final class DaggerSwipeDeleteApplication_HiltComponents_SingletonC {
     @SuppressWarnings("unchecked")
     private void initialize(final SavedStateHandle savedStateHandleParam,
         final ViewModelLifecycle viewModelLifecycleParam) {
-      this.cloudSetupViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 0);
-      this.dashboardViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 1);
-      this.dualCardViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 2);
-      this.settingsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 3);
-      this.stagingViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 4);
-      this.swipeEngineViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 5);
+      this.cloudMonitorViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 0);
+      this.cloudSetupViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 1);
+      this.dashboardViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 2);
+      this.dualCardViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 3);
+      this.settingsViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 4);
+      this.stagingViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 5);
+      this.swipeEngineViewModelProvider = new SwitchingProvider<>(singletonCImpl, activityRetainedCImpl, viewModelCImpl, 6);
     }
 
     @Override
     public Map<Class<?>, javax.inject.Provider<ViewModel>> getHiltViewModelMap() {
-      return LazyClassKeyMap.<javax.inject.Provider<ViewModel>>of(ImmutableMap.<String, javax.inject.Provider<ViewModel>>builderWithExpectedSize(6).put(CloudSetupViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) cloudSetupViewModelProvider)).put(DashboardViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) dashboardViewModelProvider)).put(DualCardViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) dualCardViewModelProvider)).put(SettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) settingsViewModelProvider)).put(StagingViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) stagingViewModelProvider)).put(SwipeEngineViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) swipeEngineViewModelProvider)).build());
+      return LazyClassKeyMap.<javax.inject.Provider<ViewModel>>of(ImmutableMap.<String, javax.inject.Provider<ViewModel>>builderWithExpectedSize(7).put(CloudMonitorViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) cloudMonitorViewModelProvider)).put(CloudSetupViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) cloudSetupViewModelProvider)).put(DashboardViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) dashboardViewModelProvider)).put(DualCardViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) dualCardViewModelProvider)).put(SettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) settingsViewModelProvider)).put(StagingViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) stagingViewModelProvider)).put(SwipeEngineViewModel_HiltModules_BindsModule_Binds_LazyMapKey.lazyClassKeyName, ((Provider) swipeEngineViewModelProvider)).build());
     }
 
     @Override
@@ -526,22 +533,25 @@ public final class DaggerSwipeDeleteApplication_HiltComponents_SingletonC {
       @Override
       public T get() {
         switch (id) {
-          case 0: // com.swipedelete.zero.ui.screens.setup.CloudSetupViewModel 
+          case 0: // com.swipedelete.zero.ui.screens.cloud.CloudMonitorViewModel 
+          return (T) new CloudMonitorViewModel(singletonCImpl.backupRepositoryProvider.get(), singletonCImpl.driveCloudBackupProvider.get(), singletonCImpl.googlePhotosArchiveProvider.get(), singletonCImpl.cloudUploadDao());
+
+          case 1: // com.swipedelete.zero.ui.screens.setup.CloudSetupViewModel 
           return (T) new CloudSetupViewModel(singletonCImpl.driveCloudBackupProvider.get(), singletonCImpl.signingIdentityReaderProvider.get());
 
-          case 1: // com.swipedelete.zero.ui.screens.dashboard.DashboardViewModel 
+          case 2: // com.swipedelete.zero.ui.screens.dashboard.DashboardViewModel 
           return (T) new DashboardViewModel(singletonCImpl.deckRepositoryProvider.get(), singletonCImpl.stagingRepositoryProvider.get(), singletonCImpl.analysisSchedulerProvider.get());
 
-          case 2: // com.swipedelete.zero.ui.screens.dual.DualCardViewModel 
+          case 3: // com.swipedelete.zero.ui.screens.dual.DualCardViewModel 
           return (T) new DualCardViewModel(singletonCImpl.deckRepositoryProvider.get(), singletonCImpl.stagingRepositoryProvider.get(), singletonCImpl.backupRepositoryProvider.get(), viewModelCImpl.savedStateHandle);
 
-          case 3: // com.swipedelete.zero.ui.screens.settings.SettingsViewModel 
+          case 4: // com.swipedelete.zero.ui.screens.settings.SettingsViewModel 
           return (T) new SettingsViewModel(singletonCImpl.exclusionRepositoryProvider.get(), singletonCImpl.driveCloudBackupProvider.get(), singletonCImpl.backupRepositoryProvider.get());
 
-          case 4: // com.swipedelete.zero.ui.screens.staging.StagingViewModel 
+          case 5: // com.swipedelete.zero.ui.screens.staging.StagingViewModel 
           return (T) new StagingViewModel(singletonCImpl.stagingRepositoryProvider.get(), singletonCImpl.purgeEngineProvider.get(), singletonCImpl.statsStoreProvider.get());
 
-          case 5: // com.swipedelete.zero.ui.screens.swipe.SwipeEngineViewModel 
+          case 6: // com.swipedelete.zero.ui.screens.swipe.SwipeEngineViewModel 
           return (T) new SwipeEngineViewModel(singletonCImpl.deckRepositoryProvider.get(), singletonCImpl.stagingRepositoryProvider.get(), singletonCImpl.exclusionRepositoryProvider.get(), singletonCImpl.backupRepositoryProvider.get(), singletonCImpl.googlePhotosArchiveProvider.get(), singletonCImpl.videoMetadataExtractorProvider.get(), singletonCImpl.mediaAnalysisDao(), singletonCImpl.mediaPreloaderProvider.get(), singletonCImpl.statsStoreProvider.get(), viewModelCImpl.savedStateHandle);
 
           default: throw new AssertionError(id);
@@ -632,15 +642,17 @@ public final class DaggerSwipeDeleteApplication_HiltComponents_SingletonC {
 
     private Provider<MediaAnalysisWorker_AssistedFactory> mediaAnalysisWorker_AssistedFactoryProvider;
 
+    private Provider<BackupRepository> backupRepositoryProvider;
+
     private Provider<PhotosUploader> photosUploaderProvider;
 
     private Provider<PhotosUploadWorker_AssistedFactory> photosUploadWorker_AssistedFactoryProvider;
 
     private Provider<AnalysisScheduler> analysisSchedulerProvider;
 
-    private Provider<BackupRepository> backupRepositoryProvider;
-
     private Provider<DriveCloudBackup> driveCloudBackupProvider;
+
+    private Provider<GooglePhotosArchive> googlePhotosArchiveProvider;
 
     private Provider<SigningIdentityReader> signingIdentityReaderProvider;
 
@@ -660,8 +672,6 @@ public final class DaggerSwipeDeleteApplication_HiltComponents_SingletonC {
 
     private Provider<StatsStore> statsStoreProvider;
 
-    private Provider<GooglePhotosArchive> googlePhotosArchiveProvider;
-
     private Provider<MediaPreloader> mediaPreloaderProvider;
 
     private SingletonCImpl(ApplicationContextModule applicationContextModuleParam) {
@@ -676,6 +686,10 @@ public final class DaggerSwipeDeleteApplication_HiltComponents_SingletonC {
 
     private CloudUploadDao cloudUploadDao() {
       return DatabaseModule_ProvideCloudUploadDaoFactory.provideCloudUploadDao(provideDatabaseProvider.get());
+    }
+
+    private KeptFileDao keptFileDao() {
+      return DatabaseModule_ProvideKeptFileDaoFactory.provideKeptFileDao(provideDatabaseProvider.get());
     }
 
     private BackedUpFileDao backedUpFileDao() {
@@ -695,10 +709,6 @@ public final class DaggerSwipeDeleteApplication_HiltComponents_SingletonC {
       return WorkerFactoryModule_ProvideFactoryFactory.provideFactory(mapOfStringAndProviderOfWorkerAssistedFactoryOf());
     }
 
-    private KeptFileDao keptFileDao() {
-      return DatabaseModule_ProvideKeptFileDaoFactory.provideKeptFileDao(provideDatabaseProvider.get());
-    }
-
     private ExclusionDao exclusionDao() {
       return DatabaseModule_ProvideExclusionDaoFactory.provideExclusionDao(provideDatabaseProvider.get());
     }
@@ -713,21 +723,21 @@ public final class DaggerSwipeDeleteApplication_HiltComponents_SingletonC {
       this.provideDatabaseProvider = DoubleCheck.provider(new SwitchingProvider<AppDatabase>(singletonCImpl, 2));
       this.videoMetadataExtractorProvider = DoubleCheck.provider(new SwitchingProvider<VideoMetadataExtractor>(singletonCImpl, 3));
       this.mediaAnalysisWorker_AssistedFactoryProvider = SingleCheck.provider(new SwitchingProvider<MediaAnalysisWorker_AssistedFactory>(singletonCImpl, 0));
-      this.photosUploaderProvider = DoubleCheck.provider(new SwitchingProvider<PhotosUploader>(singletonCImpl, 5));
+      this.backupRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<BackupRepository>(singletonCImpl, 5));
+      this.photosUploaderProvider = DoubleCheck.provider(new SwitchingProvider<PhotosUploader>(singletonCImpl, 6));
       this.photosUploadWorker_AssistedFactoryProvider = SingleCheck.provider(new SwitchingProvider<PhotosUploadWorker_AssistedFactory>(singletonCImpl, 4));
-      this.analysisSchedulerProvider = DoubleCheck.provider(new SwitchingProvider<AnalysisScheduler>(singletonCImpl, 6));
-      this.backupRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<BackupRepository>(singletonCImpl, 8));
-      this.driveCloudBackupProvider = DoubleCheck.provider(new SwitchingProvider<DriveCloudBackup>(singletonCImpl, 7));
-      this.signingIdentityReaderProvider = DoubleCheck.provider(new SwitchingProvider<SigningIdentityReader>(singletonCImpl, 9));
-      this.deckBuilderProvider = DoubleCheck.provider(new SwitchingProvider<DeckBuilder>(singletonCImpl, 11));
-      this.deckRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<DeckRepository>(singletonCImpl, 10));
-      this.stagingRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<StagingRepository>(singletonCImpl, 12));
-      this.exclusionRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<ExclusionRepository>(singletonCImpl, 13));
-      this.safStorageBridgeProvider = DoubleCheck.provider(new SwitchingProvider<SafStorageBridge>(singletonCImpl, 15));
-      this.storagePermissionManagerProvider = DoubleCheck.provider(new SwitchingProvider<StoragePermissionManager>(singletonCImpl, 16));
-      this.purgeEngineProvider = DoubleCheck.provider(new SwitchingProvider<PurgeEngine>(singletonCImpl, 14));
-      this.statsStoreProvider = DoubleCheck.provider(new SwitchingProvider<StatsStore>(singletonCImpl, 17));
-      this.googlePhotosArchiveProvider = DoubleCheck.provider(new SwitchingProvider<GooglePhotosArchive>(singletonCImpl, 18));
+      this.analysisSchedulerProvider = DoubleCheck.provider(new SwitchingProvider<AnalysisScheduler>(singletonCImpl, 7));
+      this.driveCloudBackupProvider = DoubleCheck.provider(new SwitchingProvider<DriveCloudBackup>(singletonCImpl, 8));
+      this.googlePhotosArchiveProvider = DoubleCheck.provider(new SwitchingProvider<GooglePhotosArchive>(singletonCImpl, 9));
+      this.signingIdentityReaderProvider = DoubleCheck.provider(new SwitchingProvider<SigningIdentityReader>(singletonCImpl, 10));
+      this.deckBuilderProvider = DoubleCheck.provider(new SwitchingProvider<DeckBuilder>(singletonCImpl, 12));
+      this.deckRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<DeckRepository>(singletonCImpl, 11));
+      this.stagingRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<StagingRepository>(singletonCImpl, 13));
+      this.exclusionRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<ExclusionRepository>(singletonCImpl, 14));
+      this.safStorageBridgeProvider = DoubleCheck.provider(new SwitchingProvider<SafStorageBridge>(singletonCImpl, 16));
+      this.storagePermissionManagerProvider = DoubleCheck.provider(new SwitchingProvider<StoragePermissionManager>(singletonCImpl, 17));
+      this.purgeEngineProvider = DoubleCheck.provider(new SwitchingProvider<PurgeEngine>(singletonCImpl, 15));
+      this.statsStoreProvider = DoubleCheck.provider(new SwitchingProvider<StatsStore>(singletonCImpl, 18));
       this.mediaPreloaderProvider = DoubleCheck.provider(new SwitchingProvider<MediaPreloader>(singletonCImpl, 19));
     }
 
@@ -792,51 +802,51 @@ public final class DaggerSwipeDeleteApplication_HiltComponents_SingletonC {
           return (T) new PhotosUploadWorker_AssistedFactory() {
             @Override
             public PhotosUploadWorker create(Context appContext2, WorkerParameters params2) {
-              return new PhotosUploadWorker(appContext2, params2, singletonCImpl.cloudUploadDao(), singletonCImpl.backedUpFileDao(), singletonCImpl.stagedFileDao(), singletonCImpl.photosUploaderProvider.get());
+              return new PhotosUploadWorker(appContext2, params2, singletonCImpl.cloudUploadDao(), singletonCImpl.backupRepositoryProvider.get(), singletonCImpl.stagedFileDao(), singletonCImpl.photosUploaderProvider.get());
             }
           };
 
-          case 5: // com.swipedelete.zero.photos.PhotosUploader 
-          return (T) new PhotosUploader();
-
-          case 6: // com.swipedelete.zero.domain.scanner.AnalysisScheduler 
-          return (T) new AnalysisScheduler(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
-
-          case 7: // com.swipedelete.zero.backup.DriveCloudBackup 
-          return (T) new DriveCloudBackup(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.backupRepositoryProvider.get());
-
-          case 8: // com.swipedelete.zero.data.repository.BackupRepository 
+          case 5: // com.swipedelete.zero.data.repository.BackupRepository 
           return (T) new BackupRepository(singletonCImpl.keptFileDao(), singletonCImpl.backedUpFileDao());
 
-          case 9: // com.swipedelete.zero.domain.setup.SigningIdentityReader 
+          case 6: // com.swipedelete.zero.photos.PhotosUploader 
+          return (T) new PhotosUploader();
+
+          case 7: // com.swipedelete.zero.domain.scanner.AnalysisScheduler 
+          return (T) new AnalysisScheduler(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 8: // com.swipedelete.zero.backup.DriveCloudBackup 
+          return (T) new DriveCloudBackup(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.backupRepositoryProvider.get());
+
+          case 9: // com.swipedelete.zero.photos.GooglePhotosArchive 
+          return (T) new GooglePhotosArchive(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.cloudUploadDao());
+
+          case 10: // com.swipedelete.zero.domain.setup.SigningIdentityReader 
           return (T) new SigningIdentityReader(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 10: // com.swipedelete.zero.data.repository.DeckRepository 
+          case 11: // com.swipedelete.zero.data.repository.DeckRepository 
           return (T) new DeckRepository(singletonCImpl.deckBuilderProvider.get(), singletonCImpl.deckSessionDao());
 
-          case 11: // com.swipedelete.zero.domain.scanner.DeckBuilder 
+          case 12: // com.swipedelete.zero.domain.scanner.DeckBuilder 
           return (T) new DeckBuilder(singletonCImpl.mediaStoreRepositoryProvider.get(), singletonCImpl.mediaAnalysisDao(), singletonCImpl.exclusionDao());
 
-          case 12: // com.swipedelete.zero.data.repository.StagingRepository 
+          case 13: // com.swipedelete.zero.data.repository.StagingRepository 
           return (T) new StagingRepository(singletonCImpl.stagedFileDao());
 
-          case 13: // com.swipedelete.zero.data.repository.ExclusionRepository 
+          case 14: // com.swipedelete.zero.data.repository.ExclusionRepository 
           return (T) new ExclusionRepository(singletonCImpl.exclusionDao());
 
-          case 14: // com.swipedelete.zero.data.repository.PurgeEngine 
+          case 15: // com.swipedelete.zero.data.repository.PurgeEngine 
           return (T) new PurgeEngine(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.mediaStoreRepositoryProvider.get(), singletonCImpl.safStorageBridgeProvider.get(), singletonCImpl.storagePermissionManagerProvider.get());
 
-          case 15: // com.swipedelete.zero.data.repository.SafStorageBridge 
+          case 16: // com.swipedelete.zero.data.repository.SafStorageBridge 
           return (T) new SafStorageBridge(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 16: // com.swipedelete.zero.data.repository.StoragePermissionManager 
+          case 17: // com.swipedelete.zero.data.repository.StoragePermissionManager 
           return (T) new StoragePermissionManager(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
 
-          case 17: // com.swipedelete.zero.data.repository.StatsStore 
+          case 18: // com.swipedelete.zero.data.repository.StatsStore 
           return (T) new StatsStore(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
-
-          case 18: // com.swipedelete.zero.photos.GooglePhotosArchive 
-          return (T) new GooglePhotosArchive(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule), singletonCImpl.cloudUploadDao());
 
           case 19: // com.swipedelete.zero.data.repository.MediaPreloader 
           return (T) new MediaPreloader(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));

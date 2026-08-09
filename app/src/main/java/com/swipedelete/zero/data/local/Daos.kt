@@ -71,6 +71,29 @@ interface BackedUpFileDao {
     /** Every backed-up uri — powers the per-card Cloud Verification chip. */
     @Query("SELECT contentUri FROM backed_up_files")
     fun observeBackedUpUris(): Flow<List<String>>
+
+    /** Full rows, newest first — the Cloud monitor's list. */
+    @Query("SELECT * FROM backed_up_files ORDER BY uploadedAtMillis DESC")
+    fun observeAll(): Flow<List<BackedUpFileEntity>>
+
+    @Query("SELECT * FROM backed_up_files")
+    suspend fun getAll(): List<BackedUpFileEntity>
+
+    @Query("SELECT * FROM backed_up_files WHERE contentUri = :uri")
+    suspend fun get(uri: String): BackedUpFileEntity?
+
+    @Query("SELECT COUNT(*) FROM backed_up_files WHERE destination = :destination")
+    fun observeCountFor(destination: String): Flow<Int>
+
+    /** Record the outcome of reading a copy back from its provider. */
+    @Query(
+        "UPDATE backed_up_files SET remoteState = :state, verifiedAtMillis = :at, " +
+            "lastError = :error WHERE contentUri = :uri"
+    )
+    suspend fun markVerified(uri: String, state: String, at: Long, error: String?)
+
+    @Query("DELETE FROM backed_up_files WHERE contentUri = :uri")
+    suspend fun remove(uri: String)
 }
 
 @Dao

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.swipedelete.zero.DeckAggregateTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-08-09T15:10:39" hostname="vm" time="0.006">
+  <properties/>
+  <testcase name="remaining bytes shrink alongside remaining count" classname="com.swipedelete.zero.DeckAggregateTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

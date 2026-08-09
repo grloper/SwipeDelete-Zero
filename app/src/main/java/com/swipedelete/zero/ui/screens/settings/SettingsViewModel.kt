@@ -8,6 +8,7 @@ import com.swipedelete.zero.data.repository.BackupRepository
 import com.swipedelete.zero.data.repository.ExclusionRepository
 import com.swipedelete.zero.domain.backup.BackupState
 import com.swipedelete.zero.domain.backup.CloudBackup
+import com.swipedelete.zero.domain.backup.CloudDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +35,18 @@ class SettingsViewModel @Inject constructor(
 
     val backedUpCount: StateFlow<Int> =
         backupRepository.observeBackedUpCount()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /**
+     * Split by destination, because "12 backed up" said nothing about *where*
+     * — and a copy in Drive is not a copy in the user's photo library.
+     */
+    val driveCount: StateFlow<Int> =
+        backupRepository.observeCountFor(CloudDestination.DRIVE)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    val photosCount: StateFlow<Int> =
+        backupRepository.observeCountFor(CloudDestination.PHOTOS)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     fun signInIntent(): Intent? = cloudBackup.signInIntent()

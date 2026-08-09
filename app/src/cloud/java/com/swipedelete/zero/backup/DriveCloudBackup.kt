@@ -13,7 +13,10 @@ import com.swipedelete.zero.data.local.KeptFileEntity
 import com.swipedelete.zero.data.repository.BackupRepository
 import com.swipedelete.zero.domain.backup.BackupState
 import com.swipedelete.zero.domain.backup.CloudBackup
+import com.swipedelete.zero.domain.backup.CloudDestination
 import com.swipedelete.zero.domain.backup.ConnectionCheck
+import com.swipedelete.zero.domain.backup.ReconcileResult
+import com.swipedelete.zero.domain.backup.RemoteState
 import com.swipedelete.zero.domain.setup.AuthDiagnostic
 import com.swipedelete.zero.photos.PhotosUploader
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -68,7 +71,14 @@ class DriveCloudBackup @Inject constructor(
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             // One consent covers Drive backup AND the swipe-up Photos archive.
-            .requestScopes(Scope(DRIVE_FILE_SCOPE), Scope(PHOTOS_APPEND_SCOPE))
+            .requestScopes(
+                Scope(DRIVE_FILE_SCOPE),
+                Scope(PHOTOS_APPEND_SCOPE),
+                // Read-back of *app-created* Photos content only. The broad
+                // photoslibrary.readonly scope was removed in 2025; this is the
+                // one that survived, and it is all verification needs.
+                Scope(PHOTOS_READ_APP_SCOPE),
+            )
             .build(),
     )
 
@@ -146,7 +156,7 @@ class DriveCloudBackup @Inject constructor(
 
                 result.fold(
                     onSuccess = { remoteId ->
-                        backupRepository.markBackedUp(file, remoteId)
+                        backupRepository.markBackedUp(file, remoteId, CloudDestination.DRIVE)
                         done++
                     },
                     onFailure = { failed++ },
@@ -236,6 +246,99 @@ class DriveCloudBackup @Inject constructor(
             photosOk = photosOk,
             diagnostic = diagnostic,
             message = message,
+        )
+    }
+
+    /**
+     * Read every ledger row back from its provider.
+     *
+     * Drive rows are fetched by file id; Photos rows by mediaItemId using the
+     * app-created read scope. A 404 means the copy is genuinely gone, so the
+     * row is marked MISSING and the local file stops counting as protected —
+     * that is the difference between "we sent it once" and "it is there now".
+     */
+    override suspend fun reconcile(): ReconcileResult = withContext(Dispatchers.IO) {
+        val account = GoogleSignIn.getLastSignedInAccount(context)
+        val androidAccount = account?.account
+            ?: return@withContext ReconcileResult(message = "Connect a Google account first.")
+
+        val rows = backupRepository.ledgerRows()
+        if (rows.isEmpty()) {
+            return@withContext ReconcileResult(message = "Nothing uploaded yet — nothing to check.")
+        }
+
+        var confirmed = 0
+        var missing = 0
+        var unknown = 0
+
+        val driveToken = runCatching {
+            GoogleAuthUtil.getToken(context, androidAccount, "oauth2:$DRIVE_FILE_SCOPE")
+        }.getOrNull()
+        val photosToken = runCatching {
+            GoogleAuthUtil.getToken(context, androidAccount, "oauth2:$PHOTOS_READ_APP_SCOPE")
+        }.getOrNull()
+
+        for (row in rows) {
+            val destination = CloudDestination.parse(row.destination)
+            val token = if (destination == CloudDestination.PHOTOS) photosToken else driveToken
+            if (token == null) {
+                unknown++
+                backupRepository.markVerification(
+                    row.contentUri, RemoteState.UNKNOWN, "No token for ${destination.label}",
+                )
+                continue
+            }
+            val url = when (destination) {
+                CloudDestination.DRIVE ->
+                    "https://www.googleapis.com/drive/v3/files/${row.remoteId}?fields=id,trashed"
+                CloudDestination.PHOTOS ->
+                    "https://photoslibrary.googleapis.com/v1/mediaItems/${row.remoteId}"
+            }
+            try {
+                val body = httpGet(url, token)
+                // Drive reports deleted files as trashed rather than 404.
+                val trashed = destination == CloudDestination.DRIVE &&
+                    JSONObject(body).optBoolean("trashed", false)
+                if (trashed) {
+                    missing++
+                    backupRepository.markVerification(
+                        row.contentUri, RemoteState.MISSING, "In Drive trash",
+                    )
+                } else {
+                    confirmed++
+                    backupRepository.markVerification(row.contentUri, RemoteState.CONFIRMED)
+                }
+            } catch (e: HttpStatusException) {
+                if (e.code == 404 || e.code == 403) {
+                    missing++
+                    backupRepository.markVerification(
+                        row.contentUri, RemoteState.MISSING, "Not found (HTTP ${e.code})",
+                    )
+                } else {
+                    unknown++
+                    backupRepository.markVerification(
+                        row.contentUri, RemoteState.UNKNOWN, "HTTP ${e.code}",
+                    )
+                }
+            } catch (e: Exception) {
+                unknown++
+                backupRepository.markVerification(
+                    row.contentUri, RemoteState.UNKNOWN, e.message ?: e.javaClass.simpleName,
+                )
+            }
+        }
+
+        ReconcileResult(
+            checked = rows.size,
+            confirmed = confirmed,
+            missing = missing,
+            unknown = unknown,
+            message = when {
+                missing > 0 -> "$missing of ${rows.size} copies are no longer on the server. " +
+                    "Those files are not protected — re-run a backup."
+                unknown > 0 -> "$confirmed confirmed, $unknown could not be checked."
+                else -> "All ${rows.size} copies confirmed present."
+            },
         )
     }
 
@@ -341,6 +444,8 @@ class DriveCloudBackup @Inject constructor(
     private companion object {
         const val DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
         const val PHOTOS_APPEND_SCOPE = PhotosUploader.PHOTOS_APPEND_SCOPE
+        const val PHOTOS_READ_APP_SCOPE =
+            "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata"
         const val FOLDER_NAME = "SwipeDelete Zero Backup"
         const val FOLDER_MIME = "application/vnd.google-apps.folder"
         const val BOUNDARY = "sdz-backup-boundary-7f2a"

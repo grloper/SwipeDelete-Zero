@@ -5,6 +5,7 @@ import com.swipedelete.zero.di.CloudBackupModule;
 import com.swipedelete.zero.di.DatabaseModule;
 import com.swipedelete.zero.domain.scanner.MediaAnalysisWorker_HiltModule;
 import com.swipedelete.zero.photos.PhotosUploadWorker_HiltModule;
+import com.swipedelete.zero.ui.screens.cloud.CloudMonitorViewModel_HiltModules;
 import com.swipedelete.zero.ui.screens.dashboard.DashboardViewModel_HiltModules;
 import com.swipedelete.zero.ui.screens.dual.DualCardViewModel_HiltModules;
 import com.swipedelete.zero.ui.screens.settings.SettingsViewModel_HiltModules;
@@ -166,6 +167,7 @@ public final class SwipeDeleteApplication_HiltComponents {
 
   @Subcomponent(
       modules = {
+          CloudMonitorViewModel_HiltModules.KeyModule.class,
           CloudSetupViewModel_HiltModules.KeyModule.class,
           DashboardViewModel_HiltModules.KeyModule.class,
           DualCardViewModel_HiltModules.KeyModule.class,
@@ -211,6 +213,7 @@ public final class SwipeDeleteApplication_HiltComponents {
 
   @Subcomponent(
       modules = {
+          CloudMonitorViewModel_HiltModules.BindsModule.class,
           CloudSetupViewModel_HiltModules.BindsModule.class,
           DashboardViewModel_HiltModules.BindsModule.class,
           DualCardViewModel_HiltModules.BindsModule.class,

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.swipedelete.zero.CloudActivityTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-08-09T15:10:37" hostname="vm" time="0.014">
+  <properties/>
+  <testcase name="unknown persisted strings fall back instead of throwing" classname="com.swipedelete.zero.CloudActivityTest" time="0.001"/>
+  <testcase name="ledger row wins over a lingering queue row for the same file" classname="com.swipedelete.zero.CloudActivityTest" time="0.004"/>
+  <testcase name="in-flight work sorts above finished work" classname="com.swipedelete.zero.CloudActivityTest" time="0.003"/>
+  <testcase name="a missing copy is retryable and flagged as a problem" classname="com.swipedelete.zero.CloudActivityTest" time="0.001"/>
+  <testcase name="destination survives the merge" classname="com.swipedelete.zero.CloudActivityTest" time="0.002"/>
+  <testcase name="remote state maps to distinct claims" classname="com.swipedelete.zero.CloudActivityTest" time="0.001"/>
+  <testcase name="uploaded and verified are different labels" classname="com.swipedelete.zero.CloudActivityTest" time="0.0"/>
+  <testcase name="a failed upload offers a retry" classname="com.swipedelete.zero.CloudActivityTest" time="0.0"/>
+  <testcase name="summary excludes in-flight and failed bytes from the stored total" classname="com.swipedelete.zero.CloudActivityTest" time="0.001"/>
+  <testcase name="problems sort above ordinary finished rows" classname="com.swipedelete.zero.CloudActivityTest" time="0.001"/>
+  <testcase name="blank display name falls back to the uri tail" classname="com.swipedelete.zero.CloudActivityTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

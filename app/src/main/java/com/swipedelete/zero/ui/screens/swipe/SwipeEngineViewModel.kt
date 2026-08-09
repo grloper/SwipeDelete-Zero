@@ -11,6 +11,7 @@ import com.swipedelete.zero.data.repository.MediaPreloader
 import com.swipedelete.zero.data.repository.StatsStore
 import com.swipedelete.zero.data.repository.StagingRepository
 import com.swipedelete.zero.domain.backup.ArchiveItemState
+import com.swipedelete.zero.domain.backup.CloudCopy
 import com.swipedelete.zero.domain.backup.PhotosArchive
 import com.swipedelete.zero.domain.model.Deck
 import com.swipedelete.zero.domain.model.MediaItem
@@ -77,11 +78,13 @@ class SwipeEngineViewModel @Inject constructor(
     /** True when the up-swipe archives to Google Photos (cloud flavor only). */
     val cloudArchiveEnabled: Boolean get() = photosArchive.isAvailable
 
-    /** URIs already verified in the backup ledger — drives the cloud chip. */
-    val backedUpUris: StateFlow<Set<String>> =
-        backupRepository.observeBackedUpUris()
-            .map { it.toSet() }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    /**
+     * uri -> the cloud copy this app made of it, if any. Drives the card chip.
+     * A missing entry means only that *this app* has not uploaded the file.
+     */
+    val cloudCopies: StateFlow<Map<String, CloudCopy>> =
+        backupRepository.observeCopies()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** Live Photos upload queue (always empty in fdroid/play). */
     val uploadQueue: StateFlow<Map<String, ArchiveItemState>> =

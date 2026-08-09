@@ -44,7 +44,7 @@ public final class AppDatabase_Impl extends AppDatabase {
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(4) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(5) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `staged_files` (`contentUri` TEXT NOT NULL, `displayName` TEXT NOT NULL, `mimeType` TEXT NOT NULL, `mediaType` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, `relativePath` TEXT, `stagedAtMillis` INTEGER NOT NULL, `sourceDeckId` TEXT, PRIMARY KEY(`contentUri`))");
@@ -54,10 +54,10 @@ public final class AppDatabase_Impl extends AppDatabase {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_exclusions_folderPath` ON `exclusions` (`folderPath`)");
         db.execSQL("CREATE TABLE IF NOT EXISTS `media_analysis` (`mediaId` INTEGER NOT NULL, `contentUri` TEXT NOT NULL, `dHash` INTEGER, `pHash` INTEGER, `sharpnessVariance` REAL, `meanLuma` REAL, `isBlurry` INTEGER, `sizeBytes` INTEGER NOT NULL, `analyzedAtMillis` INTEGER NOT NULL, `videoCodec` TEXT, `frameRate` REAL, `bitrateBps` INTEGER, `bimodality` REAL, PRIMARY KEY(`mediaId`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `kept_files` (`contentUri` TEXT NOT NULL, `displayName` TEXT NOT NULL, `mimeType` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, `keptAtMillis` INTEGER NOT NULL, `starred` INTEGER NOT NULL, PRIMARY KEY(`contentUri`))");
-        db.execSQL("CREATE TABLE IF NOT EXISTS `backed_up_files` (`contentUri` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, `remoteId` TEXT NOT NULL, `uploadedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`contentUri`))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `backed_up_files` (`contentUri` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, `remoteId` TEXT NOT NULL, `uploadedAtMillis` INTEGER NOT NULL, `destination` TEXT NOT NULL, `displayName` TEXT NOT NULL, `remoteState` TEXT NOT NULL, `verifiedAtMillis` INTEGER NOT NULL, `lastError` TEXT, PRIMARY KEY(`contentUri`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `cloud_uploads` (`contentUri` TEXT NOT NULL, `displayName` TEXT NOT NULL, `mimeType` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, `state` TEXT NOT NULL, `uploadUrl` TEXT, `bytesUploaded` INTEGER NOT NULL, `uploadToken` TEXT, `mediaItemId` TEXT, `attempts` INTEGER NOT NULL, `lastError` TEXT, `enqueuedAtMillis` INTEGER NOT NULL, `updatedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`contentUri`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '27395684ed3974e45fe174bb75c8e576')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '926545ba7d0855957eae68b5376632fc')");
       }
 
       @Override
@@ -204,11 +204,16 @@ public final class AppDatabase_Impl extends AppDatabase {
                   + " Expected:\n" + _infoKeptFiles + "\n"
                   + " Found:\n" + _existingKeptFiles);
         }
-        final HashMap<String, TableInfo.Column> _columnsBackedUpFiles = new HashMap<String, TableInfo.Column>(4);
+        final HashMap<String, TableInfo.Column> _columnsBackedUpFiles = new HashMap<String, TableInfo.Column>(9);
         _columnsBackedUpFiles.put("contentUri", new TableInfo.Column("contentUri", "TEXT", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsBackedUpFiles.put("sizeBytes", new TableInfo.Column("sizeBytes", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsBackedUpFiles.put("remoteId", new TableInfo.Column("remoteId", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsBackedUpFiles.put("uploadedAtMillis", new TableInfo.Column("uploadedAtMillis", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBackedUpFiles.put("destination", new TableInfo.Column("destination", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBackedUpFiles.put("displayName", new TableInfo.Column("displayName", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBackedUpFiles.put("remoteState", new TableInfo.Column("remoteState", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBackedUpFiles.put("verifiedAtMillis", new TableInfo.Column("verifiedAtMillis", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsBackedUpFiles.put("lastError", new TableInfo.Column("lastError", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysBackedUpFiles = new HashSet<TableInfo.ForeignKey>(0);
         final HashSet<TableInfo.Index> _indicesBackedUpFiles = new HashSet<TableInfo.Index>(0);
         final TableInfo _infoBackedUpFiles = new TableInfo("backed_up_files", _columnsBackedUpFiles, _foreignKeysBackedUpFiles, _indicesBackedUpFiles);
@@ -243,7 +248,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "27395684ed3974e45fe174bb75c8e576", "f3c33e8f8c66d628ca8df67b023eee88");
+    }, "926545ba7d0855957eae68b5376632fc", "919fff846f6e1024f1bf5e2d0a856698");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;

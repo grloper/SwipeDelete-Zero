@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.swipedelete.zero.domain.model.Deck
+import com.swipedelete.zero.ui.screens.cloud.CloudMonitorScreen
 import com.swipedelete.zero.ui.screens.dashboard.DashboardScreen
 import com.swipedelete.zero.ui.screens.dual.DualCardSplitScreen
 import com.swipedelete.zero.ui.screens.settings.SettingsScreen
@@ -60,11 +61,16 @@ fun AppNavigation() {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenCloudSetup = { navController.navigate(Routes.CLOUD_SETUP) },
+                onOpenCloudMonitor = { navController.navigate(Routes.CLOUD_MONITOR) },
             )
         }
 
         composable(Routes.CLOUD_SETUP) {
             CloudSetupScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.CLOUD_MONITOR) {
+            CloudMonitorScreen(onBack = { navController.popBackStack() })
         }
     }
 }
