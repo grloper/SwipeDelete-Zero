@@ -27,6 +27,9 @@ fun SwipeStamps(
     rightGlow: Float,
     upGlow: Float,
     modifier: Modifier = Modifier,
+    /** Up-swipe stamp text/color: STAR by default, CLOUD in the cloud flavor. */
+    upLabel: String = "STAR",
+    upColor: Color = SdzColors.StarGold,
 ) {
     Box(modifier = modifier.padding(24.dp)) {
         Stamp(
@@ -44,8 +47,8 @@ fun SwipeStamps(
             modifier = Modifier.align(Alignment.TopStart),
         )
         Stamp(
-            text = "STAR",
-            color = SdzColors.StarGold,
+            text = upLabel,
+            color = upColor,
             angle = -4f,
             alpha = upGlow,
             modifier = Modifier.align(Alignment.BottomCenter),

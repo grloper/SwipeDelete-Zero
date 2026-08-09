@@ -64,6 +64,8 @@ fun SwipeableCard(
     enabled: Boolean = true,
     /** Live 0..1 drag progress toward any commit threshold (drives peek-card scale). */
     onDragProgress: (Float) -> Unit = {},
+    /** Up-swipe glow color: gold star by default, cyan cloud in the cloud flavor. */
+    upAccent: Color = SdzColors.StarGold,
     content: @Composable (leftGlow: Float, rightGlow: Float, upGlow: Float) -> Unit = { l, r, u ->
         DefaultCardContent(item, l, r, u)
     },
@@ -160,7 +162,7 @@ fun SwipeableCard(
                     scaleY = lift
                     shadowElevation = (8 + 16 * dragProgress).dp.toPx()
                 }
-                .edgeGlow(leftGlow, rightGlow, upGlow)
+                .edgeGlow(leftGlow, rightGlow, upGlow, upAccent)
                 .clip(RoundedCornerShape(28.dp))
                 .background(SdzColors.Obsidian)
                 .border(1.dp, SdzColors.Hairline, RoundedCornerShape(28.dp))
@@ -254,8 +256,13 @@ private fun springBackSpec() = spring<Float>(
     stiffness = Spring.StiffnessLow,
 )
 
-/** Draws the proportional coral/emerald/gold backlight around the card. */
-internal fun Modifier.edgeGlow(left: Float, right: Float, up: Float): Modifier =
+/** Draws the proportional coral/emerald/gold(or cyan) backlight around the card. */
+internal fun Modifier.edgeGlow(
+    left: Float,
+    right: Float,
+    up: Float,
+    upAccent: Color = SdzColors.StarGold,
+): Modifier =
     drawBehind {
         val stroke = 6.dp.toPx()
         fun glow(color: Color, alpha: Float) {
@@ -268,5 +275,5 @@ internal fun Modifier.edgeGlow(left: Float, right: Float, up: Float): Modifier =
         }
         glow(SdzColors.HyperCoral, left)
         glow(SdzColors.ElectricEmerald, right)
-        glow(SdzColors.StarGold, up)
+        glow(upAccent, up)
     }

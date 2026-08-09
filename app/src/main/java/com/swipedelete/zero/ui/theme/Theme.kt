@@ -45,8 +45,10 @@ fun SwipeDeleteZeroTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = SdzColors.PitchBlack.toArgb()
-            window.navigationBarColor = SdzColors.PitchBlack.toArgb()
+            // Transparent bars: the palette backdrop bleeds edge-to-edge behind
+            // them; screens inset their own headers with statusBarsPadding().
+            window.statusBarColor = Color.Transparent.toArgb()
+            window.navigationBarColor = Color.Transparent.toArgb()
             val controller = WindowCompat.getInsetsController(window, view)
             controller.isAppearanceLightStatusBars = false
             controller.isAppearanceLightNavigationBars = false

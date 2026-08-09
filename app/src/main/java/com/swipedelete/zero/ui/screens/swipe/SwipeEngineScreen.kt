@@ -1,27 +1,34 @@
 package com.swipedelete.zero.ui.screens.swipe
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
@@ -31,17 +38,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.swipedelete.zero.domain.model.SwipeDirection
+import com.swipedelete.zero.domain.scanner.VideoMeta
+import com.swipedelete.zero.ui.components.CloudChip
+import com.swipedelete.zero.ui.components.MediaPreview
+import com.swipedelete.zero.ui.components.MetadataPill
+import com.swipedelete.zero.ui.components.PaletteBackdrop
+import com.swipedelete.zero.ui.components.SwipeStamps
 import com.swipedelete.zero.ui.components.SwipeableCard
+import com.swipedelete.zero.ui.components.rememberDominantColors
 import com.swipedelete.zero.ui.theme.SdzColors
 import kotlinx.coroutines.delay
 
@@ -51,24 +70,35 @@ fun SwipeEngineScreen(
     viewModel: SwipeEngineViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val topVideoMeta by viewModel.topVideoMeta.collectAsStateWithLifecycle()
+    val backedUpUris by viewModel.backedUpUris.collectAsStateWithLifecycle()
+
+    // Ambient backdrop tracks the top card's dominant palette.
+    val palette by rememberDominantColors(state.topItem)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SdzColors.PitchBlack)
-            .padding(horizontal = 20.dp),
+            .background(SdzColors.PitchBlack),
     ) {
-        Column(Modifier.fillMaxSize()) {
+        PaletteBackdrop(palette, Modifier.fillMaxSize())
+
+        Column(
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(horizontal = 20.dp),
+        ) {
             // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 24.dp, bottom = 8.dp),
+                    .padding(top = 16.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(
-                    Icons.Rounded.ArrowBack,
+                    Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = "Back",
                     tint = SdzColors.PureWhite,
                     modifier = Modifier.size(26.dp).clickable(onClick = onBack),
@@ -99,17 +129,22 @@ fun SwipeEngineScreen(
                 when {
                     state.loading -> Text("Loading…", color = SdzColors.MutedGray)
                     state.isComplete -> DeckCompleteView(onBack)
-                    else -> CardStack(state, viewModel)
+                    else -> CardStack(state, viewModel, topVideoMeta, backedUpUris)
                 }
             }
 
             // Action buttons — thumb zone (bottom 40%).
             if (!state.isComplete) {
                 ActionBar(
+                    undoEnabled = state.lastAction != null,
+                    cloudArchive = viewModel.cloudArchiveEnabled,
+                    onUndo = viewModel::undo,
                     onTrash = { viewModel.onSwipe(SwipeDirection.LEFT) },
-                    onStar = { viewModel.onSwipe(SwipeDirection.UP) },
+                    onUp = { viewModel.onSwipe(SwipeDirection.UP) },
                     onKeep = { viewModel.onSwipe(SwipeDirection.RIGHT) },
-                    modifier = Modifier.padding(vertical = 24.dp),
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .padding(vertical = 20.dp),
                 )
             }
         }
@@ -117,7 +152,7 @@ fun SwipeEngineScreen(
         // 5-second floating Undo toast.
         UndoToast(
             visible = state.lastAction != null,
-            label = state.lastAction?.let { undoLabel(it.direction) } ?: "",
+            label = state.lastAction?.let { undoLabel(it.direction, viewModel.cloudArchiveEnabled) } ?: "",
             onUndo = viewModel::undo,
             onTimeout = viewModel::dismissUndo,
             key = state.lastAction,
@@ -129,34 +164,77 @@ fun SwipeEngineScreen(
 }
 
 @Composable
-private fun CardStack(state: SwipeUiState, viewModel: SwipeEngineViewModel) {
-    val deck = state.deck ?: return
-    val topIndex = state.cursor
+private fun CardStack(
+    state: SwipeUiState,
+    viewModel: SwipeEngineViewModel,
+    topVideoMeta: VideoMeta?,
+    backedUpUris: Set<String>,
+) {
+    val topItem = state.topItem ?: return
+    var dragProgress by remember { mutableFloatStateOf(0f) }
+    val cloudArchive = viewModel.cloudArchiveEnabled
+    val upColor = if (cloudArchive) SdzColors.CrispCyan else SdzColors.StarGold
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(0.72f),
         contentAlignment = Alignment.Center,
     ) {
-        // Peek of the next card behind (scaled down) for depth.
-        if (topIndex + 1 < deck.totalCount) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(SdzColors.Obsidian)
-                    .border(1.dp, SdzColors.Hairline, RoundedCornerShape(28.dp)),
-            )
+        // The next card peeks behind with its real preview, growing toward
+        // full size as the top card is dragged away.
+        state.nextItem?.let { next ->
+            key(next.id) {
+                val peekScale = 0.94f + 0.06f * dragProgress
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = peekScale
+                            scaleY = peekScale
+                            alpha = 0.65f + 0.35f * dragProgress
+                        }
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(SdzColors.Obsidian)
+                        .border(1.dp, SdzColors.Hairline, RoundedCornerShape(28.dp)),
+                ) {
+                    MediaPreview(item = next, modifier = Modifier.fillMaxSize())
+                }
+            }
         }
-        if (topIndex < deck.totalCount) {
-            // key on the item so a fresh Animatable is created per card.
-            key(deck.items[topIndex].id) {
-                SwipeableCard(
-                    item = deck.items[topIndex],
-                    onSwiped = viewModel::onSwipe,
-                    modifier = Modifier.fillMaxSize(),
-                )
+        // key on the item so a fresh Animatable is created per card.
+        key(topItem.id) {
+            SwipeableCard(
+                item = topItem,
+                onSwiped = viewModel::onSwipe,
+                modifier = Modifier.fillMaxSize(),
+                onDragProgress = { dragProgress = it },
+                upAccent = upColor,
+            ) { leftGlow, rightGlow, upGlow ->
+                Box(Modifier.fillMaxSize()) {
+                    MediaPreview(item = topItem, modifier = Modifier.fillMaxSize())
+                    SwipeStamps(
+                        leftGlow = leftGlow,
+                        rightGlow = rightGlow,
+                        upGlow = upGlow,
+                        modifier = Modifier.fillMaxSize(),
+                        upLabel = if (cloudArchive) "CLOUD" else "STAR",
+                        upColor = upColor,
+                    )
+                    CloudChip(
+                        backedUp = topItem.contentUri.toString() in backedUpUris,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(16.dp),
+                    )
+                    MetadataPill(
+                        item = topItem,
+                        videoMeta = topVideoMeta,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(16.dp),
+                    )
+                }
             }
         }
     }
@@ -164,8 +242,11 @@ private fun CardStack(state: SwipeUiState, viewModel: SwipeEngineViewModel) {
 
 @Composable
 private fun ActionBar(
+    undoEnabled: Boolean,
+    cloudArchive: Boolean,
+    onUndo: () -> Unit,
     onTrash: () -> Unit,
-    onStar: () -> Unit,
+    onUp: () -> Unit,
     onKeep: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -174,9 +255,15 @@ private fun ActionBar(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CircleAction(Icons.Rounded.Close, SdzColors.HyperCoral, 72.dp, onTrash)
-        CircleAction(Icons.Rounded.Star, SdzColors.StarGold, 60.dp, onStar)
-        CircleAction(Icons.Rounded.Favorite, SdzColors.ElectricEmerald, 72.dp, onKeep)
+        CircleAction(Icons.AutoMirrored.Rounded.Undo, SdzColors.CrispCyan, 52.dp, enabled = undoEnabled, onClick = onUndo)
+        CircleAction(Icons.Rounded.Close, SdzColors.HyperCoral, 72.dp, onClick = onTrash)
+        CircleAction(
+            icon = if (cloudArchive) Icons.Rounded.CloudUpload else Icons.Rounded.Star,
+            color = if (cloudArchive) SdzColors.CrispCyan else SdzColors.StarGold,
+            diameter = 60.dp,
+            onClick = onUp,
+        )
+        CircleAction(Icons.Rounded.Favorite, SdzColors.ElectricEmerald, 72.dp, onClick = onKeep)
     }
 }
 
@@ -184,19 +271,37 @@ private fun ActionBar(
 private fun CircleAction(
     icon: ImageVector,
     color: Color,
-    diameter: androidx.compose.ui.unit.Dp,
+    diameter: Dp,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.88f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "action-press",
+    )
+    val accent = color.copy(alpha = if (enabled) 1f else 0.35f)
     Box(
         modifier = Modifier
             .size(diameter)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .clip(CircleShape)
-            .background(SdzColors.Obsidian)
-            .border(2.dp, color, CircleShape)
-            .clickable(onClick = onClick),
+            .background(SdzColors.Obsidian.copy(alpha = 0.85f))
+            .border(2.dp, accent, CircleShape)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = enabled,
+                onClick = onClick,
+            ),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(diameter / 2.4f))
+        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(diameter / 2.4f))
     }
 }
 
@@ -264,9 +369,9 @@ private fun UndoToast(
     }
 }
 
-private fun undoLabel(direction: SwipeDirection): String = when (direction) {
+private fun undoLabel(direction: SwipeDirection, cloudArchive: Boolean): String = when (direction) {
     SwipeDirection.LEFT -> "Moved to Staging Drawer"
     SwipeDirection.RIGHT -> "Kept"
-    SwipeDirection.UP -> "Starred & excluded"
+    SwipeDirection.UP -> if (cloudArchive) "Uploading to Google Photos" else "Starred & excluded"
     SwipeDirection.NONE -> ""
 }
