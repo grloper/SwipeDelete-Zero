@@ -8,6 +8,7 @@ import com.swipedelete.zero.domain.model.ComparisonPair
 import com.swipedelete.zero.domain.model.Deck
 import com.swipedelete.zero.domain.model.DeckKind
 import com.swipedelete.zero.domain.model.MAX_DECK_SIZE
+import com.swipedelete.zero.domain.model.MediaClass
 import com.swipedelete.zero.domain.model.MediaItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -74,6 +75,7 @@ class DeckBuilder @Inject constructor(
                     item.copy(
                         perceptualHash = a.dHash,
                         sharpnessScore = a.sharpnessVariance,
+                        bimodality = a.bimodality,
                     )
                 } else item
             }
@@ -85,6 +87,7 @@ class DeckBuilder @Inject constructor(
             addAll(clutterHotspotDecks(items))
             addAll(blurryDecks(items))
             addAll(screenshotsDecks(items))
+            addAll(documentDecks(items))
         }
         val comparisons = duplicateComparisonDecks(items)
         val allDecks = decks + comparisons.keys.map { placeholderDeckFor(it, comparisons) }
@@ -150,17 +153,36 @@ class DeckBuilder @Inject constructor(
         ) { "Videos over 1 GB — the fastest wins" }
     }
 
-    /** The "Screenshots & Receipts" AI bucket (path + filename heuristics). */
+    /** Screenshots that are still pictures — UI captures, game shots, memes. */
     private fun screenshotsDecks(items: List<MediaItem>): List<Deck> {
         val matched = items
-            .filter { isScreenshotOrReceipt(it.relativePath, it.displayName) }
+            .filter { it.mediaClass == MediaClass.SCREENSHOT }
             .sortedByDescending { it.dateAddedMillis }
         return chunkIntoDecks(
             idPrefix = "shots",
             kind = DeckKind.SCREENSHOTS,
-            title = "Screenshots & Receipts",
+            title = "Screenshots",
             items = matched,
-        ) { chunk -> "${chunk.size} shots & docs to triage" }
+        ) { chunk -> "${chunk.size} captures to triage" }
+    }
+
+    /**
+     * Text and documents — chat screenshots, receipts, scans.
+     *
+     * These need their own lane because judging them is a different task: you
+     * skim them for information rather than looking at them, and mixing them
+     * into a photo deck asks the user to switch modes card by card.
+     */
+    private fun documentDecks(items: List<MediaItem>): List<Deck> {
+        val matched = items
+            .filter { it.mediaClass == MediaClass.DOCUMENT }
+            .sortedByDescending { it.dateAddedMillis }
+        return chunkIntoDecks(
+            idPrefix = "docs",
+            kind = DeckKind.DOCUMENTS,
+            title = "Text & Documents",
+            items = matched,
+        ) { chunk -> "${chunk.size} text captures" }
     }
 
     // --- Clutter Hotspots -----------------------------------------------------

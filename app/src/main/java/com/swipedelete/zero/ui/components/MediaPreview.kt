@@ -27,7 +27,7 @@ import coil.request.ImageRequest
 import coil.size.Scale
 import com.swipedelete.zero.R
 import com.swipedelete.zero.domain.model.MediaItem
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.theme.SdzColor
 import com.swipedelete.zero.ui.video.TopCardPlayerState
 
 /**
@@ -88,7 +88,7 @@ fun MediaPreview(
             Box(
                 modifier = Modifier
                     .size(64.dp)
-                    .background(SdzColors.PitchBlack.copy(alpha = 0.45f), CircleShape),
+                    .background(SdzColor.Surface0.copy(alpha = 0.45f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

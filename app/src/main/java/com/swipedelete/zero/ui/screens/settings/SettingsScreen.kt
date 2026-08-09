@@ -22,7 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Folder
@@ -41,7 +41,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.swipedelete.zero.data.local.ExclusionEntity
 import com.swipedelete.zero.domain.backup.BackupState
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.components.SdzIconButton
+import com.swipedelete.zero.ui.components.SdzIcons
+import com.swipedelete.zero.ui.theme.SdzColor
 
 @Composable
 fun SettingsScreen(
@@ -63,7 +65,7 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SdzColors.PitchBlack)
+            .background(SdzColor.Surface0)
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 20.dp),
@@ -73,15 +75,14 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(
-                Icons.Rounded.ArrowBack,
-                contentDescription = "Back",
-                tint = SdzColors.PureWhite,
-                modifier = Modifier.size(26.dp).clickable(onClick = onBack),
+            SdzIconButton(
+                icon = SdzIcons.Back,
+                label = "Back",
+                onClick = onBack,
             )
             Text(
                 "Settings",
-                color = SdzColors.PureWhite,
+                color = SdzColor.Phosphor,
                 fontWeight = FontWeight.Black,
                 style = MaterialTheme.typography.titleLarge,
             )
@@ -102,13 +103,13 @@ fun SettingsScreen(
 
         Text(
             "Exclusion Vault",
-            color = SdzColors.PureWhite,
+            color = SdzColor.Phosphor,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.titleMedium,
         )
         Text(
             "Starred items and excluded folders are hidden from every future scan.",
-            color = SdzColors.MutedGray,
+            color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(vertical = 6.dp),
         )
@@ -120,13 +121,13 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(SdzColors.Obsidian)
-                    .border(1.dp, SdzColors.Hairline, RoundedCornerShape(16.dp))
+                    .background(SdzColor.Surface1)
+                    .border(1.dp, SdzColor.Hairline, RoundedCornerShape(16.dp))
                     .padding(16.dp),
             ) {
                 Text(
                     "Vault is empty. Swipe up on a card to star & exclude it.",
-                    color = SdzColors.MutedGray,
+                    color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -149,7 +150,7 @@ fun SettingsScreen(
             } else {
                 "SwipeDelete Zero · GPL v3 · Cloud build — network used only for opt-in Drive backup"
             },
-            color = SdzColors.MutedGray,
+            color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(vertical = 20.dp),
         )
@@ -170,8 +171,8 @@ private fun DriveBackupSection(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(SdzColors.Obsidian)
-            .border(1.dp, SdzColors.Hairline, RoundedCornerShape(20.dp))
+            .background(SdzColor.Surface1)
+            .border(1.dp, SdzColor.Hairline, RoundedCornerShape(20.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -179,19 +180,19 @@ private fun DriveBackupSection(
             Icon(
                 Icons.Rounded.CloudUpload,
                 contentDescription = null,
-                tint = SdzColors.CrispCyan,
+                tint = SdzColor.TextSecondary,
                 modifier = Modifier.size(22.dp),
             )
             Text(
                 "Google Drive Backup",
-                color = SdzColors.PureWhite,
+                color = SdzColor.Phosphor,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium,
             )
         }
         Text(
             "Kept & starred files are uploaded once each — new keeps are picked up by the next run, nothing is uploaded twice.",
-            color = SdzColors.MutedGray,
+            color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
         )
 
@@ -204,25 +205,25 @@ private fun DriveBackupSection(
                 if (diagnostic != null) {
                     Text(
                         diagnostic.headline,
-                        color = SdzColors.HyperCoral,
+                        color = SdzColor.Amber,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.labelLarge,
                     )
                     Text(
                         diagnostic.fix,
-                        color = SdzColors.MutedGray,
+                        color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.labelMedium,
                     )
                     BackupButton(text = "Fix in setup wizard", onClick = onOpenSetup)
                 } else {
                     state.message?.let {
-                        Text(it, color = SdzColors.HyperCoral, style = MaterialTheme.typography.labelMedium)
+                        Text(it, color = SdzColor.Amber, style = MaterialTheme.typography.labelMedium)
                     }
                     BackupButton(text = "Connect Google account", onClick = onConnect)
                     Text(
                         "First time? The setup wizard walks through it and shows the exact "
                             + "values Google needs.",
-                        color = SdzColors.MutedGray,
+                        color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.labelMedium,
                     )
                     BackupButton(text = "Open setup wizard", onClick = onOpenSetup)
@@ -232,11 +233,11 @@ private fun DriveBackupSection(
             is BackupState.Ready -> {
                 Text(
                     "${state.accountEmail} · $pendingCount pending · $backedUpCount backed up",
-                    color = SdzColors.CrispCyan,
+                    color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.labelMedium,
                 )
                 state.message?.let {
-                    Text(it, color = SdzColors.MutedGray, style = MaterialTheme.typography.labelMedium)
+                    Text(it, color = SdzColor.TextSecondary, style = MaterialTheme.typography.labelMedium)
                 }
                 BackupButton(
                     text = if (pendingCount > 0) "Back up $pendingCount file${if (pendingCount == 1) "" else "s"} now" else "Backed up — nothing pending",
@@ -244,7 +245,7 @@ private fun DriveBackupSection(
                 )
                 Text(
                     "Disconnect",
-                    color = SdzColors.MutedGray,
+                    color = SdzColor.TextSecondary,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier
@@ -257,7 +258,7 @@ private fun DriveBackupSection(
             is BackupState.Running -> {
                 Text(
                     "Uploading ${state.done} of ${state.total}…",
-                    color = SdzColors.ElectricEmerald,
+                    color = SdzColor.Teal,
                     style = MaterialTheme.typography.labelMedium,
                 )
                 Box(
@@ -265,13 +266,13 @@ private fun DriveBackupSection(
                         .fillMaxWidth()
                         .height(6.dp)
                         .clip(RoundedCornerShape(3.dp))
-                        .background(SdzColors.Hairline),
+                        .background(SdzColor.Hairline),
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(if (state.total == 0) 0f else state.done.toFloat() / state.total)
                             .fillMaxHeight()
-                            .background(SdzColors.ElectricEmerald),
+                            .background(SdzColor.Teal),
                     )
                 }
             }
@@ -287,15 +288,15 @@ private fun BackupButton(text: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(SdzColors.CrispCyan.copy(alpha = 0.15f))
-            .border(1.dp, SdzColors.CrispCyan.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+            .background(SdzColor.TextSecondary.copy(alpha = 0.15f))
+            .border(1.dp, SdzColor.TextSecondary.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text,
-            color = SdzColors.CrispCyan,
+            color = SdzColor.TextSecondary,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.labelLarge,
         )
@@ -309,8 +310,8 @@ private fun ExclusionRow(ex: ExclusionEntity, onRemove: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(SdzColors.Obsidian)
-            .border(1.dp, SdzColors.Hairline, RoundedCornerShape(16.dp))
+            .background(SdzColor.Surface1)
+            .border(1.dp, SdzColor.Hairline, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -318,28 +319,29 @@ private fun ExclusionRow(ex: ExclusionEntity, onRemove: () -> Unit) {
         Icon(
             if (isFolder) Icons.Rounded.Folder else Icons.Rounded.Star,
             contentDescription = null,
-            tint = if (isFolder) SdzColors.CrispCyan else SdzColors.StarGold,
+            tint = if (isFolder) SdzColor.TextSecondary else SdzColor.Amber,
             modifier = Modifier.size(24.dp),
         )
         Column(Modifier.weight(1f)) {
             Text(
                 ex.label,
-                color = SdzColors.PureWhite,
+                color = SdzColor.Phosphor,
                 maxLines = 1,
                 fontWeight = FontWeight.Medium,
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
                 if (isFolder) "Excluded folder" else "Starred item",
-                color = SdzColors.MutedGray,
+                color = SdzColor.TextSecondary,
                 style = MaterialTheme.typography.labelMedium,
             )
         }
-        Icon(
-            Icons.Rounded.Close,
-            contentDescription = "Remove",
-            tint = SdzColors.HyperCoral,
-            modifier = Modifier.size(22.dp).clickable(onClick = onRemove),
+        SdzIconButton(
+            icon = SdzIcons.Reclaim,
+            label = "Remove from vault",
+            onClick = onRemove,
+            tint = SdzColor.TextSecondary,
+            glyphSize = 18.dp,
         )
     }
 }

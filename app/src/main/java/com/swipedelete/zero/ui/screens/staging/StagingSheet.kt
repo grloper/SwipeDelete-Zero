@@ -21,6 +21,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.swipedelete.zero.ui.components.PurgeConfirmSheet
+import com.swipedelete.zero.ui.components.FreedCelebration
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -28,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.swipedelete.zero.domain.model.ExecutionMode
 import com.swipedelete.zero.ui.components.SortChip
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.theme.SdzColor
 import com.swipedelete.zero.ui.util.toReadableSize
 
 /**
@@ -49,12 +54,15 @@ fun StagingSheet(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    // The custom explainer runs before the OS dialog, never instead of it.
+    var confirming by remember { mutableStateOf(false) }
+    var celebrating by remember { mutableStateOf<Pair<Long, Int>?>(null) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = SdzColors.Obsidian,
-        contentColor = SdzColors.PureWhite,
+        containerColor = SdzColor.Surface1,
+        contentColor = SdzColor.Phosphor,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
         Column(
@@ -75,7 +83,7 @@ fun StagingSheet(
                 ) {
                     Text(
                         "Nothing staged. Swipe left on cards to queue files.",
-                        color = SdzColors.MutedGray,
+                        color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -86,7 +94,7 @@ fun StagingSheet(
                 ) {
                     Text(
                         "Sort",
-                        color = SdzColors.MutedGray,
+                        color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.labelMedium,
                     )
                     SortChip("Newest", state.sort == StagingSort.NEWEST) {
@@ -118,11 +126,33 @@ fun StagingSheet(
                 PurgeCta(
                     bytes = state.totalBytes,
                     enabled = !state.purging,
-                    onClick = viewModel::purge,
+                    onClick = { confirming = true },
                     modifier = Modifier.padding(bottom = 16.dp),
                 )
             }
+
+            celebrating?.let { (bytes, count) ->
+                FreedCelebration(
+                    freedBytes = bytes,
+                    fileCount = count,
+                    onFinished = { celebrating = null },
+                )
+            }
         }
+    }
+
+    if (confirming) {
+        PurgeConfirmSheet(
+            fileCount = state.count,
+            totalBytes = state.totalBytes,
+            mode = state.mode,
+            onConfirm = {
+                confirming = false
+                celebrating = state.totalBytes to state.count
+                viewModel.purge()
+            },
+            onDismiss = { confirming = false },
+        )
     }
 }
 
@@ -136,13 +166,13 @@ private fun SheetHeader(state: StagingUiState, onClear: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(
                 "Safety Staging",
-                color = SdzColors.PureWhite,
+                color = SdzColor.Phosphor,
                 fontWeight = FontWeight.Black,
                 style = MaterialTheme.typography.titleLarge,
             )
             Text(
                 "${state.count} files • ${state.totalBytes.toReadableSize()} ready to purge",
-                color = SdzColors.CrispCyan,
+                color = SdzColor.TextSecondary,
                 style = MaterialTheme.typography.labelMedium,
             )
             ReclaimedCounter(state.lifetimeReclaimedBytes)
@@ -150,7 +180,7 @@ private fun SheetHeader(state: StagingUiState, onClear: () -> Unit) {
         if (state.count > 0) {
             Text(
                 "Clear",
-                color = SdzColors.MutedGray,
+                color = SdzColor.TextSecondary,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .clickable(onClick = onClear)
@@ -170,7 +200,7 @@ private fun ReclaimedCounter(lifetimeBytes: Long) {
     )
     Text(
         "${animated.toLong().toReadableSize()} Reclaimed all-time",
-        color = SdzColors.ElectricEmerald,
+        color = SdzColor.Azure,
         fontWeight = FontWeight.Bold,
         style = MaterialTheme.typography.labelMedium,
     )

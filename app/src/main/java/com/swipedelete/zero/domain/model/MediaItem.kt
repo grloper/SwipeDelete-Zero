@@ -44,7 +44,21 @@ data class MediaItem(
     val perceptualHash: Long? = null,
     /** Laplacian variance sharpness score; lower = blurrier. Null until computed. */
     val sharpnessScore: Double? = null,
+    /** Luminance bimodality; high means the frame is mostly text. Null until computed. */
+    val bimodality: Double? = null,
 ) {
+    /**
+     * What this file is, for presentation. Drives the card badge and the
+     * document bucket so a chat screenshot is never presented as a photograph.
+     */
+    val mediaClass: MediaClass
+        get() = MediaClass.of(
+            type = type,
+            relativePath = relativePath,
+            displayName = displayName,
+            isLikelyText = bimodality?.let { it >= com.swipedelete.zero.domain.algorithm.TextDetector.TEXT_BIMODALITY_THRESHOLD },
+        )
+
     val resolutionLabel: String
         get() = if (width > 0 && height > 0) "${width}×${height}" else "—"
 

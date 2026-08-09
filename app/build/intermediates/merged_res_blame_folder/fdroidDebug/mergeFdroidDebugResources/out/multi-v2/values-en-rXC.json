@@ -4,24 +4,7 @@
             "outputFile": "com.swipedelete.zero.app-mergeFdroidDebugResources-2:/values-en-rXC/values-en-rXC.xml",
             "map": [
                 {
-                    "source": "/root/.gradle/caches/8.11.1/transforms/97dcc2bdbe80d9f9e18cdf8ebf674a28/transformed/core-1.15.0/res/values-en-rXC/values-en-rXC.xml",
-                    "from": {
-                        "startLines": "2,3,4,5,6,7,8,9",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "55,251,456,657,858,1065,1270,1482",
-                        "endColumns": "195,204,200,200,206,204,211,203",
-                        "endOffsets": "246,451,652,853,1060,1265,1477,1681"
-                    },
-                    "to": {
-                        "startLines": "2,3,4,5,6,7,8,81",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "105,301,506,707,908,1115,1320,16228",
-                        "endColumns": "195,204,200,200,206,204,211,203",
-                        "endOffsets": "296,501,702,903,1110,1315,1527,16427"
-                    }
-                },
-                {
-                    "source": "/root/.gradle/caches/8.11.1/transforms/172308e371cfd388c45cc5279ee468c8/transformed/material3-release/res/values-en-rXC/values-en-rXC.xml",
+                    "source": "/root/.gradle/caches/8.11.1/transforms/6ae2592f936b77d4f26665775c1f7334/transformed/material3-release/res/values-en-rXC/values-en-rXC.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
@@ -38,7 +21,7 @@
                     }
                 },
                 {
-                    "source": "/root/.gradle/caches/8.11.1/transforms/b47a23b4ecb6e7e371507b2f59c50503/transformed/foundation-release/res/values-en-rXC/values-en-rXC.xml",
+                    "source": "/root/.gradle/caches/8.11.1/transforms/b128cff7dad7d58a044498a0b10c0513/transformed/foundation-release/res/values-en-rXC/values-en-rXC.xml",
                     "from": {
                         "startLines": "2,3",
                         "startColumns": "4,4",
@@ -55,7 +38,24 @@
                     }
                 },
                 {
-                    "source": "/root/.gradle/caches/8.11.1/transforms/6c9ee15a4f1ee8a5260e9a42695d0af5/transformed/ui-release/res/values-en-rXC/values-en-rXC.xml",
+                    "source": "/root/.gradle/caches/8.11.1/transforms/d0fb1901475175010bb757d3afcc64df/transformed/core-1.15.0/res/values-en-rXC/values-en-rXC.xml",
+                    "from": {
+                        "startLines": "2,3,4,5,6,7,8,9",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,251,456,657,858,1065,1270,1482",
+                        "endColumns": "195,204,200,200,206,204,211,203",
+                        "endOffsets": "246,451,652,853,1060,1265,1477,1681"
+                    },
+                    "to": {
+                        "startLines": "2,3,4,5,6,7,8,81",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "105,301,506,707,908,1115,1320,16228",
+                        "endColumns": "195,204,200,200,206,204,211,203",
+                        "endOffsets": "296,501,702,903,1110,1315,1527,16427"
+                    }
+                },
+                {
+                    "source": "/root/.gradle/caches/8.11.1/transforms/017b144ad1acf04f0dda4b35d11a1251/transformed/ui-release/res/values-en-rXC/values-en-rXC.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",

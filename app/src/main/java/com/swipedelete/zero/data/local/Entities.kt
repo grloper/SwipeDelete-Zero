@@ -121,6 +121,12 @@ data class MediaAnalysisEntity(
     val frameRate: Float? = null,
     /** Video bitrate in bits/second, null when unknown or for images. */
     val bitrateBps: Long? = null,
+    /**
+     * Luminance bimodality (0..1) from [com.swipedelete.zero.domain.algorithm.TextDetector].
+     * High values mean the image is predominantly text, which is how a chat
+     * screenshot gets classified as a document rather than a photograph.
+     */
+    val bimodality: Double? = null,
 )
 
 /**

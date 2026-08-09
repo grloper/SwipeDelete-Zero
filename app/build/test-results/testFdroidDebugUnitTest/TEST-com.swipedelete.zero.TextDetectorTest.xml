@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.swipedelete.zero.TextDetectorTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-08-09T13:03:03" hostname="vm" time="0.001">
+  <properties/>
+  <testcase name="empty input is safe" classname="com.swipedelete.zero.TextDetectorTest" time="0.0"/>
+  <testcase name="a flat frame is not called text" classname="com.swipedelete.zero.TextDetectorTest" time="0.001"/>
+  <testcase name="a photograph fills the midtones" classname="com.swipedelete.zero.TextDetectorTest" time="0.0"/>
+  <testcase name="scoring is invariant to overall brightness" classname="com.swipedelete.zero.TextDetectorTest" time="0.0"/>
+  <testcase name="a page of text is strongly bimodal" classname="com.swipedelete.zero.TextDetectorTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

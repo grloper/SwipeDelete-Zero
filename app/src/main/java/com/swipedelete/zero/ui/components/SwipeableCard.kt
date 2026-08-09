@@ -36,7 +36,7 @@ import com.swipedelete.zero.domain.model.MediaItem
 import com.swipedelete.zero.domain.model.SwipeCommitDecider
 import com.swipedelete.zero.domain.model.SwipeDirection
 import com.swipedelete.zero.ui.haptics.rememberSdzHaptics
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.theme.SdzColor
 import kotlinx.coroutines.launch
 
 /**
@@ -65,7 +65,7 @@ fun SwipeableCard(
     /** Live 0..1 drag progress toward any commit threshold (drives peek-card scale). */
     onDragProgress: (Float) -> Unit = {},
     /** Up-swipe glow color: gold star by default, cyan cloud in the cloud flavor. */
-    upAccent: Color = SdzColors.StarGold,
+    upAccent: Color = SdzColor.Amber,
     content: @Composable (leftGlow: Float, rightGlow: Float, upGlow: Float) -> Unit = { l, r, u ->
         DefaultCardContent(item, l, r, u)
     },
@@ -164,8 +164,8 @@ fun SwipeableCard(
                 }
                 .edgeGlow(leftGlow, rightGlow, upGlow, upAccent)
                 .clip(RoundedCornerShape(28.dp))
-                .background(SdzColors.Obsidian)
-                .border(1.dp, SdzColors.Hairline, RoundedCornerShape(28.dp))
+                .background(SdzColor.Surface1)
+                .border(1.dp, SdzColor.Hairline, RoundedCornerShape(28.dp))
                 .pointerInput(item.id, enabled) {
                     if (!enabled) return@pointerInput
                     val velocityTracker = VelocityTracker()
@@ -261,7 +261,7 @@ internal fun Modifier.edgeGlow(
     left: Float,
     right: Float,
     up: Float,
-    upAccent: Color = SdzColors.StarGold,
+    upAccent: Color = SdzColor.Amber,
 ): Modifier =
     drawBehind {
         val stroke = 6.dp.toPx()
@@ -273,7 +273,7 @@ internal fun Modifier.edgeGlow(
                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke + alpha * 18.dp.toPx()),
             )
         }
-        glow(SdzColors.HyperCoral, left)
-        glow(SdzColors.ElectricEmerald, right)
+        glow(SdzColor.Amber, left)
+        glow(SdzColor.Azure, right)
         glow(upAccent, up)
     }

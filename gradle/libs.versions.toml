@@ -17,6 +17,7 @@ media3 = "1.5.1"
 datastore = "1.1.1"
 documentfile = "1.0.1"
 palette = "1.0.0"
+core-splashscreen = "1.0.1"
 playServicesAuth = "21.3.0"
 junit = "4.13.2"
 mockito = "5.14.2"
@@ -61,6 +62,7 @@ androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.re
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 androidx-palette = { group = "androidx.palette", name = "palette-ktx", version.ref = "palette" }
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "core-splashscreen" }
 
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 

@@ -59,7 +59,7 @@ import com.swipedelete.zero.domain.setup.AuthDiagnostic
 import com.swipedelete.zero.domain.setup.SetupStep
 import com.swipedelete.zero.domain.setup.SetupStepContent
 import com.swipedelete.zero.domain.setup.SigningIdentity
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.theme.SdzColor
 
 /**
  * The one-time Google connection wizard.
@@ -84,7 +84,7 @@ fun CloudSetupScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(SdzColors.PitchBlack),
+            .background(SdzColor.Surface0),
     ) {
         LazyColumn(
             modifier = Modifier
@@ -98,7 +98,7 @@ fun CloudSetupScreen(
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = "Back",
-                        tint = SdzColors.PureWhite,
+                        tint = SdzColor.Phosphor,
                         modifier = Modifier
                             .size(26.dp)
                             .clickable(onClick = onBack),
@@ -106,21 +106,21 @@ fun CloudSetupScreen(
                     Spacer(Modifier.size(12.dp))
                     Text(
                         "Setup Wizard",
-                        color = SdzColors.MutedGray,
+                        color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
                 Spacer(Modifier.height(16.dp))
                 Text(
                     "Connect Google Photos",
-                    color = SdzColors.PureWhite,
+                    color = SdzColor.Phosphor,
                     fontWeight = FontWeight.Black,
                     style = MaterialTheme.typography.headlineMedium,
                 )
                 Text(
                     "A one-time setup on your own Google account. " +
                         "Nothing is uploaded until you swipe a card up.",
-                    color = SdzColors.MutedGray,
+                    color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 6.dp),
                 )
@@ -178,8 +178,8 @@ private fun DiagnosticBanner(diagnostic: AuthDiagnostic) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(SdzColors.HyperCoral.copy(alpha = 0.10f))
-            .border(1.dp, SdzColors.HyperCoral.copy(alpha = 0.55f), RoundedCornerShape(20.dp))
+            .background(SdzColor.Amber.copy(alpha = 0.10f))
+            .border(1.dp, SdzColor.Amber.copy(alpha = 0.55f), RoundedCornerShape(20.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -190,21 +190,21 @@ private fun DiagnosticBanner(diagnostic: AuthDiagnostic) {
             Icon(
                 Icons.Rounded.ErrorOutline,
                 contentDescription = null,
-                tint = SdzColors.HyperCoral,
+                tint = SdzColor.Amber,
                 modifier = Modifier.size(20.dp),
             )
             Text(
                 diagnostic.headline,
-                color = SdzColors.HyperCoral,
+                color = SdzColor.Amber,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium,
             )
         }
-        Text(diagnostic.cause, color = SdzColors.PureWhite, style = MaterialTheme.typography.bodyMedium)
-        Text(diagnostic.fix, color = SdzColors.MutedGray, style = MaterialTheme.typography.bodyMedium)
+        Text(diagnostic.cause, color = SdzColor.Phosphor, style = MaterialTheme.typography.bodyMedium)
+        Text(diagnostic.fix, color = SdzColor.TextSecondary, style = MaterialTheme.typography.bodyMedium)
         Text(
             "error code ${diagnostic.code}",
-            color = SdzColors.MutedGray,
+            color = SdzColor.TextSecondary,
             fontFamily = FontFamily.Monospace,
             style = MaterialTheme.typography.labelSmall,
         )
@@ -217,8 +217,8 @@ private fun ConnectedBanner(email: String, onDisconnect: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(SdzColors.ElectricEmerald.copy(alpha = 0.10f))
-            .border(1.dp, SdzColors.ElectricEmerald.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+            .background(SdzColor.Azure.copy(alpha = 0.10f))
+            .border(1.dp, SdzColor.Azure.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -226,21 +226,21 @@ private fun ConnectedBanner(email: String, onDisconnect: () -> Unit) {
         Icon(
             Icons.Rounded.Verified,
             contentDescription = null,
-            tint = SdzColors.ElectricEmerald,
+            tint = SdzColor.Azure,
             modifier = Modifier.size(22.dp),
         )
         Column(Modifier.weight(1f)) {
             Text(
                 "Connected",
-                color = SdzColors.ElectricEmerald,
+                color = SdzColor.Azure,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium,
             )
-            Text(email, color = SdzColors.MutedGray, style = MaterialTheme.typography.labelMedium)
+            Text(email, color = SdzColor.TextSecondary, style = MaterialTheme.typography.labelMedium)
         }
         Text(
             "Disconnect",
-            color = SdzColors.MutedGray,
+            color = SdzColor.TextSecondary,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier
@@ -264,16 +264,16 @@ private fun StepCard(
     onConnect: () -> Unit,
 ) {
     val accent = when {
-        blamed -> SdzColors.HyperCoral
-        complete -> SdzColors.ElectricEmerald
-        expanded -> SdzColors.CrispCyan
-        else -> SdzColors.Hairline
+        blamed -> SdzColor.Amber
+        complete -> SdzColor.Azure
+        expanded -> SdzColor.TextSecondary
+        else -> SdzColor.Hairline
     }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(SdzColors.Obsidian)
+            .background(SdzColor.Surface1)
             .border(1.dp, accent.copy(alpha = if (expanded || blamed) 0.6f else 0.25f), RoundedCornerShape(20.dp))
             .clickable(onClick = onToggleExpand)
             .padding(16.dp),
@@ -286,7 +286,7 @@ private fun StepCard(
             StepBadge(number = content.step.number, complete = complete, accent = accent)
             Text(
                 content.step.title,
-                color = if (complete) SdzColors.MutedGray else SdzColors.PureWhite,
+                color = if (complete) SdzColor.TextSecondary else SdzColor.Phosphor,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
@@ -297,7 +297,7 @@ private fun StepCard(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     content.summary,
-                    color = SdzColors.MutedGray,
+                    color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
 
@@ -307,7 +307,7 @@ private fun StepCard(
                     Text(
                         "Read from the app installed on THIS device, so it always matches " +
                             "what Google sees. No keytool needed.",
-                        color = SdzColors.CrispCyan,
+                        color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.labelMedium,
                     )
                 }
@@ -315,7 +315,7 @@ private fun StepCard(
                 content.instructions.forEach { instruction ->
                     Text(
                         instruction.text,
-                        color = SdzColors.PureWhite,
+                        color = SdzColor.Phosphor,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     if (instruction.linkUrl != null && instruction.linkLabel != null) {
@@ -330,7 +330,7 @@ private fun StepCard(
                 if (content.step != SetupStep.SIGN_IN) {
                     Text(
                         if (complete) "✓ Marked done — tap to undo" else "Mark this step done",
-                        color = if (complete) SdzColors.ElectricEmerald else SdzColors.MutedGray,
+                        color = if (complete) SdzColor.Azure else SdzColor.TextSecondary,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier
@@ -349,15 +349,15 @@ private fun StepBadge(number: Int, complete: Boolean, accent: Color) {
         modifier = Modifier
             .size(30.dp)
             .clip(CircleShape)
-            .background(if (complete) SdzColors.ElectricEmerald else Color.Transparent)
-            .border(1.5.dp, if (complete) SdzColors.ElectricEmerald else accent, CircleShape),
+            .background(if (complete) SdzColor.Azure else Color.Transparent)
+            .border(1.5.dp, if (complete) SdzColor.Azure else accent, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         if (complete) {
             Icon(
                 Icons.Rounded.CheckCircle,
                 contentDescription = null,
-                tint = SdzColors.PitchBlack,
+                tint = SdzColor.Surface0,
                 modifier = Modifier.size(20.dp),
             )
         } else {
@@ -380,21 +380,21 @@ private fun CredentialRow(label: String, value: String) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(SdzColors.PitchBlack)
-            .border(1.dp, SdzColors.Hairline, RoundedCornerShape(14.dp))
+            .background(SdzColor.Surface0)
+            .border(1.dp, SdzColor.Hairline, RoundedCornerShape(14.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
             label.uppercase(),
-            color = SdzColors.MutedGray,
+            color = SdzColor.TextSecondary,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.labelSmall,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 value,
-                color = SdzColors.ElectricEmerald,
+                color = SdzColor.Azure,
                 fontFamily = FontFamily.Monospace,
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.weight(1f),
@@ -402,7 +402,7 @@ private fun CredentialRow(label: String, value: String) {
             Icon(
                 Icons.Rounded.ContentCopy,
                 contentDescription = "Copy $label",
-                tint = SdzColors.CrispCyan,
+                tint = SdzColor.TextSecondary,
                 modifier = Modifier
                     .size(34.dp)
                     .clip(RoundedCornerShape(10.dp))
@@ -419,8 +419,8 @@ private fun LinkButton(label: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(SdzColors.CrispCyan.copy(alpha = 0.10f))
-            .border(1.dp, SdzColors.CrispCyan.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+            .background(SdzColor.TextSecondary.copy(alpha = 0.10f))
+            .border(1.dp, SdzColor.TextSecondary.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -428,7 +428,7 @@ private fun LinkButton(label: String, onClick: () -> Unit) {
     ) {
         Text(
             label,
-            color = SdzColors.CrispCyan,
+            color = SdzColor.TextSecondary,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier.weight(1f),
@@ -436,7 +436,7 @@ private fun LinkButton(label: String, onClick: () -> Unit) {
         Icon(
             Icons.AutoMirrored.Rounded.OpenInNew,
             contentDescription = null,
-            tint = SdzColors.CrispCyan,
+            tint = SdzColor.TextSecondary,
             modifier = Modifier.size(18.dp),
         )
     }
@@ -448,14 +448,14 @@ private fun PrimaryButton(label: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(SdzColors.ElectricEmerald)
+            .background(SdzColor.Azure)
             .clickable(onClick = onClick)
             .padding(vertical = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             label,
-            color = SdzColors.PitchBlack,
+            color = SdzColor.Surface0,
             fontWeight = FontWeight.Black,
             style = MaterialTheme.typography.labelLarge,
         )
@@ -464,7 +464,7 @@ private fun PrimaryButton(label: String, onClick: () -> Unit) {
 
 @Composable
 private fun VerificationResultCard(check: com.swipedelete.zero.domain.backup.ConnectionCheck) {
-    val accent = if (check.allGood) SdzColors.ElectricEmerald else SdzColors.HyperCoral
+    val accent = if (check.allGood) SdzColor.Azure else SdzColor.Amber
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -483,7 +483,7 @@ private fun VerificationResultCard(check: com.swipedelete.zero.domain.backup.Con
         CheckLine("Signed in", check.signedIn)
         check.driveOk?.let { CheckLine("Google Drive API", it) }
         check.photosOk?.let { CheckLine("Google Photos API", it) }
-        Text(check.message, color = SdzColors.MutedGray, style = MaterialTheme.typography.bodyMedium)
+        Text(check.message, color = SdzColor.TextSecondary, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -496,10 +496,10 @@ private fun CheckLine(label: String, ok: Boolean) {
         Icon(
             if (ok) Icons.Rounded.CheckCircle else Icons.Rounded.ErrorOutline,
             contentDescription = null,
-            tint = if (ok) SdzColors.ElectricEmerald else SdzColors.HyperCoral,
+            tint = if (ok) SdzColor.Azure else SdzColor.Amber,
             modifier = Modifier.size(16.dp),
         )
-        Text(label, color = SdzColors.PureWhite, style = MaterialTheme.typography.bodyMedium)
+        Text(label, color = SdzColor.Phosphor, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -513,8 +513,8 @@ private fun VerifyBar(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(SdzColors.Obsidian)
-            .border(1.5.dp, SdzColors.CrispCyan, RoundedCornerShape(18.dp))
+            .background(SdzColor.Surface1)
+            .border(1.5.dp, SdzColor.TextSecondary, RoundedCornerShape(18.dp))
             .clickable(enabled = !verifying, onClick = onVerify)
             .padding(vertical = 16.dp),
         horizontalArrangement = Arrangement.Center,
@@ -522,7 +522,7 @@ private fun VerifyBar(
     ) {
         if (verifying) {
             CircularProgressIndicator(
-                color = SdzColors.CrispCyan,
+                color = SdzColor.TextSecondary,
                 strokeWidth = 2.dp,
                 modifier = Modifier.size(18.dp),
             )
@@ -530,7 +530,7 @@ private fun VerifyBar(
         }
         Text(
             if (verifying) "Verifying…" else "Verify connection",
-            color = SdzColors.CrispCyan,
+            color = SdzColor.TextSecondary,
             fontWeight = FontWeight.Black,
             style = MaterialTheme.typography.labelLarge,
         )

@@ -35,7 +35,7 @@ import coil.size.Size
 import com.swipedelete.zero.domain.model.Filmstrip
 import com.swipedelete.zero.domain.model.MediaItem
 import com.swipedelete.zero.domain.model.PlaybackState
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.theme.SdzColor
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -82,8 +82,8 @@ fun FilmstripScrubber(
         modifier = modifier
             .height(44.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(SdzColors.PitchBlack.copy(alpha = 0.6f))
-            .border(1.dp, SdzColors.Hairline, RoundedCornerShape(10.dp))
+            .background(SdzColor.Surface0.copy(alpha = 0.6f))
+            .border(1.dp, SdzColor.Hairline, RoundedCornerShape(10.dp))
             .onSizeChanged { stripWidthPx = it.width.toFloat() }
             .pointerInput(item.id) {
                 detectHorizontalDragGestures(
@@ -143,7 +143,7 @@ fun FilmstripScrubber(
                 .offset { IntOffset((fraction * (stripWidthPx - 2.dp.toPx())).roundToInt(), 0) }
                 .width(2.dp)
                 .fillMaxHeight()
-                .background(SdzColors.PureWhite),
+                .background(SdzColor.Phosphor),
         )
     }
 }

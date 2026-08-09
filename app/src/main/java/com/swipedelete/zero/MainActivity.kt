@@ -7,8 +7,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.swipedelete.zero.ui.navigation.AppNavigation
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.theme.SdzColor
 import com.swipedelete.zero.ui.theme.SwipeDeleteZeroTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -20,13 +21,16 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Installed before super.onCreate so the brand mark is the first
+        // thing drawn, on the same warm charcoal the app itself uses.
+        installSplashScreen()
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
             SwipeDeleteZeroTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = SdzColors.PitchBlack,
+                    color = SdzColor.Surface0,
                 ) {
                     AppNavigation()
                 }

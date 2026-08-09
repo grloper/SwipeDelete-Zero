@@ -21,7 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.swipedelete.zero.domain.model.MediaItem
 import com.swipedelete.zero.domain.scanner.VideoMeta
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.theme.SdzColor
 import com.swipedelete.zero.ui.util.resolutionClass
 import com.swipedelete.zero.ui.util.toDurationLabel
 import com.swipedelete.zero.ui.util.toFpsLabel
@@ -63,7 +63,7 @@ fun MetadataPill(
             (videoMeta?.bitrateBps ?: 0) >= HIGH_IMPACT_BITRATE ||
             resolutionClass(item.width, item.height) == "4K"
         )
-    val borderColor = if (highImpact) SdzColors.HyperCoral.copy(alpha = 0.75f) else SdzColors.Hairline
+    val borderColor = if (highImpact) SdzColor.Amber.copy(alpha = 0.75f) else SdzColor.Hairline
 
     Row(
         modifier = modifier
@@ -71,8 +71,8 @@ fun MetadataPill(
             .background(
                 Brush.horizontalGradient(
                     listOf(
-                        SdzColors.PitchBlack.copy(alpha = 0.72f),
-                        SdzColors.Obsidian.copy(alpha = 0.62f),
+                        SdzColor.Surface0.copy(alpha = 0.72f),
+                        SdzColor.Surface1.copy(alpha = 0.62f),
                     )
                 )
             )
@@ -85,7 +85,7 @@ fun MetadataPill(
             Icon(
                 Icons.Rounded.Whatshot,
                 contentDescription = "Large storage impact",
-                tint = SdzColors.HyperCoral,
+                tint = SdzColor.Amber,
                 modifier = Modifier.size(14.dp),
             )
         }
@@ -93,9 +93,9 @@ fun MetadataPill(
             Text(
                 text = text,
                 color = when {
-                    index == 0 && highImpact -> SdzColors.HyperCoral
-                    index == 0 -> SdzColors.CrispCyan
-                    else -> SdzColors.PureWhite
+                    index == 0 && highImpact -> SdzColor.Amber
+                    index == 0 -> SdzColor.TextSecondary
+                    else -> SdzColor.Phosphor
                 },
                 fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Medium,
                 style = MaterialTheme.typography.labelMedium,

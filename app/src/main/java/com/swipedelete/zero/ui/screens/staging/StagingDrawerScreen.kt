@@ -27,7 +27,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.MusicNote
@@ -64,7 +64,9 @@ import com.swipedelete.zero.domain.backup.PhotosArchive
 import com.swipedelete.zero.domain.model.ExecutionMode
 import com.swipedelete.zero.domain.model.MediaType
 import com.swipedelete.zero.ui.components.SortChip
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.components.SdzIconButton
+import com.swipedelete.zero.ui.components.SdzIcons
+import com.swipedelete.zero.ui.theme.SdzColor
 import com.swipedelete.zero.ui.util.toReadableSize
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -121,7 +123,7 @@ fun StagingDrawerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(SdzColors.PitchBlack)
+                .background(SdzColor.Surface0)
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp),
@@ -131,29 +133,28 @@ fun StagingDrawerScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(
-                    Icons.Rounded.ArrowBack,
-                    contentDescription = "Back",
-                    tint = SdzColors.PureWhite,
-                    modifier = Modifier.size(26.dp).clickable(onClick = onBack),
+                SdzIconButton(
+                    icon = SdzIcons.Back,
+                    label = "Back",
+                    onClick = onBack,
                 )
                 Column(Modifier.weight(1f)) {
                     Text(
                         "Staging Drawer",
-                        color = SdzColors.PureWhite,
+                        color = SdzColor.Phosphor,
                         fontWeight = FontWeight.Black,
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
                         "${state.count} files • ${state.totalBytes.toReadableSize()} ready to purge",
-                        color = SdzColors.CrispCyan,
+                        color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.labelMedium,
                     )
                 }
                 if (state.count > 0) {
                     Text(
                         "Clear",
-                        color = SdzColors.MutedGray,
+                        color = SdzColor.TextSecondary,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.clickable { viewModel.clearQueue() },
                     )
@@ -162,7 +163,7 @@ fun StagingDrawerScreen(
 
             if (state.count == 0) {
                 Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) {
-                    Text("Nothing staged yet. Swipe left to queue files.", color = SdzColors.MutedGray)
+                    Text("Nothing staged yet. Swipe left to queue files.", color = SdzColor.TextSecondary)
                 }
             } else {
                 Row(
@@ -172,7 +173,7 @@ fun StagingDrawerScreen(
                 ) {
                     Text(
                         "Sort",
-                        color = SdzColors.MutedGray,
+                        color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.labelMedium,
                     )
                     SortChip("Newest", state.sort == StagingSort.NEWEST) {
@@ -240,8 +241,8 @@ internal fun StagedRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(SdzColors.Obsidian)
-            .border(1.dp, SdzColors.Hairline, RoundedCornerShape(16.dp))
+            .background(SdzColor.Surface1)
+            .border(1.dp, SdzColor.Hairline, RoundedCornerShape(16.dp))
             .clickable(onClick = onPreview)
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -251,7 +252,7 @@ internal fun StagedRow(
         Column(Modifier.weight(1f)) {
             Text(
                 item.displayName,
-                color = SdzColors.PureWhite,
+                color = SdzColor.Phosphor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontWeight = FontWeight.Medium,
@@ -259,13 +260,13 @@ internal fun StagedRow(
             )
             Text(
                 "${item.mediaType} · ${item.sizeBytes.toReadableSize()}",
-                color = SdzColors.MutedGray,
+                color = SdzColor.TextSecondary,
                 style = MaterialTheme.typography.labelMedium,
             )
             if (item.sourceDeckId == PhotosArchive.VERIFIED_SOURCE_DECK) {
                 Text(
                     "☁ Verified in Google Photos — safe to delete",
-                    color = SdzColors.CrispCyan,
+                    color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.labelSmall,
                 )
             }
@@ -278,8 +279,8 @@ internal fun StagedRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Icon(Icons.Rounded.Restore, contentDescription = "Restore", tint = SdzColors.ElectricEmerald, modifier = Modifier.size(20.dp))
-            Text("Restore", color = SdzColors.ElectricEmerald, style = MaterialTheme.typography.labelMedium)
+            Icon(Icons.Rounded.Restore, contentDescription = "Restore", tint = SdzColor.Azure, modifier = Modifier.size(20.dp))
+            Text("Restore", color = SdzColor.Azure, style = MaterialTheme.typography.labelMedium)
         }
     }
 }
@@ -289,8 +290,8 @@ private fun StagedThumbnail(item: StagedFileEntity, modifier: Modifier = Modifie
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(SdzColors.PitchBlack)
-            .border(1.dp, SdzColors.Hairline, RoundedCornerShape(10.dp)),
+            .background(SdzColor.Surface0)
+            .border(1.dp, SdzColor.Hairline, RoundedCornerShape(10.dp)),
         contentAlignment = Alignment.Center,
     ) {
         if (item.hasVisualPreview) {
@@ -309,17 +310,17 @@ private fun StagedThumbnail(item: StagedFileEntity, modifier: Modifier = Modifie
                 Icon(
                     Icons.Rounded.PlayArrow,
                     contentDescription = null,
-                    tint = SdzColors.PureWhite,
+                    tint = SdzColor.Phosphor,
                     modifier = Modifier
                         .size(20.dp)
-                        .background(SdzColors.PitchBlack.copy(alpha = 0.5f), CircleShape),
+                        .background(SdzColor.Surface0.copy(alpha = 0.5f), CircleShape),
                 )
             }
         } else {
             Icon(
                 item.fallbackGlyph,
                 contentDescription = null,
-                tint = SdzColors.MutedGray,
+                tint = SdzColor.TextSecondary,
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -341,7 +342,7 @@ private fun StagedPreviewOverlay(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SdzColors.PitchBlack)
+            .background(SdzColor.Surface0)
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(20.dp),
@@ -354,7 +355,7 @@ private fun StagedPreviewOverlay(
             Column(Modifier.weight(1f)) {
                 Text(
                     item.displayName,
-                    color = SdzColors.PureWhite,
+                    color = SdzColor.Phosphor,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -362,7 +363,7 @@ private fun StagedPreviewOverlay(
                 )
                 Text(
                     "${item.sizeBytes.toReadableSize()} · staged ${item.stagedAtLabel()}",
-                    color = SdzColors.MutedGray,
+                    color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.labelMedium,
                 )
             }
@@ -370,15 +371,15 @@ private fun StagedPreviewOverlay(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(SdzColors.Obsidian)
-                    .border(1.dp, SdzColors.Hairline, CircleShape)
+                    .background(SdzColor.Surface1)
+                    .border(1.dp, SdzColor.Hairline, CircleShape)
                     .clickable(onClick = onDismiss),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Rounded.Close,
                     contentDescription = "Close preview",
-                    tint = SdzColors.PureWhite,
+                    tint = SdzColor.Phosphor,
                     modifier = Modifier.size(20.dp),
                 )
             }
@@ -389,8 +390,8 @@ private fun StagedPreviewOverlay(
                 .weight(1f)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
-                .background(SdzColors.Obsidian)
-                .border(1.dp, SdzColors.Hairline, RoundedCornerShape(20.dp)),
+                .background(SdzColor.Surface1)
+                .border(1.dp, SdzColor.Hairline, RoundedCornerShape(20.dp)),
             contentAlignment = Alignment.Center,
         ) {
             if (item.hasVisualPreview) {
@@ -407,13 +408,13 @@ private fun StagedPreviewOverlay(
                 if (item.isVideo) {
                     Text(
                         "First frame · video won't play here",
-                        color = SdzColors.PureWhite.copy(alpha = 0.7f),
+                        color = SdzColor.Phosphor.copy(alpha = 0.7f),
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .padding(12.dp)
                             .clip(RoundedCornerShape(50))
-                            .background(SdzColors.PitchBlack.copy(alpha = 0.6f))
+                            .background(SdzColor.Surface0.copy(alpha = 0.6f))
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                 }
@@ -425,12 +426,12 @@ private fun StagedPreviewOverlay(
                     Icon(
                         item.fallbackGlyph,
                         contentDescription = null,
-                        tint = SdzColors.MutedGray,
+                        tint = SdzColor.TextSecondary,
                         modifier = Modifier.size(64.dp),
                     )
                     Text(
                         "No visual preview for this file type",
-                        color = SdzColors.MutedGray,
+                        color = SdzColor.TextSecondary,
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -446,18 +447,18 @@ private fun StagedPreviewOverlay(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(SdzColors.ElectricEmerald.copy(alpha = 0.15f))
-                    .border(1.dp, SdzColors.ElectricEmerald.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                    .background(SdzColor.Azure.copy(alpha = 0.15f))
+                    .border(1.dp, SdzColor.Azure.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
                     .clickable(onClick = onRestore)
                     .padding(vertical = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.weight(1f)) {}
-                Icon(Icons.Rounded.Restore, contentDescription = null, tint = SdzColors.ElectricEmerald, modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.Restore, contentDescription = null, tint = SdzColor.Azure, modifier = Modifier.size(20.dp))
                 Text(
                     "Restore",
-                    color = SdzColors.ElectricEmerald,
+                    color = SdzColor.Azure,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.labelLarge,
                 )
@@ -467,15 +468,15 @@ private fun StagedPreviewOverlay(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(SdzColors.Obsidian)
-                    .border(1.dp, SdzColors.Hairline, RoundedCornerShape(16.dp))
+                    .background(SdzColor.Surface1)
+                    .border(1.dp, SdzColor.Hairline, RoundedCornerShape(16.dp))
                     .clickable(onClick = onDismiss)
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     "Keep in queue",
-                    color = SdzColors.PureWhite,
+                    color = SdzColor.Phosphor,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.labelLarge,
                 )
@@ -506,21 +507,21 @@ internal fun ExecutionModeToggle(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(SdzColors.Obsidian)
-            .border(1.dp, SdzColors.Hairline, RoundedCornerShape(16.dp))
+            .background(SdzColor.Surface1)
+            .border(1.dp, SdzColor.Hairline, RoundedCornerShape(16.dp))
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         SegmentButton(
             text = "30-Day OS Trash",
             selected = mode == ExecutionMode.OS_TRASH_30_DAY,
-            accent = SdzColors.ElectricEmerald,
+            accent = SdzColor.Azure,
             modifier = Modifier.weight(1f),
         ) { onSelect(ExecutionMode.OS_TRASH_30_DAY) }
         SegmentButton(
             text = "Permanent Purge",
             selected = mode == ExecutionMode.PERMANENT_PURGE,
-            accent = SdzColors.HyperCoral,
+            accent = SdzColor.Amber,
             modifier = Modifier.weight(1f),
         ) { onSelect(ExecutionMode.PERMANENT_PURGE) }
     }
@@ -549,7 +550,7 @@ private fun SegmentButton(
     ) {
         Text(
             text,
-            color = if (selected) accent else SdzColors.MutedGray,
+            color = if (selected) accent else SdzColor.TextSecondary,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.labelLarge,
         )
@@ -567,14 +568,14 @@ internal fun PurgeCta(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(if (enabled) SdzColors.HyperCoral else SdzColors.MutedGray)
+            .background(if (enabled) SdzColor.Amber else SdzColor.TextSecondary)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(vertical = 20.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             "🔥 Free Up ${bytes.toReadableSize()} Now",
-            color = SdzColors.PureWhite,
+            color = SdzColor.Phosphor,
             fontWeight = FontWeight.Black,
             style = MaterialTheme.typography.titleMedium,
         )

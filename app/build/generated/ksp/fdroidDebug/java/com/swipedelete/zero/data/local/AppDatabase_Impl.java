@@ -44,7 +44,7 @@ public final class AppDatabase_Impl extends AppDatabase {
   @Override
   @NonNull
   protected SupportSQLiteOpenHelper createOpenHelper(@NonNull final DatabaseConfiguration config) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(3) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(4) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `staged_files` (`contentUri` TEXT NOT NULL, `displayName` TEXT NOT NULL, `mimeType` TEXT NOT NULL, `mediaType` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, `relativePath` TEXT, `stagedAtMillis` INTEGER NOT NULL, `sourceDeckId` TEXT, PRIMARY KEY(`contentUri`))");
@@ -52,12 +52,12 @@ public final class AppDatabase_Impl extends AppDatabase {
         db.execSQL("CREATE TABLE IF NOT EXISTS `exclusions` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `type` TEXT NOT NULL, `uri` TEXT, `perceptualHash` INTEGER, `folderPath` TEXT, `label` TEXT NOT NULL, `createdAtMillis` INTEGER NOT NULL)");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_exclusions_perceptualHash` ON `exclusions` (`perceptualHash`)");
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_exclusions_folderPath` ON `exclusions` (`folderPath`)");
-        db.execSQL("CREATE TABLE IF NOT EXISTS `media_analysis` (`mediaId` INTEGER NOT NULL, `contentUri` TEXT NOT NULL, `dHash` INTEGER, `pHash` INTEGER, `sharpnessVariance` REAL, `meanLuma` REAL, `isBlurry` INTEGER, `sizeBytes` INTEGER NOT NULL, `analyzedAtMillis` INTEGER NOT NULL, `videoCodec` TEXT, `frameRate` REAL, `bitrateBps` INTEGER, PRIMARY KEY(`mediaId`))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `media_analysis` (`mediaId` INTEGER NOT NULL, `contentUri` TEXT NOT NULL, `dHash` INTEGER, `pHash` INTEGER, `sharpnessVariance` REAL, `meanLuma` REAL, `isBlurry` INTEGER, `sizeBytes` INTEGER NOT NULL, `analyzedAtMillis` INTEGER NOT NULL, `videoCodec` TEXT, `frameRate` REAL, `bitrateBps` INTEGER, `bimodality` REAL, PRIMARY KEY(`mediaId`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `kept_files` (`contentUri` TEXT NOT NULL, `displayName` TEXT NOT NULL, `mimeType` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, `keptAtMillis` INTEGER NOT NULL, `starred` INTEGER NOT NULL, PRIMARY KEY(`contentUri`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `backed_up_files` (`contentUri` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, `remoteId` TEXT NOT NULL, `uploadedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`contentUri`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS `cloud_uploads` (`contentUri` TEXT NOT NULL, `displayName` TEXT NOT NULL, `mimeType` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, `state` TEXT NOT NULL, `uploadUrl` TEXT, `bytesUploaded` INTEGER NOT NULL, `uploadToken` TEXT, `mediaItemId` TEXT, `attempts` INTEGER NOT NULL, `lastError` TEXT, `enqueuedAtMillis` INTEGER NOT NULL, `updatedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`contentUri`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c3fc941612697fc45c3747f4e7556b15')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '27395684ed3974e45fe174bb75c8e576')");
       }
 
       @Override
@@ -165,7 +165,7 @@ public final class AppDatabase_Impl extends AppDatabase {
                   + " Expected:\n" + _infoExclusions + "\n"
                   + " Found:\n" + _existingExclusions);
         }
-        final HashMap<String, TableInfo.Column> _columnsMediaAnalysis = new HashMap<String, TableInfo.Column>(12);
+        final HashMap<String, TableInfo.Column> _columnsMediaAnalysis = new HashMap<String, TableInfo.Column>(13);
         _columnsMediaAnalysis.put("mediaId", new TableInfo.Column("mediaId", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsMediaAnalysis.put("contentUri", new TableInfo.Column("contentUri", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsMediaAnalysis.put("dHash", new TableInfo.Column("dHash", "INTEGER", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
@@ -178,6 +178,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         _columnsMediaAnalysis.put("videoCodec", new TableInfo.Column("videoCodec", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsMediaAnalysis.put("frameRate", new TableInfo.Column("frameRate", "REAL", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsMediaAnalysis.put("bitrateBps", new TableInfo.Column("bitrateBps", "INTEGER", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsMediaAnalysis.put("bimodality", new TableInfo.Column("bimodality", "REAL", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysMediaAnalysis = new HashSet<TableInfo.ForeignKey>(0);
         final HashSet<TableInfo.Index> _indicesMediaAnalysis = new HashSet<TableInfo.Index>(0);
         final TableInfo _infoMediaAnalysis = new TableInfo("media_analysis", _columnsMediaAnalysis, _foreignKeysMediaAnalysis, _indicesMediaAnalysis);
@@ -242,7 +243,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "c3fc941612697fc45c3747f4e7556b15", "4282fe79e6976597e2d6f6282c81e7e6");
+    }, "27395684ed3974e45fe174bb75c8e576", "f3c33e8f8c66d628ca8df67b023eee88");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;

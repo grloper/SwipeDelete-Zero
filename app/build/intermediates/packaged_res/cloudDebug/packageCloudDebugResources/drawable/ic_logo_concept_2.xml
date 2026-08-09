@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CONCEPT 2 (explored, not shipped): "the deck".
+
+  Three negative frames stacked with a slight rotation, the top one caught
+  mid-swipe. It tells the interaction story better than Concept 1, but the
+  three overlapping bodies merge into an unreadable blob below ~24px, and the
+  rotation means it never sits square in a launcher grid. Kept here as the
+  record of the exploration.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- back frame -->
+    <group android:pivotX="24" android:pivotY="24" android:rotation="-10">
+        <path
+            android:fillColor="#4A443D"
+            android:pathData="M13,9 h22 a6,6 0 0 1 6,6 v18 a6,6 0 0 1 -6,6 h-22 a6,6 0 0 1 -6,-6 v-18 a6,6 0 0 1 6,-6 z" />
+    </group>
+    <!-- middle frame -->
+    <group android:pivotX="24" android:pivotY="24" android:rotation="-5">
+        <path
+            android:fillColor="#8A8078"
+            android:pathData="M13,8 h22 a6,6 0 0 1 6,6 v19 a6,6 0 0 1 -6,6 h-22 a6,6 0 0 1 -6,-6 v-19 a6,6 0 0 1 6,-6 z" />
+    </group>
+    <!-- top frame, mid-swipe, aperture cut as a zero -->
+    <group android:pivotX="24" android:pivotY="24" android:rotation="6">
+        <path
+            android:fillColor="#F2EDE4"
+            android:fillType="evenOdd"
+            android:pathData="M13,7 h22 a6,6 0 0 1 6,6 v20 a6,6 0 0 1 -6,6 h-22 a6,6 0 0 1 -6,-6 v-20 a6,6 0 0 1 6,-6 z M4,15 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 z M4,31 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 z M38,15 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 z M38,31 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 z M17,23 a7,9 0 1,0 14,0 a7,9 0 1,0 -14,0 z" />
+    </group>
+</vector>

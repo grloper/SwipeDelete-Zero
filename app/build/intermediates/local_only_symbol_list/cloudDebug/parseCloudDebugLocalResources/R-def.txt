@@ -1,13 +1,30 @@
 R_DEF: Internal format may change without notice
 local
-color crisp_cyan
-color electric_emerald
-color hyper_coral
 color ic_launcher_background
-color obsidian
-color pitch_black
-color star_gold
+color phosphor
+color surface_0
+color surface_1
+color surface_3
+drawable ic_action_back
+drawable ic_action_cloud
+drawable ic_action_keep
+drawable ic_action_trash
+drawable ic_action_undo
+drawable ic_bucket_blurry
+drawable ic_bucket_document
+drawable ic_bucket_duplicates
+drawable ic_bucket_screenshot
+drawable ic_bucket_video
+drawable ic_launcher_background
 drawable ic_launcher_foreground
+drawable ic_logo_concept_2
+drawable ic_logo_concept_3
+drawable ic_logo_mark
+font inter_medium
+font inter_regular
+font inter_semibold
+font space_grotesk_bold
+font space_grotesk_medium
 layout view_top_card_player
 mipmap ic_launcher
 mipmap ic_launcher_round
@@ -38,5 +55,6 @@ string trash
 string trash_both
 string undo
 style Theme.SwipeDeleteZero
+style Theme.SwipeDeleteZero.Splash
 xml backup_rules
 xml data_extraction_rules

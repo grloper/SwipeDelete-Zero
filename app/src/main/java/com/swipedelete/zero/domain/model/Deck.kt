@@ -7,7 +7,9 @@ enum class DeckKind {
     CLUTTER_HOTSPOT,
     DUPLICATES,
     BLURRY,
-    SCREENSHOTS;
+    SCREENSHOTS,
+    /** Text screenshots, receipts, scans — words, not pictures. */
+    DOCUMENTS;
 
     /**
      * Only DUPLICATES use the top/bottom A-vs-B comparison screen — a duplicate
@@ -50,7 +52,23 @@ data class Deck(
     val remainingCount: Int get() = (totalCount - completedCount).coerceAtLeast(0)
     val progress: Float
         get() = if (totalCount == 0) 0f else completedCount.toFloat() / totalCount
-    val reclaimableBytes: Long get() = items.sumOf { it.sizeBytes }
+
+    /** Items not yet swiped. The only set a "still to review" total may use. */
+    val remainingItems: List<MediaItem>
+        get() = items.drop(completedCount.coerceIn(0, items.size))
+
+    /**
+     * Bytes still up for review.
+     *
+     * Counts and totals must be derived from the *same* set or they drift
+     * apart: a bucket previously showed "0 items" beside a size left over from
+     * when it held nine, because the count used the remaining items while the
+     * size summed all of them forever.
+     */
+    val remainingBytes: Long get() = remainingItems.sumOf { it.sizeBytes }
+
+    /** Bytes across every item in the deck, reviewed or not. */
+    val totalBytes: Long get() = items.sumOf { it.sizeBytes }
 }
 
 /**
@@ -66,7 +84,10 @@ data class DeckGroup(
     val totalCount: Int get() = parts.sumOf { it.totalCount }
     val completedCount: Int get() = parts.sumOf { it.completedCount }
     val remainingCount: Int get() = parts.sumOf { it.remainingCount }
-    val reclaimableBytes: Long get() = parts.sumOf { it.reclaimableBytes }
+
+    /** Derived from the same items as [remainingCount] — see [Deck.remainingBytes]. */
+    val remainingBytes: Long get() = parts.sumOf { it.remainingBytes }
+    val totalBytes: Long get() = parts.sumOf { it.totalBytes }
     val progress: Float
         get() = if (totalCount == 0) 0f else completedCount.toFloat() / totalCount
 
@@ -98,16 +119,52 @@ data class ComparisonPair(
     val primary: MediaItem,
     val secondary: MediaItem,
 ) {
+    /**
+     * Every accessor returns null unless one file is *genuinely* better on that
+     * dimension.
+     *
+     * These previously used `>=` / `<=`, so a tie silently resolved to
+     * [primary] — which meant two byte-identical duplicates were labelled
+     * "Higher res" AND "Smaller" at the same time, on the same file. A badge
+     * that contradicts itself is worse than no badge: it teaches the user the
+     * comparison cannot be trusted, and this screen exists purely to be
+     * trusted. Ties now produce no badge at all.
+     */
     val sharperItem: MediaItem?
         get() {
             val a = primary.sharpnessScore ?: return null
             val b = secondary.sharpnessScore ?: return null
-            return if (a >= b) primary else secondary
+            // Laplacian variance is noisy; only call it if the gap is meaningful.
+            if (kotlin.math.abs(a - b) < SHARPNESS_EPSILON) return null
+            return if (a > b) primary else secondary
         }
 
-    val higherResItem: MediaItem
-        get() = if (primary.megapixels >= secondary.megapixels) primary else secondary
+    val higherResItem: MediaItem?
+        get() {
+            val a = primary.width.toLong() * primary.height
+            val b = secondary.width.toLong() * secondary.height
+            if (a <= 0L || b <= 0L) return null
+            // Under ~2% apart is the same picture for the user's purposes.
+            if (kotlin.math.abs(a - b).toDouble() / maxOf(a, b) < RESOLUTION_EPSILON) return null
+            return if (a > b) primary else secondary
+        }
 
-    val smallerItem: MediaItem
-        get() = if (primary.sizeBytes <= secondary.sizeBytes) primary else secondary
+    val smallerItem: MediaItem?
+        get() {
+            val a = primary.sizeBytes
+            val b = secondary.sizeBytes
+            if (a <= 0L || b <= 0L) return null
+            if (kotlin.math.abs(a - b).toDouble() / maxOf(a, b) < SIZE_EPSILON) return null
+            return if (a < b) primary else secondary
+        }
+
+    /** True when the two files are, as far as we can tell, interchangeable. */
+    val isIndistinguishable: Boolean
+        get() = sharperItem == null && higherResItem == null && smallerItem == null
+
+    private companion object {
+        const val SHARPNESS_EPSILON = 5.0
+        const val RESOLUTION_EPSILON = 0.02
+        const val SIZE_EPSILON = 0.02
+    }
 }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.swipedelete.zero.MediaClassTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-08-09T13:03:03" hostname="vm" time="0.006">
+  <properties/>
+  <testcase name="a text-heavy screenshot becomes a document" classname="com.swipedelete.zero.MediaClassTest" time="0.002"/>
+  <testcase name="video always wins" classname="com.swipedelete.zero.MediaClassTest" time="0.001"/>
+  <testcase name="ordinary photos stay photos" classname="com.swipedelete.zero.MediaClassTest" time="0.0"/>
+  <testcase name="only non-photos carry a badge" classname="com.swipedelete.zero.MediaClassTest" time="0.0"/>
+  <testcase name="a pictorial screenshot stays a screenshot" classname="com.swipedelete.zero.MediaClassTest" time="0.001"/>
+  <testcase name="an unanalysed screenshot is not guessed at" classname="com.swipedelete.zero.MediaClassTest" time="0.001"/>
+  <testcase name="receipts are documents by name alone" classname="com.swipedelete.zero.MediaClassTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

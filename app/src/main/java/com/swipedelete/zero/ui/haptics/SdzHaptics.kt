@@ -55,6 +55,24 @@ class SdzHaptics(private val view: View) {
         if (Build.VERSION.SDK_INT >= 34) perform(HapticFeedbackConstants.GESTURE_END)
     }
 
+    /**
+     * The payoff buzz when space is actually freed. A rising three-beat rather
+     * than one pulse — it should feel like an arrival, not another confirmation.
+     */
+    fun celebrate() {
+        perform(
+            if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM
+            else HapticFeedbackConstants.LONG_PRESS
+        )
+        view.postDelayed({ perform(HapticFeedbackConstants.CLOCK_TICK) }, 90)
+        view.postDelayed({
+            perform(
+                if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM
+                else HapticFeedbackConstants.LONG_PRESS
+            )
+        }, 180)
+    }
+
     private fun perform(constant: Int) {
         view.performHapticFeedback(constant)
     }

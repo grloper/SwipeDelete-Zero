@@ -59,9 +59,15 @@ import com.swipedelete.zero.ui.components.MediaPreview
 import com.swipedelete.zero.ui.components.MetadataPill
 import com.swipedelete.zero.ui.components.PaletteBackdrop
 import com.swipedelete.zero.ui.components.SwipeStamps
+import com.swipedelete.zero.ui.components.MediaClassBadge
+import com.swipedelete.zero.ui.components.DecisionActionRow
+import com.swipedelete.zero.ui.components.DeckCoachmark
+import com.swipedelete.zero.ui.components.DeckCompleteCelebration
+import com.swipedelete.zero.ui.components.SdzIcons
 import com.swipedelete.zero.ui.components.SwipeableCard
 import com.swipedelete.zero.ui.components.rememberDominantColors
-import com.swipedelete.zero.ui.theme.SdzColors
+import com.swipedelete.zero.ui.components.SdzIconButton
+import com.swipedelete.zero.ui.theme.SdzColor
 import com.swipedelete.zero.ui.video.FilmstripScrubber
 import com.swipedelete.zero.ui.video.TopCardPlayerState
 import com.swipedelete.zero.ui.video.rememberTopCardPlayer
@@ -88,7 +94,7 @@ fun SwipeEngineScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SdzColors.PitchBlack),
+            .background(SdzColor.Surface0),
     ) {
         PaletteBackdrop(palette, Modifier.fillMaxSize())
 
@@ -106,23 +112,22 @@ fun SwipeEngineScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back",
-                    tint = SdzColors.PureWhite,
-                    modifier = Modifier.size(26.dp).clickable(onClick = onBack),
+                SdzIconButton(
+                    icon = SdzIcons.Back,
+                    label = "Back",
+                    onClick = onBack,
                 )
                 Column(Modifier.weight(1f)) {
                     Text(
                         state.deck?.title ?: "Deck",
-                        color = SdzColors.PureWhite,
+                        color = SdzColor.Phosphor,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleLarge,
                     )
                     val total = state.deck?.totalCount ?: 0
                     Text(
                         "${state.cursor}/$total swiped",
-                        color = SdzColors.CrispCyan,
+                        color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.labelMedium,
                     )
                 }
@@ -136,8 +141,12 @@ fun SwipeEngineScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 when {
-                    state.loading -> Text("Loading…", color = SdzColors.MutedGray)
-                    state.isComplete -> DeckCompleteView(onBack)
+                    state.loading -> Text("Loading…", color = SdzColor.TextSecondary)
+                    state.isComplete -> DeckCompleteCelebration(
+                        freedBytes = state.sessionReclaimedBytes,
+                        fileCount = state.sessionReclaimedCount,
+                        onDone = onBack,
+                    )
                     else -> CardStack(state, viewModel, topVideoMeta, backedUpUris, playerState)
                 }
             }
@@ -149,19 +158,26 @@ fun SwipeEngineScreen(
 
             // Action buttons — thumb zone (bottom 40%).
             if (!state.isComplete) {
-                ActionBar(
-                    undoEnabled = state.lastAction != null,
-                    cloudArchive = viewModel.cloudArchiveEnabled,
+                DecisionActionRow(
                     onUndo = viewModel::undo,
-                    onTrash = { viewModel.onSwipe(SwipeDirection.LEFT) },
-                    onUp = { viewModel.onSwipe(SwipeDirection.UP) },
+                    onReclaim = { viewModel.onSwipe(SwipeDirection.LEFT) },
+                    onArchive = { viewModel.onSwipe(SwipeDirection.UP) },
                     onKeep = { viewModel.onSwipe(SwipeDirection.RIGHT) },
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .padding(vertical = 20.dp),
+                    undoEnabled = state.lastAction != null,
+                    archiveLabel = if (viewModel.cloudArchiveEnabled) "Archive" else "Star",
                 )
             }
         }
+
+        // First-run gesture lesson, shown once ever.
+        DeckCoachmark(
+            visible = state.showCoachmark,
+            onDismiss = viewModel::dismissCoachmark,
+            archiveLabel = if (viewModel.cloudArchiveEnabled)
+                "Upload to Google Photos, then queue the local copy once verified."
+            else
+                "Star it and hide it from every future scan.",
+        )
 
         // 5-second floating Undo toast.
         UndoToast(
@@ -188,7 +204,8 @@ private fun CardStack(
     val topItem = state.topItem ?: return
     var dragProgress by remember { mutableFloatStateOf(0f) }
     val cloudArchive = viewModel.cloudArchiveEnabled
-    val upColor = if (cloudArchive) SdzColors.CrispCyan else SdzColors.StarGold
+    // Up-swipe is Archive: teal, cloud silhouette, top of the card.
+    val upColor = SdzColor.Teal
 
     Box(
         modifier = Modifier
@@ -196,24 +213,33 @@ private fun CardStack(
             .aspectRatio(0.72f),
         contentAlignment = Alignment.Center,
     ) {
-        // The next card peeks behind with its real preview, growing toward
-        // full size as the top card is dragged away.
-        state.nextItem?.let { next ->
-            key(next.id) {
-                val peekScale = 0.94f + 0.06f * dragProgress
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            scaleX = peekScale
-                            scaleY = peekScale
-                            alpha = 0.65f + 0.35f * dragProgress
-                        }
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(SdzColors.Obsidian)
-                        .border(1.dp, SdzColors.Hairline, RoundedCornerShape(28.dp)),
-                ) {
-                    MediaPreview(item = next, modifier = Modifier.fillMaxSize())
+        // Two cards peek behind the active one, each a step smaller and dimmer
+        // and nudged down — so the deck reads as a physical stack with depth
+        // rather than a single card on a background. Both step forward as the
+        // top card is dragged away, which previews the payoff of deciding.
+        val deck = state.deck
+        if (deck != null) {
+            for (depth in 2 downTo 1) {
+                val behind = deck.items.getOrNull(state.cursor + depth) ?: continue
+                key(behind.id) {
+                    // depth 2 sits furthest back; dragProgress advances both.
+                    val advance = dragProgress
+                    val step = depth - advance
+                    val peekScale = 1f - 0.05f * step
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = peekScale
+                                scaleY = peekScale
+                                translationY = step * 14.dp.toPx()
+                                alpha = (1f - 0.28f * step).coerceIn(0f, 1f)
+                            }
+                            .clip(RoundedCornerShape(28.dp))
+                            .background(SdzColor.Surface2),
+                    ) {
+                        MediaPreview(item = behind, modifier = Modifier.fillMaxSize())
+                    }
                 }
             }
         }
@@ -237,9 +263,19 @@ private fun CardStack(
                         rightGlow = rightGlow,
                         upGlow = upGlow,
                         modifier = Modifier.fillMaxSize(),
-                        upLabel = if (cloudArchive) "CLOUD" else "STAR",
-                        upColor = upColor,
+                        archiveLabel = if (cloudArchive) "ARCHIVE" else "STAR",
                     )
+                    topItem.mediaClass.badge?.let { badge ->
+                        MediaClassBadge(
+                            label = badge,
+                            icon = if (topItem.mediaClass ==
+                                com.swipedelete.zero.domain.model.MediaClass.DOCUMENT
+                            ) SdzIcons.Documents else SdzIcons.Screenshots,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(16.dp),
+                        )
+                    }
                     CloudChip(
                         backedUp = topItem.contentUri.toString() in backedUpUris,
                         modifier = Modifier
@@ -296,8 +332,8 @@ private fun UploadStatusStrip(
         modifier = modifier
             .padding(top = 8.dp)
             .clip(RoundedCornerShape(50))
-            .background(SdzColors.Obsidian.copy(alpha = 0.85f))
-            .border(1.dp, SdzColors.CrispCyan.copy(alpha = 0.35f), RoundedCornerShape(50))
+            .background(SdzColor.Surface1.copy(alpha = 0.85f))
+            .border(1.dp, SdzColor.TextSecondary.copy(alpha = 0.35f), RoundedCornerShape(50))
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -305,102 +341,15 @@ private fun UploadStatusStrip(
         Icon(
             Icons.Rounded.CloudUpload,
             contentDescription = null,
-            tint = SdzColors.CrispCyan,
+            tint = SdzColor.TextSecondary,
             modifier = Modifier.size(16.dp),
         )
         Text(
             parts.joinToString(" · "),
-            color = SdzColors.CrispCyan,
+            color = SdzColor.TextSecondary,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.labelMedium,
         )
-    }
-}
-
-@Composable
-private fun ActionBar(
-    undoEnabled: Boolean,
-    cloudArchive: Boolean,
-    onUndo: () -> Unit,
-    onTrash: () -> Unit,
-    onUp: () -> Unit,
-    onKeep: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CircleAction(Icons.AutoMirrored.Rounded.Undo, SdzColors.CrispCyan, 52.dp, enabled = undoEnabled, onClick = onUndo)
-        CircleAction(Icons.Rounded.Close, SdzColors.HyperCoral, 72.dp, onClick = onTrash)
-        CircleAction(
-            icon = if (cloudArchive) Icons.Rounded.CloudUpload else Icons.Rounded.Star,
-            color = if (cloudArchive) SdzColors.CrispCyan else SdzColors.StarGold,
-            diameter = 60.dp,
-            onClick = onUp,
-        )
-        CircleAction(Icons.Rounded.Favorite, SdzColors.ElectricEmerald, 72.dp, onClick = onKeep)
-    }
-}
-
-@Composable
-private fun CircleAction(
-    icon: ImageVector,
-    color: Color,
-    diameter: Dp,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.88f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "action-press",
-    )
-    val accent = color.copy(alpha = if (enabled) 1f else 0.35f)
-    Box(
-        modifier = Modifier
-            .size(diameter)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .clip(CircleShape)
-            .background(SdzColors.Obsidian.copy(alpha = 0.85f))
-            .border(2.dp, accent, CircleShape)
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-                enabled = enabled,
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(diameter / 2.4f))
-    }
-}
-
-@Composable
-private fun DeckCompleteView(onBack: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("🎉", style = MaterialTheme.typography.displayLarge)
-        Text("Deck complete", color = SdzColors.PureWhite, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineMedium)
-        Text(
-            "Head to the Staging Drawer to review & free up space.",
-            color = SdzColors.MutedGray,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(SdzColors.ElectricEmerald)
-                .clickable(onClick = onBack)
-                .padding(horizontal = 28.dp, vertical = 14.dp),
-        ) {
-            Text("Done", color = SdzColors.PitchBlack, fontWeight = FontWeight.Black)
-        }
     }
 }
 
@@ -429,16 +378,16 @@ private fun UndoToast(
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))
-                .background(SdzColors.Obsidian)
-                .border(1.dp, SdzColors.Hairline, RoundedCornerShape(16.dp))
+                .background(SdzColor.Surface1)
+                .border(1.dp, SdzColor.Hairline, RoundedCornerShape(16.dp))
                 .padding(horizontal = 20.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Text(label, color = SdzColors.PureWhite, style = MaterialTheme.typography.bodyMedium)
+            Text(label, color = SdzColor.Phosphor, style = MaterialTheme.typography.bodyMedium)
             Text(
                 "UNDO",
-                color = SdzColors.CrispCyan,
+                color = SdzColor.TextSecondary,
                 fontWeight = FontWeight.Black,
                 modifier = Modifier.clickable(onClick = onUndo),
             )

@@ -8,6 +8,7 @@ import com.swipedelete.zero.data.repository.BackupRepository
 import com.swipedelete.zero.data.repository.DeckRepository
 import com.swipedelete.zero.data.repository.ExclusionRepository
 import com.swipedelete.zero.data.repository.MediaPreloader
+import com.swipedelete.zero.data.repository.StatsStore
 import com.swipedelete.zero.data.repository.StagingRepository
 import com.swipedelete.zero.domain.backup.ArchiveItemState
 import com.swipedelete.zero.domain.backup.PhotosArchive
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -36,6 +38,12 @@ data class SwipeUiState(
     val cursor: Int = 0,
     /** The most recent swipe, kept alive for the 5-second Undo window. */
     val lastAction: SwipeAction? = null,
+    /** Bytes queued for reclaim during this sitting — the celebration's figure. */
+    val sessionReclaimedBytes: Long = 0,
+    /** Files queued for reclaim during this sitting. */
+    val sessionReclaimedCount: Int = 0,
+    /** True until the user has been shown the gesture coachmark. */
+    val showCoachmark: Boolean = false,
 ) {
     val isComplete: Boolean get() = deck != null && cursor >= deck.totalCount
     val remaining: Int get() = deck?.let { it.totalCount - cursor } ?: 0
@@ -53,6 +61,7 @@ class SwipeEngineViewModel @Inject constructor(
     private val videoMetadataExtractor: VideoMetadataExtractor,
     private val analysisDao: MediaAnalysisDao,
     private val mediaPreloader: MediaPreloader,
+    private val statsStore: StatsStore,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -80,6 +89,12 @@ class SwipeEngineViewModel @Inject constructor(
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     init {
+        viewModelScope.launch {
+            // Shown once, ever: the gesture mapping needs teaching exactly one time.
+            if (!statsStore.coachmarkSeen.first()) {
+                _state.update { it.copy(showCoachmark = true) }
+            }
+        }
         viewModelScope.launch {
             val deck = deckRepository.getDeck(deckId)
             _state.update {
@@ -138,6 +153,10 @@ class SwipeEngineViewModel @Inject constructor(
                 it.copy(
                     cursor = nextCursor,
                     lastAction = SwipeAction(item, direction, deck.id, index),
+                    sessionReclaimedBytes = it.sessionReclaimedBytes +
+                        if (direction == SwipeDirection.LEFT) item.sizeBytes else 0L,
+                    sessionReclaimedCount = it.sessionReclaimedCount +
+                        if (direction == SwipeDirection.LEFT) 1 else 0,
                 )
             }
             deckRepository.saveProgress(deck, nextCursor)
@@ -158,10 +177,27 @@ class SwipeEngineViewModel @Inject constructor(
                 SwipeDirection.RIGHT -> backupRepository.removeKept(last.item.contentUri.toString())
                 SwipeDirection.NONE -> Unit
             }
-            _state.update { it.copy(cursor = last.deckIndex, lastAction = null) }
+            _state.update {
+                it.copy(
+                    cursor = last.deckIndex,
+                    lastAction = null,
+                    // Undo must also unwind the session tally, or the
+                    // celebration would claim space the user just took back.
+                    sessionReclaimedBytes = (it.sessionReclaimedBytes -
+                        if (last.direction == SwipeDirection.LEFT) last.item.sizeBytes else 0L)
+                        .coerceAtLeast(0L),
+                    sessionReclaimedCount = (it.sessionReclaimedCount -
+                        if (last.direction == SwipeDirection.LEFT) 1 else 0).coerceAtLeast(0),
+                )
+            }
             deckRepository.saveProgress(deck, last.deckIndex)
         }
     }
 
     fun dismissUndo() = _state.update { it.copy(lastAction = null) }
+
+    fun dismissCoachmark() {
+        _state.update { it.copy(showCoachmark = false) }
+        viewModelScope.launch { statsStore.markCoachmarkSeen() }
+    }
 }

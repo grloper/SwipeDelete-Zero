@@ -1,14 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+
     <!--
-      Base theme is a pitch-black splash/host theme. The full Material 3 Expressive
-      OLED palette is applied in Compose (see ui/theme/Theme.kt). We keep the XML
-      theme minimal so there is no flash of a light background before Compose draws.
+      Launch theme. The brand mark sits on the warm charcoal surface, so the
+      first frame the user sees is already the app's world — no white flash,
+      and no jump between splash and content because both use surface_0.
+    -->
+    <style name="Theme.SwipeDeleteZero.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/surface_0</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.SwipeDeleteZero</item>
+    </style>
+
+    <!--
+      Host theme. Kept minimal: the full system lives in Compose
+      (ui/theme/SdzTokens.kt). Bars are transparent because every screen draws
+      edge-to-edge and insets its own chrome.
     -->
     <style name="Theme.SwipeDeleteZero" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">@android:color/black</item>
-        <item name="android:navigationBarColor">@android:color/black</item>
-        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/surface_0</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
     </style>

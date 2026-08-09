@@ -4,7 +4,7 @@
             "outputFile": "com.swipedelete.zero.app-mergeCloudDebugResources-2:/values-v23/values-v23.xml",
             "map": [
                 {
-                    "source": "/root/.gradle/caches/8.11.1/transforms/f50fe0b208639b679778fc592c40a890/transformed/work-runtime-2.10.0/res/values-v23/values-v23.xml",
+                    "source": "/root/.gradle/caches/8.11.1/transforms/0a888f57261214ad9a98f65173dedac1/transformed/work-runtime-2.10.0/res/values-v23/values-v23.xml",
                     "from": {
                         "startLines": "2,3",
                         "startColumns": "4,4",

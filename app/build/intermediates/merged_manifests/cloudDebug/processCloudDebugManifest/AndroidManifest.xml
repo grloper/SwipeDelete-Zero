@@ -14,8 +14,8 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.swipedelete.zero.debug"
-    android:versionCode="5"
-    android:versionName="3.0.0" >
+    android:versionCode="6"
+    android:versionName="3.1.0" >
 
     <uses-sdk
         android:minSdkVersion="29"
@@ -63,7 +63,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.SwipeDeleteZero" >
+        android:theme="@style/Theme.SwipeDeleteZero.Splash" >
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:directBootAware="false"
@@ -92,7 +92,7 @@
         <activity
             android:name="com.swipedelete.zero.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.SwipeDeleteZero"
+            android:theme="@style/Theme.SwipeDeleteZero.Splash"
             android:windowSoftInputMode="adjustResize" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

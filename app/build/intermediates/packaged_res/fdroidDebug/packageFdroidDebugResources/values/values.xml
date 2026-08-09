@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:ns1="http://schemas.android.com/tools">
-    <color name="crisp_cyan">#FF00F0FF</color>
-    <color name="electric_emerald">#FF00E676</color>
-    <color name="hyper_coral">#FFFF3B30</color>
-    <color name="ic_launcher_background">#FF000000</color>
-    <color name="obsidian">#FF0D0F12</color>
-    <color name="pitch_black">#FF000000</color>
-    <color name="star_gold">#FFFFD700</color>
+    <color name="ic_launcher_background">#FF0D0C0B</color>
+    <color name="phosphor">#FFF2EDE4</color>
+    <color name="surface_0">#FF0D0C0B</color>
+    <color name="surface_1">#FF161412</color>
+    <color name="surface_3">#FF2B2723</color>
     <string name="app_name">SwipeDelete Zero</string>
     <string name="badge_higher_res">HIGHER RES 📐</string>
     <string name="badge_sharper">SHARPER ⚡</string>
@@ -34,10 +32,15 @@
     <string name="trash_both">Trash Both</string>
     <string name="undo">Undo</string>
     <style name="Theme.SwipeDeleteZero" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">@android:color/black</item>
-        <item name="android:navigationBarColor">@android:color/black</item>
-        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/surface_0</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar" ns1:targetApi="27">false</item>
+    </style>
+    <style name="Theme.SwipeDeleteZero.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/surface_0</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.SwipeDeleteZero</item>
     </style>
 </resources>

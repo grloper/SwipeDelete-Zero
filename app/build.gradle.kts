@@ -14,8 +14,8 @@ android {
         applicationId = "com.swipedelete.zero"
         minSdk = 29
         targetSdk = 35
-        versionCode = 6
-        versionName = "3.1.0"
+        versionCode = 7
+        versionName = "4.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -139,6 +139,9 @@ dependencies {
 
     // Dominant-color sampling for the dynamic card backdrop
     implementation(libs.androidx.palette)
+
+    // Backported splash screen so the brand mark shows on API 29+ too
+    implementation(libs.androidx.core.splashscreen)
 
     // SAF document access for non-media (.apk/.zip) deletion
     implementation(libs.androidx.documentfile)
