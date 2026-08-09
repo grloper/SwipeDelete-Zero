@@ -59,6 +59,8 @@ import com.swipedelete.zero.domain.setup.AuthDiagnostic
 import com.swipedelete.zero.domain.setup.SetupStep
 import com.swipedelete.zero.domain.setup.SetupStepContent
 import com.swipedelete.zero.domain.setup.SigningIdentity
+import com.swipedelete.zero.ui.components.SdzIconButton
+import com.swipedelete.zero.ui.components.SdzIcons
 import com.swipedelete.zero.ui.theme.SdzColor
 
 /**
@@ -95,15 +97,12 @@ fun CloudSetupScreen(
         ) {
             item("header") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "Back",
-                        tint = SdzColor.Phosphor,
-                        modifier = Modifier
-                            .size(26.dp)
-                            .clickable(onClick = onBack),
+                    SdzIconButton(
+                        icon = SdzIcons.Back,
+                        label = "Back",
+                        onClick = onBack,
                     )
-                    Spacer(Modifier.size(12.dp))
+                    Spacer(Modifier.size(4.dp))
                     Text(
                         "Setup Wizard",
                         color = SdzColor.TextSecondary,
@@ -404,10 +403,12 @@ private fun CredentialRow(label: String, value: String) {
                 contentDescription = "Copy $label",
                 tint = SdzColor.TextSecondary,
                 modifier = Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    // 48dp target with a small glyph — an icon-only control
+                    // must still be reachable, not merely visible.
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .clickable { context.copyToClipboard(label, value) }
-                    .padding(7.dp),
+                    .padding(15.dp),
             )
         }
     }

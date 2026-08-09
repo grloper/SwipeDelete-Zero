@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.swipedelete.zero.SwipeCommitDeciderTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-08-09T13:03:03" hostname="vm" time="0.004">
+<testsuite name="com.swipedelete.zero.SwipeCommitDeciderTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-08-09T14:16:21" hostname="vm" time="0.004">
   <properties/>
-  <testcase name="positional commit up requires dominant vertical offset" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.001"/>
+  <testcase name="positional commit up requires dominant vertical offset" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.002"/>
   <testcase name="downward fling never commits" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.0"/>
-  <testcase name="fast fling commits early" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.001"/>
-  <testcase name="dominant axis of velocity picks the gesture" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.0"/>
+  <testcase name="fast fling commits early" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.0"/>
+  <testcase name="dominant axis of velocity picks the gesture" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.001"/>
   <testcase name="positional commit left" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.0"/>
   <testcase name="velocity sign must match offset sign" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.0"/>
   <testcase name="positional commit right" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.0"/>
   <testcase name="fling below minimum travel is rejected" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.0"/>
-  <testcase name="slow release short of the line springs back" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.0"/>
+  <testcase name="slow release short of the line springs back" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
