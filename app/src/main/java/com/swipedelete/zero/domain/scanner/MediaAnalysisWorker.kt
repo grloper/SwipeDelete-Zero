@@ -37,16 +37,24 @@ class MediaAnalysisWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val mediaStore: MediaStoreRepository,
     private val analysisDao: MediaAnalysisDao,
+    private val videoMetadataExtractor: VideoMetadataExtractor,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.Default) {
         try {
             val alreadyDone = analysisDao.analyzedIds().toHashSet()
-            val images = mediaStore.queryVisualMedia()
-                .filter { it.type == com.swipedelete.zero.domain.model.MediaType.IMAGE }
-                .filter { it.id !in alreadyDone }
+            val media = mediaStore.queryVisualMedia().filter { it.id !in alreadyDone }
+            val images = media.filter { it.type == com.swipedelete.zero.domain.model.MediaType.IMAGE }
+            val videos = media.filter { it.isVideo }
 
             val batch = ArrayList<MediaAnalysisEntity>(BATCH_SIZE)
+            suspend fun flush(force: Boolean = false) {
+                if (batch.size >= BATCH_SIZE || (force && batch.isNotEmpty())) {
+                    analysisDao.upsertAll(batch.toList())
+                    batch.clear()
+                }
+            }
+
             for (item in images) {
                 if (isStopped) break
                 val matrix = decodeGrayscale(item.contentUri) ?: continue
@@ -64,14 +72,33 @@ class MediaAnalysisWorker @AssistedInject constructor(
                     meanLuma = blur.meanLuma,
                     isBlurry = blur.isBlurry,
                     sizeBytes = item.sizeBytes,
-                    analyzedAtMillis = 0L,
+                    analyzedAtMillis = System.currentTimeMillis(),
                 )
-                if (batch.size >= BATCH_SIZE) {
-                    analysisDao.upsertAll(batch.toList())
-                    batch.clear()
-                }
+                flush()
             }
-            if (batch.isNotEmpty()) analysisDao.upsertAll(batch)
+
+            // Videos: header-only metadata pass (codec/fps/bitrate) — no bitmap
+            // work, so it adds milliseconds per file, not seconds.
+            for (item in videos) {
+                if (isStopped) break
+                val meta = videoMetadataExtractor.extract(item)
+                batch += MediaAnalysisEntity(
+                    mediaId = item.id,
+                    contentUri = item.contentUri.toString(),
+                    dHash = null,
+                    pHash = null,
+                    sharpnessVariance = null,
+                    meanLuma = null,
+                    isBlurry = null,
+                    sizeBytes = item.sizeBytes,
+                    analyzedAtMillis = System.currentTimeMillis(),
+                    videoCodec = meta.codec,
+                    frameRate = meta.frameRate,
+                    bitrateBps = meta.bitrateBps,
+                )
+                flush()
+            }
+            flush(force = true)
             Result.success()
         } catch (_: Exception) {
             // Transient decode/IO failures — let WorkManager retry with backoff.

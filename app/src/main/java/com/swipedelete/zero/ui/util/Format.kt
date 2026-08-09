@@ -23,3 +23,29 @@ fun Long.toDurationLabel(): String {
     return if (h > 0) String.format(Locale.US, "%d:%02d:%02d", h, m, s)
     else String.format(Locale.US, "%d:%02d", m, s)
 }
+
+/** Frame rate -> "60fps" (rounded to the nearest integer). */
+fun Float.toFpsLabel(): String = "${Math.round(this)}fps"
+
+/**
+ * Resolution class from pixel dimensions, orientation-agnostic:
+ * "4K" ≥ 2160 on the short side, then "1080p" / "720p" / "SD".
+ */
+fun resolutionClass(width: Int, height: Int): String {
+    if (width <= 0 || height <= 0) return "—"
+    val short = minOf(width, height)
+    return when {
+        short >= 2160 -> "4K"
+        short >= 1440 -> "1440p"
+        short >= 1080 -> "1080p"
+        short >= 720 -> "720p"
+        else -> "SD"
+    }
+}
+
+/** Bits/second -> "48 Mbps" (or "820 Kbps" below 1 Mbps). */
+fun Long.toBitrateLabel(): String {
+    if (this <= 0) return ""
+    return if (this >= 1_000_000) String.format(Locale.US, "%.0f Mbps", this / 1_000_000.0)
+    else String.format(Locale.US, "%.0f Kbps", this / 1_000.0)
+}

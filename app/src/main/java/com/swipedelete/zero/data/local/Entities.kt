@@ -98,17 +98,63 @@ data class ExclusionEntity(
  * Cache of computed perceptual hashes + sharpness scores, keyed by MediaStore id.
  * Lets the WorkManager job compute once and lets deck-building group duplicates
  * / find blurry shots without re-decoding bitmaps.
+ *
+ * Video rows carry only the metadata columns — hashes/blur stay null so a
+ * metadata-only row can never be mistaken for a hashed image (a fake dHash of 0
+ * would cluster every video as a "duplicate" of every other).
  */
 @Entity(tableName = "media_analysis")
 data class MediaAnalysisEntity(
     @PrimaryKey val mediaId: Long,
     val contentUri: String,
-    val dHash: Long,
-    val pHash: Long,
-    val sharpnessVariance: Double,
-    val meanLuma: Double,
-    val isBlurry: Boolean,
+    val dHash: Long?,
+    val pHash: Long?,
+    val sharpnessVariance: Double?,
+    val meanLuma: Double?,
+    val isBlurry: Boolean?,
     /** File size at analysis time — invalidate the row if the file changed. */
     val sizeBytes: Long,
     val analyzedAtMillis: Long,
+    /** Display codec name for videos ("HEVC", "H.264"…), null for images. */
+    val videoCodec: String? = null,
+    /** Video frame rate (fps), null when unknown or for images. */
+    val frameRate: Float? = null,
+    /** Video bitrate in bits/second, null when unknown or for images. */
+    val bitrateBps: Long? = null,
 )
+
+/**
+ * One queued/in-flight Google Photos upload (cloud flavor). Rows persist the
+ * resumable-session URL and byte offset so a 20 GB upload survives process
+ * death and resumes instead of restarting. A row only reaches VERIFIED after
+ * the mediaItems:batchCreate handshake returned a non-empty mediaItemId — the
+ * precondition for ever staging the local copy for deletion.
+ */
+@Entity(tableName = "cloud_uploads")
+data class CloudUploadEntity(
+    @PrimaryKey val contentUri: String,
+    val displayName: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    /** One of [STATE_QUEUED], [STATE_UPLOADING], [STATE_VERIFYING], [STATE_VERIFIED], [STATE_FAILED]. */
+    val state: String,
+    /** Resumable upload session URL from the `start` handshake. */
+    val uploadUrl: String? = null,
+    val bytesUploaded: Long = 0,
+    /** Upload token returned by the finalize chunk, consumed by batchCreate. */
+    val uploadToken: String? = null,
+    /** Set only after batchCreate verification — never null in VERIFIED state. */
+    val mediaItemId: String? = null,
+    val attempts: Int = 0,
+    val lastError: String? = null,
+    val enqueuedAtMillis: Long,
+    val updatedAtMillis: Long,
+) {
+    companion object {
+        const val STATE_QUEUED = "QUEUED"
+        const val STATE_UPLOADING = "UPLOADING"
+        const val STATE_VERIFYING = "VERIFYING"
+        const val STATE_VERIFIED = "VERIFIED"
+        const val STATE_FAILED = "FAILED"
+    }
+}

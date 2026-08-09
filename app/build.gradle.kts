@@ -60,16 +60,19 @@ android {
             dimension = "distribution"
             buildConfigField("boolean", "ALLOW_MANAGE_STORAGE", "false")
             buildConfigField("boolean", "SUPPORTS_DRIVE_BACKUP", "false")
+            buildConfigField("boolean", "SUPPORTS_PHOTOS_ARCHIVE", "false")
         }
         create("play") {
             dimension = "distribution"
             buildConfigField("boolean", "ALLOW_MANAGE_STORAGE", "true")
             buildConfigField("boolean", "SUPPORTS_DRIVE_BACKUP", "false")
+            buildConfigField("boolean", "SUPPORTS_PHOTOS_ARCHIVE", "false")
         }
         create("cloud") {
             dimension = "distribution"
             buildConfigField("boolean", "ALLOW_MANAGE_STORAGE", "false")
             buildConfigField("boolean", "SUPPORTS_DRIVE_BACKUP", "true")
+            buildConfigField("boolean", "SUPPORTS_PHOTOS_ARCHIVE", "true")
         }
     }
 
@@ -133,6 +136,9 @@ dependencies {
 
     // DataStore for lightweight settings
     implementation(libs.androidx.datastore.preferences)
+
+    // Dominant-color sampling for the dynamic card backdrop
+    implementation(libs.androidx.palette)
 
     // SAF document access for non-media (.apk/.zip) deletion
     implementation(libs.androidx.documentfile)
