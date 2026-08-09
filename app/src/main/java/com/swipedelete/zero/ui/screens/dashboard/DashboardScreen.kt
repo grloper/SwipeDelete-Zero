@@ -1,6 +1,8 @@
 package com.swipedelete.zero.ui.screens.dashboard
 
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
@@ -85,6 +87,9 @@ import com.swipedelete.zero.domain.model.Deck
 import com.swipedelete.zero.domain.model.DeckKind
 import com.swipedelete.zero.domain.scanner.DeckBuilder
 import com.swipedelete.zero.ui.components.SortChip
+import com.swipedelete.zero.ui.screens.staging.PurgeEffect
+import com.swipedelete.zero.ui.screens.staging.StagingSheet
+import com.swipedelete.zero.ui.screens.staging.StagingViewModel
 import com.swipedelete.zero.ui.theme.SdzColors
 import com.swipedelete.zero.ui.util.toReadableSize
 import kotlin.math.roundToInt
@@ -104,16 +109,19 @@ private val FreeFill = Color(0x26FFFFFF)
 @Composable
 fun DashboardScreen(
     onOpenDeck: (Deck) -> Unit,
-    onOpenStaging: () -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: DashboardViewModel = hiltViewModel(),
+    stagingViewModel: StagingViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
+    val context = LocalContext.current
 
     // Feed ordering — survives rotation via the enum's name.
     var deckSortName by rememberSaveable { mutableStateOf(DeckSort.FOR_YOU.name) }
     val deckSort = DeckSort.valueOf(deckSortName)
+
+    var showStaging by rememberSaveable { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -123,6 +131,38 @@ fun DashboardScreen(
 
     LaunchedEffect(Unit) {
         permissionLauncher.launch(MediaPermissions)
+    }
+
+    // The OS delete/trash dialog launcher lives HERE, in the stable dashboard
+    // composition — never inside the sheet, whose dismissal mid-dialog would
+    // otherwise drop the result on the floor.
+    val confirmLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        stagingViewModel.onConfirmationResult(result.resultCode == android.app.Activity.RESULT_OK)
+    }
+
+    LaunchedEffect(Unit) {
+        stagingViewModel.effect.collect { effect ->
+            when (effect) {
+                is PurgeEffect.LaunchConfirmation ->
+                    confirmLauncher.launch(IntentSenderRequest.Builder(effect.sender).build())
+                is PurgeEffect.Completed ->
+                    Toast.makeText(
+                        context,
+                        "Freed ${effect.freedBytes.toReadableSize()} · ${effect.purgedCount} files",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                is PurgeEffect.NeedsSafAccess ->
+                    Toast.makeText(
+                        context,
+                        "${effect.uriCount} non-media files need folder access (grant via SAF).",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                is PurgeEffect.Message ->
+                    Toast.makeText(context, effect.text, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     // Section split: month sprints ride the horizontal rail, the four AI
@@ -226,11 +266,18 @@ fun DashboardScreen(
                 stagedBytes = state.stagedBytes,
                 onClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onOpenStaging()
+                    showStaging = true
                 },
                 modifier = Modifier
                     .navigationBarsPadding()
                     .padding(20.dp),
+            )
+        }
+
+        if (showStaging) {
+            StagingSheet(
+                viewModel = stagingViewModel,
+                onDismiss = { showStaging = false },
             )
         }
     }

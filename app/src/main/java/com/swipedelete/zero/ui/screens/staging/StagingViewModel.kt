@@ -6,13 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.swipedelete.zero.data.local.StagedFileEntity
 import com.swipedelete.zero.data.repository.PurgeEngine
 import com.swipedelete.zero.data.repository.StagingRepository
+import com.swipedelete.zero.data.repository.StatsStore
 import com.swipedelete.zero.domain.model.ExecutionMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -34,6 +34,8 @@ data class StagingUiState(
     val mode: ExecutionMode = ExecutionMode.OS_TRASH_30_DAY,
     val purging: Boolean = false,
     val sort: StagingSort = StagingSort.NEWEST,
+    /** Verified bytes reclaimed across the app's lifetime ("14.2 GB Reclaimed"). */
+    val lifetimeReclaimedBytes: Long = 0,
 ) {
     val count: Int get() = items.size
 }
@@ -50,6 +52,7 @@ sealed interface PurgeEffect {
 class StagingViewModel @Inject constructor(
     private val stagingRepository: StagingRepository,
     private val purgeEngine: PurgeEngine,
+    private val statsStore: StatsStore,
 ) : ViewModel() {
 
     private val modeState = MutableStateFlow(ExecutionMode.OS_TRASH_30_DAY)
@@ -61,21 +64,28 @@ class StagingViewModel @Inject constructor(
 
     /** URIs awaiting an OS-dialog result, remembered between the two calls. */
     private var pendingMediaUris: List<android.net.Uri> = emptyList()
-    private var pendingBytes: Long = 0
+
+    /** Sizes of everything in the current purge, so only *verified* bytes count. */
+    private var pendingSizesByUri: Map<String, Long> = emptyMap()
 
     val uiState: StateFlow<StagingUiState> =
         combine(
-            stagingRepository.observeStaged(),
-            stagingRepository.observeStagedBytes(),
-            modeState,
-            purgingState,
-            sortState,
-        ) { items, bytes, mode, purging, sort ->
-            val sorted = when (sort) {
-                StagingSort.NEWEST -> items.sortedByDescending { it.stagedAtMillis }
-                StagingSort.LARGEST -> items.sortedByDescending { it.sizeBytes }
-            }
-            StagingUiState(items = sorted, totalBytes = bytes, mode = mode, purging = purging, sort = sort)
+            combine(
+                stagingRepository.observeStaged(),
+                stagingRepository.observeStagedBytes(),
+                modeState,
+                purgingState,
+                sortState,
+            ) { items, bytes, mode, purging, sort ->
+                val sorted = when (sort) {
+                    StagingSort.NEWEST -> items.sortedByDescending { it.stagedAtMillis }
+                    StagingSort.LARGEST -> items.sortedByDescending { it.sizeBytes }
+                }
+                StagingUiState(items = sorted, totalBytes = bytes, mode = mode, purging = purging, sort = sort)
+            },
+            statsStore.lifetimeReclaimedBytes,
+        ) { state, lifetime ->
+            state.copy(lifetimeReclaimedBytes = lifetime)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StagingUiState())
 
     fun setMode(mode: ExecutionMode) { modeState.value = mode }
@@ -89,11 +99,11 @@ class StagingViewModel @Inject constructor(
         viewModelScope.launch {
             purgingState.value = true
             val staged = stagingRepository.getAll()
-            pendingBytes = staged.sumOf { it.sizeBytes }
+            pendingSizesByUri = staged.associate { it.contentUri to it.sizeBytes }
             when (val plan = purgeEngine.preparePurge(staged, modeState.value)) {
                 is PurgeEngine.PurgePlan.NeedsConfirmation -> {
                     // Non-media already handled; remove its winners now.
-                    stagingRepository.removePurged(plan.nonMediaResult.purgedUris)
+                    recordPurged(plan.nonMediaResult.purgedUris)
                     pendingMediaUris = plan.mediaUris
                     effects.send(PurgeEffect.LaunchConfirmation(plan.request))
                     // purging stays true until confirmation result arrives.
@@ -102,13 +112,13 @@ class StagingViewModel @Inject constructor(
                     }
                 }
                 is PurgeEngine.PurgePlan.NoConfirmationNeeded -> {
-                    stagingRepository.removePurged(plan.nonMediaResult.purgedUris)
+                    val freed = recordPurged(plan.nonMediaResult.purgedUris)
                     purgingState.value = false
                     if (plan.nonMediaResult.needsSafFor.isNotEmpty()) {
                         effects.send(PurgeEffect.NeedsSafAccess(plan.nonMediaResult.needsSafFor.size))
                     } else {
                         effects.send(
-                            PurgeEffect.Completed(pendingBytes, plan.nonMediaResult.purgedUris.size)
+                            PurgeEffect.Completed(freed, plan.nonMediaResult.purgedUris.size)
                         )
                     }
                 }
@@ -125,11 +135,23 @@ class StagingViewModel @Inject constructor(
         viewModelScope.launch {
             if (confirmed && pendingMediaUris.isNotEmpty()) {
                 val purged = purgeEngine.confirmMediaPurged(pendingMediaUris, modeState.value)
-                stagingRepository.removePurged(purged)
-                effects.send(PurgeEffect.Completed(pendingBytes, purged.size))
+                val freed = recordPurged(purged)
+                effects.send(PurgeEffect.Completed(freed, purged.size))
             }
             pendingMediaUris = emptyList()
             purgingState.value = false
         }
+    }
+
+    /**
+     * Unstage the verified winners, add their (and only their) bytes to the
+     * lifetime counter, and return how much was actually freed.
+     */
+    private suspend fun recordPurged(uris: List<String>): Long {
+        if (uris.isEmpty()) return 0L
+        stagingRepository.removePurged(uris)
+        val freed = uris.sumOf { pendingSizesByUri[it] ?: 0L }
+        statsStore.addReclaimed(freed)
+        return freed
     }
 }

@@ -230,7 +230,7 @@ fun StagingDrawerScreen(
 }
 
 @Composable
-private fun StagedRow(
+internal fun StagedRow(
     item: StagedFileEntity,
     onPreview: () -> Unit,
     onRestore: () -> Unit,
@@ -489,7 +489,7 @@ private fun StagedFileEntity.stagedAtLabel(): String =
     SimpleDateFormat("MMM d, HH:mm", Locale.US).format(Date(stagedAtMillis))
 
 @Composable
-private fun ExecutionModeToggle(
+internal fun ExecutionModeToggle(
     mode: ExecutionMode,
     onSelect: (ExecutionMode) -> Unit,
     modifier: Modifier = Modifier,
@@ -549,7 +549,7 @@ private fun SegmentButton(
 }
 
 @Composable
-private fun PurgeCta(
+internal fun PurgeCta(
     bytes: Long,
     enabled: Boolean,
     onClick: () -> Unit,
