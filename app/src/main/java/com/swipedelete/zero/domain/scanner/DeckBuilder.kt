@@ -64,8 +64,10 @@ class DeckBuilder @Inject constructor(
         val decks = buildList {
             addAll(timeMachineDecks(items))
             addAll(heavyHitterDecks(items))
+            addAll(largeVideoDecks(items))
             addAll(clutterHotspotDecks(items))
             addAll(blurryDecks(items))
+            addAll(screenshotsDecks(items))
         }
         val comparisons = duplicateComparisonDecks(items)
 
@@ -101,6 +103,32 @@ class DeckBuilder @Inject constructor(
             title = "Heavy Hitters",
             items = heavy,
         ) { "Biggest space hogs first" }
+    }
+
+    /** The "Large Videos" AI bucket: single files ≥1 GB, biggest first. */
+    private fun largeVideoDecks(items: List<MediaItem>): List<Deck> {
+        val huge = items
+            .filter { it.isVideo && it.sizeBytes >= LARGE_VIDEO_BYTES }
+            .sortedByDescending { it.sizeBytes }
+        return chunkIntoDecks(
+            idPrefix = LARGE_VIDEO_DECK_ID,
+            kind = DeckKind.HEAVY_HITTERS,
+            title = "Large Videos",
+            items = huge,
+        ) { "Videos over 1 GB — the fastest wins" }
+    }
+
+    /** The "Screenshots & Receipts" AI bucket (path + filename heuristics). */
+    private fun screenshotsDecks(items: List<MediaItem>): List<Deck> {
+        val matched = items
+            .filter { isScreenshotOrReceipt(it.relativePath, it.displayName) }
+            .sortedByDescending { it.dateAddedMillis }
+        return chunkIntoDecks(
+            idPrefix = "shots",
+            kind = DeckKind.SCREENSHOTS,
+            title = "Screenshots & Receipts",
+            items = matched,
+        ) { chunk -> "${chunk.size} shots & docs to triage" }
     }
 
     // --- Clutter Hotspots -----------------------------------------------------
@@ -234,6 +262,25 @@ class DeckBuilder @Inject constructor(
                 subtitle = subtitleFor(chunk),
                 items = chunk,
             )
+        }
+    }
+
+    companion object {
+        /** ≥1 GB marks a video for the "Large Videos" AI bucket. */
+        const val LARGE_VIDEO_BYTES = 1L shl 30
+
+        /** Deck-id prefix of the Large Videos bucket (also matched by the dashboard). */
+        const val LARGE_VIDEO_DECK_ID = "heavy:xl"
+
+        /** Pure heuristic shared with tests: screenshots, receipts, scans. */
+        fun isScreenshotOrReceipt(relativePath: String?, displayName: String): Boolean {
+            val path = (relativePath ?: "").lowercase(Locale.US)
+            val name = displayName.lowercase(Locale.US)
+            return path.contains("screenshot") ||
+                name.startsWith("screenshot") ||
+                name.contains("receipt") ||
+                name.contains("invoice") ||
+                name.contains("scan_")
         }
     }
 
