@@ -1,5 +1,0 @@
--keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.swipe.SwipeEngineViewModel
--keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.swipe.SwipeEngineViewModel
--keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.settings.SettingsViewModel
--keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.settings.SettingsViewModel
--keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.setup.CloudSetupViewModel

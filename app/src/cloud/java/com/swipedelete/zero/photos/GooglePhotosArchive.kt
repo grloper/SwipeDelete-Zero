@@ -9,9 +9,11 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.swipedelete.zero.data.local.BackedUpFileDao
 import com.swipedelete.zero.data.local.CloudUploadDao
 import com.swipedelete.zero.data.local.CloudUploadEntity
 import com.swipedelete.zero.domain.backup.ArchiveItemState
+import com.swipedelete.zero.domain.backup.CloudUploadStats
 import com.swipedelete.zero.domain.backup.PhotosArchive
 import com.swipedelete.zero.domain.model.MediaItem
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,6 +37,7 @@ import javax.inject.Singleton
 class GooglePhotosArchive @Inject constructor(
     @ApplicationContext private val context: Context,
     private val uploadDao: CloudUploadDao,
+    private val backedUpFileDao: BackedUpFileDao,
 ) : PhotosArchive {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -44,6 +47,46 @@ class GooglePhotosArchive @Inject constructor(
     override val queue: Flow<Map<String, ArchiveItemState>> =
         uploadDao.observeAll().map { rows ->
             rows.associate { it.contentUri to it.toArchiveState() }
+        }
+
+    override val uploadStats: Flow<CloudUploadStats> =
+        uploadDao.observeAll().map { rows ->
+            val totalCount = rows.size
+            val queued = rows.count { it.state == CloudUploadEntity.STATE_QUEUED }
+            val uploading = rows.count { it.state == CloudUploadEntity.STATE_UPLOADING }
+            val verifying = rows.count { it.state == CloudUploadEntity.STATE_VERIFYING }
+            val verified = rows.count { it.state == CloudUploadEntity.STATE_VERIFIED }
+            val failed = rows.count { it.state == CloudUploadEntity.STATE_FAILED }
+            val totalBytes = rows.sumOf { it.sizeBytes }
+            val uploadedBytes = rows.sumOf { it.bytesUploaded }
+
+            val activeRow = rows.firstOrNull { it.state == CloudUploadEntity.STATE_UPLOADING }
+                ?: rows.firstOrNull { it.state == CloudUploadEntity.STATE_VERIFYING }
+                ?: rows.firstOrNull { it.state == CloudUploadEntity.STATE_QUEUED }
+
+            val activeFileProg = activeRow?.let {
+                if (it.sizeBytes <= 0) 0f else (it.bytesUploaded.toFloat() / it.sizeBytes).coerceIn(0f, 1f)
+            }
+
+            val remainingBytes = (totalBytes - uploadedBytes).coerceAtLeast(0L)
+            // Estimated transfer rate baseline for broadband upload (1.5 MB/s nominal estimate when active)
+            val nominalSpeed = if (uploading > 0) 1_500_000L else 0L
+            val etaSec = if (nominalSpeed > 0 && remainingBytes > 0) remainingBytes / nominalSpeed else null
+
+            CloudUploadStats(
+                totalCount = totalCount,
+                queuedCount = queued,
+                uploadingCount = uploading,
+                verifyingCount = verifying,
+                verifiedCount = verified,
+                failedCount = failed,
+                totalBytes = totalBytes,
+                uploadedBytes = uploadedBytes,
+                uploadSpeedBytesPerSec = nominalSpeed,
+                etaSeconds = etaSec,
+                activeFileName = activeRow?.displayName,
+                activeFileProgress = activeFileProg,
+            )
         }
 
     override suspend fun enqueue(item: MediaItem) {
@@ -71,6 +114,10 @@ class GooglePhotosArchive @Inject constructor(
         uploadDao.deleteIfQueued(contentUri)
     }
 
+    override suspend fun cancel(contentUri: String) {
+        uploadDao.delete(contentUri)
+    }
+
     override fun retry(contentUri: String) {
         scope.launch {
             val row = uploadDao.get(contentUri) ?: return@launch
@@ -85,6 +132,45 @@ class GooglePhotosArchive @Inject constructor(
             )
             kickWorker()
         }
+    }
+
+    override fun retryAllFailed() {
+        scope.launch {
+            val updated = uploadDao.retryAllFailed()
+            if (updated > 0) {
+                kickWorker()
+            }
+        }
+    }
+
+    override fun clearFinished() {
+        scope.launch {
+            uploadDao.clearCompleted()
+        }
+    }
+
+    override suspend fun rebackup(item: MediaItem) {
+        val uri = item.contentUri.toString()
+        backedUpFileDao.delete(uri)
+        val now = System.currentTimeMillis()
+        uploadDao.upsert(
+            CloudUploadEntity(
+                contentUri = uri,
+                displayName = item.displayName,
+                mimeType = item.mimeType,
+                sizeBytes = item.sizeBytes,
+                state = CloudUploadEntity.STATE_QUEUED,
+                uploadUrl = null,
+                bytesUploaded = 0,
+                uploadToken = null,
+                mediaItemId = null,
+                attempts = 0,
+                lastError = null,
+                enqueuedAtMillis = now,
+                updatedAtMillis = now,
+            )
+        )
+        kickWorker()
     }
 
     override fun openInPhotosIntent(): Intent =
