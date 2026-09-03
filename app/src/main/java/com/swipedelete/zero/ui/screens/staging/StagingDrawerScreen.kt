@@ -519,9 +519,9 @@ internal fun ExecutionModeToggle(
             modifier = Modifier.weight(1f),
         ) { onSelect(ExecutionMode.OS_TRASH_30_DAY) }
         SegmentButton(
-            text = "Permanent Purge",
+            text = "Permanent Delete",
             selected = mode == ExecutionMode.PERMANENT_PURGE,
-            accent = SdzColor.Amber,
+            accent = SdzColor.Red,
             modifier = Modifier.weight(1f),
         ) { onSelect(ExecutionMode.PERMANENT_PURGE) }
     }
@@ -568,16 +568,27 @@ internal fun PurgeCta(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(if (enabled) SdzColor.Amber else SdzColor.TextSecondary)
+            .background(if (enabled) SdzColor.Red else SdzColor.TextSecondary.copy(alpha = 0.4f))
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 20.dp),
+            .padding(vertical = 18.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            "🔥 Free Up ${bytes.toReadableSize()} Now",
-            color = SdzColor.Phosphor,
-            fontWeight = FontWeight.Black,
-            style = MaterialTheme.typography.titleMedium,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                painter = SdzIcons.Delete,
+                contentDescription = null,
+                tint = if (enabled) SdzColor.OnAccent else SdzColor.TextSecondary,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = "Delete and Free Up " + bytes.toReadableSize(),
+                color = if (enabled) SdzColor.OnAccent else SdzColor.TextSecondary,
+                fontWeight = FontWeight.Black,
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
     }
 }

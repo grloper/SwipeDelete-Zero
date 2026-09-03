@@ -42,9 +42,9 @@ fun SwipeStamps(
 ) {
     Box(modifier = modifier.padding(SdzSpace.xxl)) {
         Stamp(
-            text = "RECLAIM",
-            icon = SdzIcons.Reclaim,
-            color = SdzColor.Amber,
+            text = "DELETE",
+            icon = SdzIcons.Delete,
+            color = SdzColor.Red,
             alpha = leftGlow,
             modifier = Modifier.align(Alignment.TopStart),
         )

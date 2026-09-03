@@ -25,16 +25,15 @@ import androidx.compose.ui.unit.dp
  * | Role      | Colour        | Means, always and only                      |
  * |-----------|---------------|---------------------------------------------|
  * | Keep      | [Azure]       | protected / safe / you chose to keep it     |
- * | Reclaim   | [Amber]       | space you can get back — queued, or freed   |
+ * | Delete    | [Red]         | queued to delete / trash action             |
+ * | Reclaim   | [Amber]       | storage meter capacity & freed space stats  |
  * | Archive   | [Teal]        | goes to the cloud                           |
  * | Critical  | [Safelight]   | irreversible, or storage genuinely critical |
  * | Brand     | [Phosphor]    | identity and primary text — never a state   |
  *
- * Keep and Reclaim are deliberately blue-vs-amber: the canonical
- * colour-vision-deficiency-safe pair. Red-vs-green — the worst possible pair —
- * is gone. Hue is also never the only signal; see [SdzMotion] and the action
+ * Hue is never the only signal; see [SdzMotion] and the action
  * row, where every decision is additionally carried by icon silhouette,
- * screen position and a visible text label.
+ * screen position and a visible text label for complete accessibility.
  */
 object SdzColor {
 
@@ -85,10 +84,14 @@ object SdzColor {
     val AzureDim = Color(0x335B9DF9)
 
     /**
+     * DELETE / TRASH. Vivid, unambiguous red indicating swiping left or trashing/deleting a file.
+     */
+    val Red = Color(0xFFFF453A)
+    val RedDim = Color(0x33FF453A)
+
+    /**
      * RECLAIM. Space you can get back: queued for deletion, reclaimable in the
-     * storage meter, and the number that counts up when you free some. Trashing
-     * is not "danger" — it is reversible and it is the entire point of the app,
-     * so it must not wear the danger colour.
+     * storage meter, and the number that counts up when you free some.
      */
     val Amber = Color(0xFFE8A33D)
     val AmberDim = Color(0x33E8A33D)

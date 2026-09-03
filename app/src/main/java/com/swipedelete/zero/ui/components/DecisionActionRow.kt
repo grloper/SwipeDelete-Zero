@@ -75,9 +75,9 @@ fun DecisionActionRow(
             enabled = undoEnabled,
         )
         SdzCircleAction(
-            icon = SdzIcons.Reclaim,
-            label = "Reclaim",
-            accent = SdzColor.Amber,
+            icon = SdzIcons.Delete,
+            label = "Delete",
+            accent = SdzColor.Red,
             onClick = onReclaim,
             diameter = SdzTouch.primaryAction,
         )
@@ -131,10 +131,10 @@ fun DeckCoachmark(
             ) {
                 Text("Three ways to decide", style = SdzType.Title, color = SdzColor.Phosphor)
                 CoachLine(
-                    icon = SdzIcons.Reclaim,
-                    accent = SdzColor.Amber,
+                    icon = SdzIcons.Delete,
+                    accent = SdzColor.Red,
                     gesture = "Swipe left",
-                    meaning = "Queue it to reclaim the space. Reversible — it waits in Staging.",
+                    meaning = "Delete it. Reversible — it waits safely in Staging before permanent removal.",
                 )
                 CoachLine(
                     icon = SdzIcons.Keep,

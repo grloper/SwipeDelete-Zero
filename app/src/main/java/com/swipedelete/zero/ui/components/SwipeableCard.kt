@@ -273,7 +273,7 @@ internal fun Modifier.edgeGlow(
                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke + alpha * 18.dp.toPx()),
             )
         }
-        glow(SdzColor.Amber, left)
+        glow(SdzColor.Red, left)
         glow(SdzColor.Azure, right)
         glow(upAccent, up)
     }

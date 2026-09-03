@@ -423,7 +423,7 @@ private fun UndoToast(
 }
 
 private fun undoLabel(direction: SwipeDirection, cloudArchive: Boolean): String = when (direction) {
-    SwipeDirection.LEFT -> "Moved to Staging Drawer"
+    SwipeDirection.LEFT -> "Queued to delete (in Staging)"
     SwipeDirection.RIGHT -> "Kept"
     SwipeDirection.UP -> if (cloudArchive) "Uploading to Google Photos" else "Starred & excluded"
     SwipeDirection.NONE -> ""
