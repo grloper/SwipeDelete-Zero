@@ -155,6 +155,8 @@ fun DeckCompleteCelebration(
     freedBytes: Long,
     fileCount: Int,
     onDone: () -> Unit,
+    nextPartLabel: String? = null,
+    onContinueNextPart: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -173,11 +175,24 @@ fun DeckCompleteCelebration(
                 style = SdzType.Subtitle,
                 color = SdzColor.Phosphor,
             )
-            SdzButton(
-                label = "Back to library",
-                onClick = onDone,
-                style = SdzButtonStyle.Primary,
-            )
+            if (onContinueNextPart != null) {
+                SdzButton(
+                    label = nextPartLabel ?: "Continue with next cards",
+                    onClick = onContinueNextPart,
+                    style = SdzButtonStyle.Primary,
+                )
+                SdzButton(
+                    label = "Back to library",
+                    onClick = onDone,
+                    style = SdzButtonStyle.Secondary,
+                )
+            } else {
+                SdzButton(
+                    label = "Back to library",
+                    onClick = onDone,
+                    style = SdzButtonStyle.Primary,
+                )
+            }
         }
     }
 }

@@ -83,6 +83,7 @@ class DeckBuilder @Inject constructor(
         val decks = buildList {
             addAll(timeMachineDecks(items))
             addAll(heavyHitterDecks(items))
+            addAll(cameraVideoDecks(items))
             addAll(largeVideoDecks(items))
             addAll(clutterHotspotDecks(items))
             addAll(blurryDecks(items))
@@ -138,6 +139,19 @@ class DeckBuilder @Inject constructor(
             title = "Heavy Hitters",
             items = heavy,
         ) { "Biggest space hogs first" }
+    }
+
+    /** All videos captured with device camera, sorted from largest to smallest. */
+    private fun cameraVideoDecks(items: List<MediaItem>): List<Deck> {
+        val cameraVideos = items
+            .filter { it.isVideo && isCameraVideo(it) }
+            .sortedByDescending { it.sizeBytes }
+        return chunkIntoDecks(
+            idPrefix = CAMERA_VIDEO_DECK_ID,
+            kind = DeckKind.CAMERA_VIDEOS,
+            title = "Camera Videos",
+            items = cameraVideos,
+        ) { chunk -> "${chunk.size} camera videos · Biggest first" }
     }
 
     /** The "Large Videos" AI bucket: single files ≥1 GB, biggest first. */
@@ -334,6 +348,21 @@ class DeckBuilder @Inject constructor(
 
         /** Deck-id prefix of the Large Videos bucket (also matched by the dashboard). */
         const val LARGE_VIDEO_DECK_ID = "heavy:xl"
+
+        /** Deck-id prefix for the Camera Videos bucket. */
+        const val CAMERA_VIDEO_DECK_ID = "camera:videos"
+
+        /** Identify videos captured with the camera roll. */
+        fun isCameraVideo(item: MediaItem): Boolean {
+            val path = (item.relativePath ?: "").lowercase(Locale.US)
+            val name = item.displayName.lowercase(Locale.US)
+            return path.contains("dcim") ||
+                path.contains("camera") ||
+                name.startsWith("vid_") ||
+                name.startsWith("mov_") ||
+                name.startsWith("pxl_") ||
+                name.startsWith("20")
+        }
 
         /** Pure heuristic shared with tests: screenshots, receipts, scans. */
         fun isScreenshotOrReceipt(relativePath: String?, displayName: String): Boolean {

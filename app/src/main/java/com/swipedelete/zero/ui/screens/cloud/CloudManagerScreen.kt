@@ -68,12 +68,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import coil.decode.VideoFrameDecoder
+import coil.request.ImageRequest
 import com.swipedelete.zero.data.local.BackedUpFileEntity
 import com.swipedelete.zero.data.local.CloudUploadEntity
 import com.swipedelete.zero.domain.backup.BackupState
@@ -426,9 +430,23 @@ private fun UploadItemRow(
         Column(modifier = Modifier.padding(SdzSpace.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(SdzSpace.md),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(upload.contentUri)
+                        .crossfade(true)
+                        .decoderFactory(VideoFrameDecoder.Factory())
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(SdzRadius.xs))
+                        .background(SdzColor.Surface3),
+                )
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = upload.displayName,
@@ -576,8 +594,22 @@ private fun BackedUpFileRow(
         Row(
             modifier = Modifier.padding(SdzSpace.md),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(SdzSpace.md),
         ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(file.contentUri)
+                    .crossfade(true)
+                    .decoderFactory(VideoFrameDecoder.Factory())
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(SdzRadius.xs))
+                    .background(SdzColor.Surface3),
+            )
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = displayName,

@@ -307,6 +307,7 @@ private data class LibraryEntry(
 private data class LibrarySections(
     val duplicates: List<Deck>,
     val blurry: List<Deck>,
+    val cameraVideos: List<Deck> = emptyList(),
     val largeVideos: List<Deck>,
     val screenshots: List<Deck>,
     val documents: List<Deck>,
@@ -315,15 +316,16 @@ private data class LibrarySections(
 ) {
     /** What the single primary button should open. */
     fun suggestedDeck(): Deck? =
-        (largeVideos + duplicates + blurry + screenshots + documents)
+        (largeVideos + cameraVideos + duplicates + blurry + screenshots + documents)
             .firstOrNull { it.remainingCount > 0 }
             ?: months.firstOrNull { it.remainingCount > 0 }?.nextDeck
             ?: hotspots.firstOrNull { it.remainingCount > 0 }?.nextDeck
 
-    fun contentLenses(hasAnalysis: Boolean): List<LibraryEntry> = listOf(
+    fun contentLenses(hasAnalysis: Boolean): List<LibraryEntry> = listOfNotNull(
         entry("duplicates", "Duplicates & near-shots", { SdzIcons.Duplicates }, duplicates, !hasAnalysis),
         entry("blurry", "Blurry media", { SdzIcons.Blurry }, blurry, !hasAnalysis),
-        entry("large", "Large videos", { SdzIcons.LargeVideo }, largeVideos, false),
+        if (cameraVideos.isNotEmpty()) entry("camera_videos", "Camera videos (Largest first)", { SdzIcons.LargeVideo }, cameraVideos, false) else null,
+        entry("large", "Large videos (>1 GB)", { SdzIcons.LargeVideo }, largeVideos, false),
         entry("screenshots", "Screenshots", { SdzIcons.Screenshots }, screenshots, false),
         entry("documents", "Text & documents", { SdzIcons.Documents }, documents, !hasAnalysis),
     ) + hotspots.map { group ->
@@ -378,16 +380,18 @@ private data class LibrarySections(
     companion object {
         fun from(decks: List<Deck>): LibrarySections {
             val large = decks.filter { it.id.startsWith("heavy:xl") }
+            val cameraVids = decks.filter { it.id.startsWith("camera:videos") }
             return LibrarySections(
                 duplicates = decks.filter { it.kind == DeckKind.DUPLICATES },
                 blurry = decks.filter { it.kind == DeckKind.BLURRY },
+                cameraVideos = cameraVids,
                 largeVideos = large,
                 screenshots = decks.filter { it.kind == DeckKind.SCREENSHOTS },
                 documents = decks.filter { it.kind == DeckKind.DOCUMENTS },
                 hotspots = DeckGroup.from(
                     decks.filter {
-                        it.kind == DeckKind.CLUTTER_HOTSPOT ||
-                            (it.kind == DeckKind.HEAVY_HITTERS && it !in large)
+                        (it.kind == DeckKind.CLUTTER_HOTSPOT || (it.kind == DeckKind.HEAVY_HITTERS && it !in large)) &&
+                            it !in cameraVids
                     }
                 ),
                 months = DeckGroup.from(decks.filter { it.kind == DeckKind.TIME_MACHINE }),

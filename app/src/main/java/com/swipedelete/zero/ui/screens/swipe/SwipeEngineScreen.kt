@@ -64,6 +64,7 @@ import com.swipedelete.zero.ui.components.DecisionActionRow
 import com.swipedelete.zero.ui.components.DeckCoachmark
 import com.swipedelete.zero.ui.components.DeckCompleteCelebration
 import com.swipedelete.zero.ui.components.SdzIcons
+import com.swipedelete.zero.ui.components.SortChip
 import com.swipedelete.zero.ui.components.SwipeableCard
 import com.swipedelete.zero.ui.components.rememberDominantColors
 import com.swipedelete.zero.ui.components.SdzIconButton
@@ -124,6 +125,8 @@ fun SwipeEngineScreen(
                         color = SdzColor.Phosphor,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                     val total = state.deck?.totalCount ?: 0
                     Text(
@@ -132,6 +135,14 @@ fun SwipeEngineScreen(
                         style = MaterialTheme.typography.labelMedium,
                     )
                 }
+                SortChip(
+                    label = if (state.sortOrder == DeckSortOrder.LARGEST_FIRST) "Largest First" else "Newest",
+                    selected = state.sortOrder == DeckSortOrder.LARGEST_FIRST,
+                    onClick = {
+                        val next = if (state.sortOrder == DeckSortOrder.LARGEST_FIRST) DeckSortOrder.NEWEST_FIRST else DeckSortOrder.LARGEST_FIRST
+                        viewModel.setSortOrder(next)
+                    },
+                )
             }
 
             // Card area (top 60%).
@@ -147,6 +158,8 @@ fun SwipeEngineScreen(
                         freedBytes = state.sessionReclaimedBytes,
                         fileCount = state.sessionReclaimedCount,
                         onDone = onBack,
+                        nextPartLabel = state.nextDeckTitle?.let { "Continue with $it" },
+                        onContinueNextPart = state.nextDeckId?.let { nextId -> { viewModel.loadDeck(nextId) } },
                     )
                     else -> CardStack(state, viewModel, topVideoMeta, backedUpUris, playerState)
                 }

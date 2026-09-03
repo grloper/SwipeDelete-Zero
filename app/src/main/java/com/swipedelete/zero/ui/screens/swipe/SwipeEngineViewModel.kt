@@ -32,10 +32,18 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class DeckSortOrder {
+    NEWEST_FIRST,
+    LARGEST_FIRST,
+}
+
 data class SwipeUiState(
     val loading: Boolean = true,
     val deck: Deck? = null,
     val cursor: Int = 0,
+    val sortOrder: DeckSortOrder = DeckSortOrder.NEWEST_FIRST,
+    val nextDeckId: String? = null,
+    val nextDeckTitle: String? = null,
     /** The most recent swipe, kept alive for the 5-second Undo window. */
     val lastAction: SwipeAction? = null,
     /** Bytes queued for reclaim during this sitting — the celebration's figure. */
@@ -95,12 +103,7 @@ class SwipeEngineViewModel @Inject constructor(
                 _state.update { it.copy(showCoachmark = true) }
             }
         }
-        viewModelScope.launch {
-            val deck = deckRepository.getDeck(deckId)
-            _state.update {
-                it.copy(loading = false, deck = deck, cursor = deck?.completedCount ?: 0)
-            }
-        }
+        loadDeck(deckId)
         // Keep the N±2 window warm in Coil's caches as the cursor advances.
         viewModelScope.launch {
             _state.map { it.deck to it.cursor }.distinctUntilChanged().collect { (deck, cursor) ->
@@ -121,6 +124,43 @@ class SwipeEngineViewModel @Inject constructor(
                         videoMetadataExtractor.extract(item)
                     }
             }
+        }
+    }
+
+    fun loadDeck(id: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(loading = true) }
+            val deck = deckRepository.getDeck(id)
+            val nextDeck = deck?.let { deckRepository.getNextDeckInGroup(it) }
+            _state.update {
+                it.copy(
+                    loading = false,
+                    deck = deck,
+                    cursor = deck?.completedCount ?: 0,
+                    nextDeckId = nextDeck?.id,
+                    nextDeckTitle = nextDeck?.title,
+                )
+            }
+        }
+    }
+
+    fun setSortOrder(order: DeckSortOrder) {
+        val current = _state.value
+        val deck = current.deck ?: return
+        if (current.sortOrder == order) return
+        val cursor = current.cursor
+        val swiped = deck.items.take(cursor)
+        val remaining = deck.items.drop(cursor)
+        val sortedRemaining = when (order) {
+            DeckSortOrder.NEWEST_FIRST -> remaining.sortedByDescending { it.dateAddedMillis }
+            DeckSortOrder.LARGEST_FIRST -> remaining.sortedByDescending { it.sizeBytes }
+        }
+        val reorderedDeck = deck.copy(items = swiped + sortedRemaining)
+        _state.update {
+            it.copy(
+                deck = reorderedDeck,
+                sortOrder = order,
+            )
         }
     }
 

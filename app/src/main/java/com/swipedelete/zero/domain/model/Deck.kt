@@ -4,6 +4,7 @@ package com.swipedelete.zero.domain.model
 enum class DeckKind {
     TIME_MACHINE,
     HEAVY_HITTERS,
+    CAMERA_VIDEOS,
     CLUTTER_HOTSPOT,
     DUPLICATES,
     BLURRY,
