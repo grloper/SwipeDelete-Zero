@@ -519,9 +519,9 @@ internal fun ExecutionModeToggle(
             modifier = Modifier.weight(1f),
         ) { onSelect(ExecutionMode.OS_TRASH_30_DAY) }
         SegmentButton(
-            text = "Permanent Purge",
+            text = "Permanent Delete",
             selected = mode == ExecutionMode.PERMANENT_PURGE,
-            accent = SdzColor.Amber,
+            accent = SdzColor.Red,
             modifier = Modifier.weight(1f),
         ) { onSelect(ExecutionMode.PERMANENT_PURGE) }
     }
@@ -568,7 +568,7 @@ internal fun PurgeCta(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(if (enabled) SdzColor.Amber else SdzColor.TextSecondary)
+            .background(if (enabled) SdzColor.Red else SdzColor.TextSecondary.copy(alpha = 0.4f))
             .clickable(enabled = enabled, onClick = onClick)
             .padding(vertical = 20.dp),
         contentAlignment = Alignment.Center,

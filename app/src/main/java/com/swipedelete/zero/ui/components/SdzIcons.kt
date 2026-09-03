@@ -19,6 +19,8 @@ import com.swipedelete.zero.R
 object SdzIcons {
     val Keep: Painter @Composable get() = painterResource(R.drawable.ic_action_keep)
     val Reclaim: Painter @Composable get() = painterResource(R.drawable.ic_action_trash)
+    val Delete: Painter @Composable get() = painterResource(R.drawable.ic_action_trash)
+    val Trash: Painter @Composable get() = painterResource(R.drawable.ic_action_trash)
     val Archive: Painter @Composable get() = painterResource(R.drawable.ic_action_cloud)
     val Undo: Painter @Composable get() = painterResource(R.drawable.ic_action_undo)
     val Back: Painter @Composable get() = painterResource(R.drawable.ic_action_back)

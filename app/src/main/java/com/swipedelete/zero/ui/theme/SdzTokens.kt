@@ -85,10 +85,14 @@ object SdzColor {
     val AzureDim = Color(0x335B9DF9)
 
     /**
+     * DELETE / TRASH. Vivid, unambiguous red indicating swiping left or trashing/deleting a file.
+     */
+    val Red = Color(0xFFFF453A)
+    val RedDim = Color(0x33FF453A)
+
+    /**
      * RECLAIM. Space you can get back: queued for deletion, reclaimable in the
-     * storage meter, and the number that counts up when you free some. Trashing
-     * is not "danger" — it is reversible and it is the entire point of the app,
-     * so it must not wear the danger colour.
+     * storage meter, and the number that counts up when you free some.
      */
     val Amber = Color(0xFFE8A33D)
     val AmberDim = Color(0x33E8A33D)
