@@ -1,5 +1,6 @@
 package com.swipedelete.zero.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -11,12 +12,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.swipedelete.zero.ui.theme.SdzColor
 import com.swipedelete.zero.ui.theme.SdzRadius
@@ -26,11 +30,15 @@ import com.swipedelete.zero.ui.theme.SdzType
 /**
  * The in-drag decision preview.
  *
- * Each stamp pairs its **icon silhouette** with its word, so the pending
- * outcome is legible without relying on colour at all — and the stamps appear
- * on the side of the card matching the gesture, giving position as a third
- * channel. The old version rotated bare words in a red/green pair, which is the
- * single worst colour combination for red-green colour vision deficiency.
+ * The dominant gesture's stamp is rendered **large and centered** over the
+ * card — the word and icon silhouette carry the meaning (never colour alone),
+ * and the stamp grows as the drag nears its commit threshold, so the imminent
+ * outcome is impossible to miss without the user having to glance to a corner.
+ *
+ * Each stamp only shows when its direction is the one being dragged:
+ * - dragging left  → big red "DELETE" stamp
+ * - dragging right → big blue "KEEP" stamp
+ * - dragging up    → big teal "ARCHIVE" stamp
  */
 @Composable
 fun SwipeStamps(
@@ -40,51 +48,76 @@ fun SwipeStamps(
     modifier: Modifier = Modifier,
     archiveLabel: String = "ARCHIVE",
 ) {
-    Box(modifier = modifier.padding(SdzSpace.xxl)) {
-        Stamp(
+    Box(
+        modifier = modifier.padding(SdzSpace.md),
+        contentAlignment = Alignment.Center,
+    ) {
+        CenteredStamp(
             text = "DELETE",
             icon = SdzIcons.Delete,
             color = SdzColor.Red,
-            alpha = leftGlow,
-            modifier = Modifier.align(Alignment.TopStart),
+            glow = leftGlow,
         )
-        Stamp(
+        CenteredStamp(
             text = "KEEP",
             icon = SdzIcons.Keep,
             color = SdzColor.Azure,
-            alpha = rightGlow,
-            modifier = Modifier.align(Alignment.TopEnd),
+            glow = rightGlow,
         )
-        Stamp(
+        CenteredStamp(
             text = archiveLabel,
             icon = SdzIcons.Archive,
             color = SdzColor.Teal,
-            alpha = upGlow,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            glow = upGlow,
         )
     }
 }
 
+/**
+ * One centered stamp. [glow] is the drag progress toward that direction's
+ * commit threshold (0..1); the stamp fades in past a small floor and scales
+ * up as the drag strengthens.
+ */
 @Composable
-private fun Stamp(
+private fun CenteredStamp(
     text: String,
     icon: Painter,
     color: Color,
-    alpha: Float,
-    modifier: Modifier = Modifier,
+    glow: Float,
 ) {
+    // Keep a small floor invisible: the stamp should only appear once the
+    // user has meaningfully committed to that direction.
+    val visible by animateFloatAsState(
+        targetValue = if (glow > 0.08f) ((glow - 0.08f) / 0.92f).coerceIn(0f, 1f) else 0f,
+        label = "stamp-alpha",
+    )
+    if (visible <= 0.01f) return
+
+    val scale by animateFloatAsState(
+        targetValue = 0.82f + 0.28f * visible,
+        label = "stamp-scale",
+    )
+
     Row(
-        modifier = modifier
-            .alpha(alpha)
-            .clip(RoundedCornerShape(SdzRadius.md))
-            .background(SdzColor.Surface0.copy(alpha = 0.55f))
-            .border(2.dp, color, RoundedCornerShape(SdzRadius.md))
-            .padding(horizontal = SdzSpace.md, vertical = SdzSpace.sm),
+        modifier = Modifier
+            .alpha(visible)
+            .scale(scale)
+            .clip(RoundedCornerShape(SdzRadius.lg))
+            .background(SdzColor.Surface0.copy(alpha = 0.62f))
+            .border(3.dp, color, RoundedCornerShape(SdzRadius.lg))
+            .padding(horizontal = SdzSpace.xl, vertical = SdzSpace.lg),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(SdzSpace.sm),
+        horizontalArrangement = Arrangement.spacedBy(SdzSpace.md),
     ) {
-        Icon(painter = icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
-        Text(text, style = SdzType.Label, color = color)
+        Icon(painter = icon, contentDescription = null, tint = color, modifier = Modifier.size(44.dp))
+        Text(
+            text = text,
+            style = SdzType.Title.copy(
+                fontWeight = FontWeight.Black,
+                letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified,
+            ),
+            color = color,
+        )
     }
 }
 
