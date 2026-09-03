@@ -45,7 +45,17 @@ class DeckRepository @Inject constructor(
         val sessions = sessionDao.getAll().associateBy { it.deckId }
         val decks = result.decks.map { deck ->
             val session = sessions[deck.id]
-            if (session != null) deck.copy(completedCount = session.cursor) else deck
+            val completed = if (session != null) {
+                // If items were purged/deleted such that totalCount changed and cursor exceeded,
+                // or if session recorded a completion on an old batch, reset to 0 so
+                // newly shifted items in this deck can be reviewed seamlessly!
+                if (session.cursor >= deck.totalCount && deck.totalCount > 0 && session.totalCount != deck.totalCount) {
+                    0
+                } else {
+                    session.cursor.coerceAtMost(deck.totalCount)
+                }
+            } else 0
+            deck.copy(completedCount = completed)
         }
         return LibrarySummary(
             decks = decks,
@@ -56,6 +66,18 @@ class DeckRepository @Inject constructor(
 
     suspend fun getDeck(deckId: String): Deck? =
         getDecks().firstOrNull { it.id == deckId }
+
+    /** Returns the next unfinished part in the same logical collection/group. */
+    suspend fun getNextDeckInGroup(currentDeck: Deck): Deck? {
+        val allDecks = getDecks()
+        val groupDecks = allDecks.filter { it.groupId == currentDeck.groupId }
+        val currentIndex = groupDecks.indexOfFirst { it.id == currentDeck.id }
+        if (currentIndex >= 0 && currentIndex + 1 < groupDecks.size) {
+            val next = groupDecks[currentIndex + 1]
+            if (next.remainingCount > 0) return next
+        }
+        return groupDecks.firstOrNull { it.id != currentDeck.id && it.remainingCount > 0 }
+    }
 
     suspend fun getComparisonPairs(deckId: String): List<ComparisonPair> =
         scan(false).comparisonDecks[deckId].orEmpty()
