@@ -352,7 +352,7 @@ private fun CloudPerformanceCard(
                     ) {
                         Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Retry (${stats.failedCount})", color = Color.Black, style = MaterialTheme.typography.labelSmall)
+                        Text("Retry (${stats.failedCount})", color = SdzColor.OnAccent, style = MaterialTheme.typography.labelSmall)
                     }
                 }
 
