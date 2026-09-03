@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.swipedelete.zero.domain.model.Deck
+import com.swipedelete.zero.ui.screens.cloud.CloudManagerScreen
 import com.swipedelete.zero.ui.screens.dashboard.DashboardScreen
 import com.swipedelete.zero.ui.screens.dual.DualCardSplitScreen
 import com.swipedelete.zero.ui.screens.settings.SettingsScreen
@@ -42,7 +43,10 @@ fun AppNavigation() {
             route = Routes.SWIPE_ENGINE,
             arguments = listOf(navArgument(Routes.ARG_DECK_ID) { type = NavType.StringType }),
         ) {
-            SwipeEngineScreen(onBack = { navController.popBackStack() })
+            SwipeEngineScreen(
+                onBack = { navController.popBackStack() },
+                onOpenCloudManager = { navController.navigate(Routes.CLOUD_MANAGER) },
+            )
         }
 
         composable(
@@ -60,11 +64,16 @@ fun AppNavigation() {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenCloudSetup = { navController.navigate(Routes.CLOUD_SETUP) },
+                onOpenCloudManager = { navController.navigate(Routes.CLOUD_MANAGER) },
             )
         }
 
         composable(Routes.CLOUD_SETUP) {
             CloudSetupScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.CLOUD_MANAGER) {
+            CloudManagerScreen(onBack = { navController.popBackStack() })
         }
     }
 }

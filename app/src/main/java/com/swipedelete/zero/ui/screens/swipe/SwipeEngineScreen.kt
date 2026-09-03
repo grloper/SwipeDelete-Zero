@@ -76,6 +76,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun SwipeEngineScreen(
     onBack: () -> Unit,
+    onOpenCloudManager: () -> Unit = {},
     viewModel: SwipeEngineViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -154,7 +155,11 @@ fun SwipeEngineScreen(
             // Live cloud archive status — renders nothing when the queue is
             // empty (always the case in the fdroid/play flavors).
             val uploadQueue by viewModel.uploadQueue.collectAsStateWithLifecycle()
-            UploadStatusStrip(uploadQueue, Modifier.fillMaxWidth())
+            UploadStatusStrip(
+                queue = uploadQueue,
+                onClick = onOpenCloudManager,
+                modifier = Modifier.fillMaxWidth()
+            )
 
             // Action buttons — thumb zone (bottom 40%).
             if (!state.isComplete) {
@@ -309,6 +314,7 @@ private fun CardStack(
 @Composable
 private fun UploadStatusStrip(
     queue: Map<String, com.swipedelete.zero.domain.backup.ArchiveItemState>,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (queue.isEmpty()) return
@@ -334,6 +340,7 @@ private fun UploadStatusStrip(
             .clip(RoundedCornerShape(50))
             .background(SdzColor.Surface1.copy(alpha = 0.85f))
             .border(1.dp, SdzColor.TextSecondary.copy(alpha = 0.35f), RoundedCornerShape(50))
+            .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -341,14 +348,21 @@ private fun UploadStatusStrip(
         Icon(
             Icons.Rounded.CloudUpload,
             contentDescription = null,
-            tint = SdzColor.TextSecondary,
+            tint = SdzColor.Teal,
             modifier = Modifier.size(16.dp),
         )
         Text(
             parts.joinToString(" · "),
-            color = SdzColor.TextSecondary,
+            color = SdzColor.Phosphor,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        Text(
+            "Manage",
+            color = SdzColor.Teal,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.labelSmall,
         )
     }
 }

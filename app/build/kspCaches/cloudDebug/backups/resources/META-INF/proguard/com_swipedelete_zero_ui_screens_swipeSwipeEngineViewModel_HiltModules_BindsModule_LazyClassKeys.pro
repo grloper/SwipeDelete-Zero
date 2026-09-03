@@ -1,1 +1,0 @@
--keep,allowobfuscation,allowshrinking class com.swipedelete.zero.ui.screens.swipe.SwipeEngineViewModel

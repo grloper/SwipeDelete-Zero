@@ -49,6 +49,7 @@ import com.swipedelete.zero.ui.theme.SdzColor
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenCloudSetup: () -> Unit = {},
+    onOpenCloudManager: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val exclusions by viewModel.exclusions.collectAsStateWithLifecycle()
@@ -97,6 +98,7 @@ fun SettingsScreen(
                 onBackupNow = viewModel::backupNow,
                 onDisconnect = viewModel::disconnectBackup,
                 onOpenSetup = onOpenCloudSetup,
+                onOpenManager = onOpenCloudManager,
             )
             Spacer(Modifier.height(20.dp))
         }
@@ -166,6 +168,7 @@ private fun DriveBackupSection(
     onBackupNow: () -> Unit,
     onDisconnect: () -> Unit,
     onOpenSetup: () -> Unit,
+    onOpenManager: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -176,31 +179,45 @@ private fun DriveBackupSection(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(
-                Icons.Rounded.CloudUpload,
-                contentDescription = null,
-                tint = SdzColor.TextSecondary,
-                modifier = Modifier.size(22.dp),
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(
+                    Icons.Rounded.CloudUpload,
+                    contentDescription = null,
+                    tint = SdzColor.Teal,
+                    modifier = Modifier.size(22.dp),
+                )
+                Text(
+                    "Cloud & Photos Manager",
+                    color = SdzColor.Phosphor,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+
             Text(
-                "Google Drive Backup",
-                color = SdzColor.Phosphor,
+                "Open Manager",
+                color = SdzColor.Teal,
                 fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onOpenManager)
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
             )
         }
         Text(
-            "Kept & starred files are uploaded once each — new keeps are picked up by the next run, nothing is uploaded twice.",
+            "Kept & starred files are uploaded once each — view live speed, queue items, re-backup or reconcile deleted cloud files anytime.",
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
         )
 
         when (state) {
             is BackupState.SignedOut -> {
-                // A raw status code helps nobody: when a decoded diagnosis
-                // exists, say what broke and send the user to the step that
-                // fixes it rather than to a docs file they have to go find.
                 val diagnostic = state.diagnostic
                 if (diagnostic != null) {
                     Text(
@@ -232,17 +249,30 @@ private fun DriveBackupSection(
 
             is BackupState.Ready -> {
                 Text(
-                    "${state.accountEmail} · $pendingCount pending · $backedUpCount backed up",
+                    "${state.accountEmail} · $pendingCount pending · $backedUpCount in ledger",
                     color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.labelMedium,
                 )
                 state.message?.let {
                     Text(it, color = SdzColor.TextSecondary, style = MaterialTheme.typography.labelMedium)
                 }
-                BackupButton(
-                    text = if (pendingCount > 0) "Back up $pendingCount file${if (pendingCount == 1) "" else "s"} now" else "Backed up — nothing pending",
-                    onClick = onBackupNow,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        BackupButton(
+                            text = if (pendingCount > 0) "Back up $pendingCount now" else "Sync to Drive",
+                            onClick = onBackupNow,
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        BackupButton(
+                            text = "Cloud Manager",
+                            onClick = onOpenManager,
+                        )
+                    }
+                }
                 Text(
                     "Disconnect",
                     color = SdzColor.TextSecondary,

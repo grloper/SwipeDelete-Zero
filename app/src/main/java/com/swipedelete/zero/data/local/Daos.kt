@@ -71,6 +71,24 @@ interface BackedUpFileDao {
     /** Every backed-up uri — powers the per-card Cloud Verification chip. */
     @Query("SELECT contentUri FROM backed_up_files")
     fun observeBackedUpUris(): Flow<List<String>>
+
+    @Query("SELECT * FROM backed_up_files ORDER BY uploadedAtMillis DESC")
+    fun observeAll(): Flow<List<BackedUpFileEntity>>
+
+    @Query("SELECT * FROM backed_up_files ORDER BY uploadedAtMillis DESC")
+    suspend fun getAll(): List<BackedUpFileEntity>
+
+    @Query("SELECT * FROM backed_up_files WHERE contentUri = :uri LIMIT 1")
+    suspend fun get(uri: String): BackedUpFileEntity?
+
+    @Query("SELECT COUNT(*) > 0 FROM backed_up_files WHERE contentUri = :uri")
+    suspend fun exists(uri: String): Boolean
+
+    @Query("DELETE FROM backed_up_files WHERE contentUri = :uri")
+    suspend fun delete(uri: String): Int
+
+    @Query("DELETE FROM backed_up_files")
+    suspend fun deleteAll(): Int
 }
 
 @Dao
@@ -137,6 +155,15 @@ interface CloudUploadDao {
 
     @Query("DELETE FROM cloud_uploads WHERE contentUri = :uri")
     suspend fun delete(uri: String)
+
+    @Query("UPDATE cloud_uploads SET state = 'QUEUED', attempts = 0, lastError = null, updatedAtMillis = :nowMillis WHERE state = 'FAILED'")
+    suspend fun retryAllFailed(nowMillis: Long = System.currentTimeMillis()): Int
+
+    @Query("DELETE FROM cloud_uploads WHERE state = 'VERIFIED'")
+    suspend fun clearCompleted(): Int
+
+    @Query("SELECT COUNT(*) FROM cloud_uploads WHERE state = :state")
+    fun observeCountByState(state: String): Flow<Int>
 }
 
 @Dao
