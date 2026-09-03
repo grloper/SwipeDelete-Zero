@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.swipedelete.zero.ui.theme.SdzColor
 import com.swipedelete.zero.ui.theme.SdzRadius
 import com.swipedelete.zero.ui.theme.SdzSpace
@@ -35,7 +36,7 @@ import com.swipedelete.zero.ui.theme.SdzType
  * and the stamp grows as the drag nears its commit threshold, so the imminent
  * outcome is impossible to miss without the user having to glance to a corner.
  *
- * Each stamp only shows when its direction is the one being dragged:
+ * At most one stamp is ever drawn: whichever direction has the strongest glow.
  * - dragging left  → big red "DELETE" stamp
  * - dragging right → big blue "KEEP" stamp
  * - dragging up    → big teal "ARCHIVE" stamp
@@ -48,27 +49,30 @@ fun SwipeStamps(
     modifier: Modifier = Modifier,
     archiveLabel: String = "ARCHIVE",
 ) {
+    val glow = maxOf(leftGlow, rightGlow, upGlow)
+    val dominant: Pair<String, Pair<Painter, Color>>? = when {
+        glow <= 0.08f -> null
+        glow == leftGlow && leftGlow >= rightGlow && leftGlow >= upGlow ->
+            "DELETE" to (SdzIcons.Delete to SdzColor.Red)
+        glow == rightGlow && rightGlow >= leftGlow && rightGlow >= upGlow ->
+            "KEEP" to (SdzIcons.Keep to SdzColor.Azure)
+        glow == upGlow ->
+            archiveLabel to (SdzIcons.Archive to SdzColor.Teal)
+        else -> null
+    }
+
+    if (dominant == null) return
+
     Box(
         modifier = modifier.padding(SdzSpace.md),
         contentAlignment = Alignment.Center,
     ) {
+        val (text, iconAndColor) = dominant
         CenteredStamp(
-            text = "DELETE",
-            icon = SdzIcons.Delete,
-            color = SdzColor.Red,
-            glow = leftGlow,
-        )
-        CenteredStamp(
-            text = "KEEP",
-            icon = SdzIcons.Keep,
-            color = SdzColor.Azure,
-            glow = rightGlow,
-        )
-        CenteredStamp(
-            text = archiveLabel,
-            icon = SdzIcons.Archive,
-            color = SdzColor.Teal,
-            glow = upGlow,
+            text = text,
+            icon = iconAndColor.first,
+            color = iconAndColor.second,
+            glow = glow,
         )
     }
 }
@@ -85,16 +89,14 @@ private fun CenteredStamp(
     color: Color,
     glow: Float,
 ) {
-    // Keep a small floor invisible: the stamp should only appear once the
-    // user has meaningfully committed to that direction.
+    // Normalize: a small floor (8%) keeps the stamp from flashing on the
+    // lightest touch; the remaining range maps to 0..1 visibility.
     val visible by animateFloatAsState(
-        targetValue = if (glow > 0.08f) ((glow - 0.08f) / 0.92f).coerceIn(0f, 1f) else 0f,
+        targetValue = ((glow - 0.08f) / 0.92f).coerceIn(0f, 1f),
         label = "stamp-alpha",
     )
-    if (visible <= 0.01f) return
-
     val scale by animateFloatAsState(
-        targetValue = 0.82f + 0.28f * visible,
+        targetValue = 0.85f + 0.35f * visible,
         label = "stamp-scale",
     )
 
@@ -103,20 +105,24 @@ private fun CenteredStamp(
             .alpha(visible)
             .scale(scale)
             .clip(RoundedCornerShape(SdzRadius.lg))
-            .background(SdzColor.Surface0.copy(alpha = 0.62f))
+            .background(SdzColor.Surface0.copy(alpha = 0.66f))
             .border(3.dp, color, RoundedCornerShape(SdzRadius.lg))
             .padding(horizontal = SdzSpace.xl, vertical = SdzSpace.lg),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SdzSpace.md),
     ) {
-        Icon(painter = icon, contentDescription = null, tint = color, modifier = Modifier.size(44.dp))
+        Icon(
+            painter = icon,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(40.dp),
+        )
         Text(
             text = text,
-            style = SdzType.Title.copy(
-                fontWeight = FontWeight.Black,
-                letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified,
-            ),
             color = color,
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = (-0.5).sp,
         )
     }
 }
