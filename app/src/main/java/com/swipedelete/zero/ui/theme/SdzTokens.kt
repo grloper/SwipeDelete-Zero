@@ -25,16 +25,15 @@ import androidx.compose.ui.unit.dp
  * | Role      | Colour        | Means, always and only                      |
  * |-----------|---------------|---------------------------------------------|
  * | Keep      | [Azure]       | protected / safe / you chose to keep it     |
- * | Reclaim   | [Amber]       | space you can get back — queued, or freed   |
+ * | Delete    | [Red]         | queued to delete / trash action             |
+ * | Reclaim   | [Amber]       | storage meter capacity & freed space stats  |
  * | Archive   | [Teal]        | goes to the cloud                           |
  * | Critical  | [Safelight]   | irreversible, or storage genuinely critical |
  * | Brand     | [Phosphor]    | identity and primary text — never a state   |
  *
- * Keep and Reclaim are deliberately blue-vs-amber: the canonical
- * colour-vision-deficiency-safe pair. Red-vs-green — the worst possible pair —
- * is gone. Hue is also never the only signal; see [SdzMotion] and the action
+ * Hue is never the only signal; see [SdzMotion] and the action
  * row, where every decision is additionally carried by icon silhouette,
- * screen position and a visible text label.
+ * screen position and a visible text label for complete accessibility.
  */
 object SdzColor {
 
