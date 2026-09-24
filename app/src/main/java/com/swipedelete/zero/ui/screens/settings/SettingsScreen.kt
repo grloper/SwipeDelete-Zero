@@ -29,9 +29,14 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +61,7 @@ fun SettingsScreen(
     val backupState by viewModel.backupState.collectAsStateWithLifecycle()
     val pendingBackupCount by viewModel.pendingBackupCount.collectAsStateWithLifecycle()
     val backedUpCount by viewModel.backedUpCount.collectAsStateWithLifecycle()
+    var showPrivacy by remember { mutableStateOf(false) }
 
     val signInLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -146,6 +152,9 @@ fun SettingsScreen(
             }
         }
 
+        TextButton(onClick = { showPrivacy = true }) {
+            Text("Privacy policy", color = SdzColor.Azure)
+        }
         Text(
             if (backupState is BackupState.Unsupported) {
                 "SwipeDelete Zero · GPL v3 · 100% Offline · Zero Net-Permissions"
@@ -155,6 +164,25 @@ fun SettingsScreen(
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(vertical = 20.dp),
+        )
+    }
+    if (showPrivacy) {
+        AlertDialog(
+            onDismissRequest = { showPrivacy = false },
+            title = { Text("Privacy · SwipeDelete Zero") },
+            text = {
+                Text(
+                    "The Google Play build works on your device. It reads the photos, videos and audio " +
+                        "you allow so you can review and clean them. It stores your decisions and " +
+                        "progress locally. It has no internet permission, account, ads or analytics, " +
+                        "and does not send your files or usage data to us. Deletion requires your " +
+                        "confirmation through Android. Uninstalling removes the app's local data. " +
+                        "The separate cloud build has optional Google Drive and Photos features."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showPrivacy = false }) { Text("Close") }
+            },
         )
     }
 }

@@ -1,6 +1,7 @@
 package com.swipedelete.zero.ui.screens.dashboard
 
 import android.widget.Toast
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,6 +65,7 @@ import coil.compose.AsyncImage
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import com.swipedelete.zero.domain.model.Deck
+import com.swipedelete.zero.domain.model.ExecutionMode
 import com.swipedelete.zero.domain.model.DeckGroup
 import com.swipedelete.zero.domain.model.DeckKind
 import com.swipedelete.zero.ui.components.SdzButton
@@ -85,11 +88,16 @@ import com.swipedelete.zero.ui.theme.SdzType
 import com.swipedelete.zero.ui.util.toReadableSize
 import kotlin.math.roundToInt
 
-private val MediaPermissions = arrayOf(
-    android.Manifest.permission.READ_MEDIA_IMAGES,
-    android.Manifest.permission.READ_MEDIA_VIDEO,
-    android.Manifest.permission.READ_EXTERNAL_STORAGE,
-)
+private fun mediaPermissions(): Array<String> = if (Build.VERSION.SDK_INT >= 33) {
+    arrayOf(
+        android.Manifest.permission.READ_MEDIA_IMAGES,
+        android.Manifest.permission.READ_MEDIA_VIDEO,
+        android.Manifest.permission.READ_MEDIA_AUDIO,
+        android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+    )
+} else {
+    arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+}
 
 /**
  * Home.
@@ -115,12 +123,12 @@ fun DashboardScreen(
     var lensName by rememberSaveable { mutableStateOf(Lens.CONTENT.name) }
     val lens = Lens.valueOf(lensName)
     var showStaging by rememberSaveable { mutableStateOf(false) }
+    val currentShowStaging by rememberUpdatedState(showStaging)
+    var completedPurge by remember { mutableStateOf<Pair<Long, Int>?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result -> viewModel.onPermissionResult(result.values.any { it }) }
-
-    LaunchedEffect(Unit) { permissionLauncher.launch(MediaPermissions) }
 
     // The OS delete dialog launcher lives in this stable composition, never in
     // the sheet — dismissing the sheet mid-dialog would drop the result.
@@ -135,7 +143,22 @@ fun DashboardScreen(
             when (effect) {
                 is PurgeEffect.LaunchConfirmation ->
                     confirmLauncher.launch(IntentSenderRequest.Builder(effect.sender).build())
-                is PurgeEffect.Completed -> Unit // celebrated in the sheet, not a toast
+                is PurgeEffect.Completed -> {
+                    if (effect.purgedCount > 0) {
+                        if (effect.mode == ExecutionMode.PERMANENT_PURGE) {
+                            completedPurge = effect.freedBytes to effect.purgedCount
+                        }
+                        if (!currentShowStaging) Toast.makeText(
+                            context,
+                            if (effect.mode == ExecutionMode.PERMANENT_PURGE)
+                                "${effect.purgedCount} files deleted · ${effect.freedBytes.toReadableSize()} reclaimed"
+                            else "${effect.purgedCount} files moved to Android Trash",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    } else {
+                        Toast.makeText(context, "No files were deleted. Your queue is still here.", Toast.LENGTH_LONG).show()
+                    }
+                }
                 is PurgeEffect.NeedsSafAccess -> Toast.makeText(
                     context,
                     "${effect.uriCount} non-media files need folder access.",
@@ -192,6 +215,25 @@ fun DashboardScreen(
                 }
             }
 
+            if (!state.hasMediaAccess) {
+                item("permission") {
+                    SdzSurface(level = SdzLevel.Raised, contentPadding = SdzSpace.xl) {
+                        Text("Your library, your call", style = SdzType.Subtitle, color = SdzColor.Phosphor)
+                        Text(
+                            "Allow access to photos and videos to find files worth reviewing. " +
+                                "Everything stays on this device. You can choose selected photos on supported Android versions.",
+                            style = SdzType.BodySmall,
+                            color = SdzColor.TextSecondary,
+                        )
+                        SdzButton(
+                            label = "Choose media access",
+                            onClick = { permissionLauncher.launch(mediaPermissions()) },
+                            style = SdzButtonStyle.Primary,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            } else {
             // THE HERO. Storage first, because it is the fact that motivates.
             item("storage") {
                 SdzSurface(level = SdzLevel.Raised, contentPadding = SdzSpace.xl) {
@@ -254,6 +296,7 @@ fun DashboardScreen(
                     )
                 }
             }
+            }
         }
 
         AnimatedVisibility(
@@ -273,7 +316,12 @@ fun DashboardScreen(
         }
 
         if (showStaging) {
-            StagingSheet(viewModel = stagingViewModel, onDismiss = { showStaging = false })
+            StagingSheet(
+                viewModel = stagingViewModel,
+                onDismiss = { showStaging = false },
+                completedPurge = completedPurge,
+                onCelebrationFinished = { completedPurge = null },
+            )
         }
     }
 }

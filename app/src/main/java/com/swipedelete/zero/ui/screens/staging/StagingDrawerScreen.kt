@@ -104,7 +104,9 @@ fun StagingDrawerScreen(
                 is PurgeEffect.Completed ->
                     Toast.makeText(
                         context,
-                        "Freed ${effect.freedBytes.toReadableSize()} · ${effect.purgedCount} files",
+                        if (effect.mode == ExecutionMode.PERMANENT_PURGE)
+                            "Deleted ${effect.purgedCount} files · ${effect.freedBytes.toReadableSize()} reclaimed"
+                        else "${effect.purgedCount} files moved to Android Trash",
                         Toast.LENGTH_LONG,
                     ).show()
                 is PurgeEffect.NeedsSafAccess ->
@@ -153,7 +155,7 @@ fun StagingDrawerScreen(
                 }
                 if (state.count > 0) {
                     Text(
-                        "Clear",
+                        "Unstage all",
                         color = SdzColor.TextSecondary,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.clickable { viewModel.clearQueue() },
@@ -332,7 +334,7 @@ private fun StagedThumbnail(item: StagedFileEntity, modifier: Modifier = Modifie
  * recognise a keeper. Images render full-bleed; videos show their first frame.
  */
 @Composable
-private fun StagedPreviewOverlay(
+internal fun StagedPreviewOverlay(
     item: StagedFileEntity,
     onRestore: () -> Unit,
     onDismiss: () -> Unit,

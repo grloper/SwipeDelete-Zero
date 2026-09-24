@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.swipedelete.zero.data.repository.DeckRepository
 import com.swipedelete.zero.data.repository.StagingRepository
+import com.swipedelete.zero.data.repository.StoragePermissionManager
 import com.swipedelete.zero.domain.model.Deck
 import com.swipedelete.zero.domain.scanner.AnalysisRunState
 import com.swipedelete.zero.domain.scanner.AnalysisScheduler
@@ -53,6 +54,7 @@ class DashboardViewModel @Inject constructor(
     private val deckRepository: DeckRepository,
     private val stagingRepository: StagingRepository,
     private val analysisScheduler: AnalysisScheduler,
+    private val permissions: StoragePermissionManager,
 ) : ViewModel() {
 
     private val decksState = MutableStateFlow<List<Deck>>(emptyList())
@@ -100,6 +102,11 @@ class DashboardViewModel @Inject constructor(
         )
 
     init {
+        if (permissions.hasMediaAccess()) {
+            onPermissionResult(true)
+        } else {
+            loadingState.value = false
+        }
         // A finished manual scan produces new hashes, so rebuild the decks that
         // depend on them instead of leaving the buckets looking empty.
         viewModelScope.launch {
@@ -112,8 +119,9 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun onPermissionResult(granted: Boolean) {
-        accessState.value = granted
-        if (granted) loadDecks()
+        val access = permissions.hasMediaAccess()
+        accessState.value = access
+        if (access) loadDecks() else loadingState.value = false
     }
 
     fun loadDecks(forceRefresh: Boolean = false) {

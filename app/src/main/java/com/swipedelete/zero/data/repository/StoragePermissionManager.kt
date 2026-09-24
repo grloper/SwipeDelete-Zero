@@ -14,10 +14,8 @@ import javax.inject.Singleton
 /**
  * Single abstraction over Android's fragmented storage-permission landscape.
  *
- * The app ships in two flavors:
- *  - **fdroid** — never uses MANAGE_EXTERNAL_STORAGE (policy-forbidden on
- *    F-Droid). Non-media purge falls back to the Storage Access Framework.
- *  - **play** — may request MANAGE_EXTERNAL_STORAGE for one-tap non-media purge.
+ * The fdroid and play editions use scoped media access. Non-media files need
+ * document access through the Storage Access Framework.
  *
  * Media (image/video/audio) is always handled through granular READ_MEDIA_*
  * permissions + MediaStore, regardless of flavor.

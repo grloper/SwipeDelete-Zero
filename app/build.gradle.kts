@@ -8,14 +8,14 @@ plugins {
 
 android {
     namespace = "com.swipedelete.zero"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.swipedelete.zero"
         minSdk = 29
-        targetSdk = 35
-        versionCode = 7
-        versionName = "4.0.0"
+        targetSdk = 36
+        versionCode = 8
+        versionName = "4.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -32,10 +32,20 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        create("upload") {
+            val keyPath = System.getenv("SDZ_UPLOAD_KEYSTORE")
+            if (keyPath != null) storeFile = file(keyPath)
+            storePassword = System.getenv("SDZ_UPLOAD_STORE_PASSWORD")
+            keyAlias = System.getenv("SDZ_UPLOAD_KEY_ALIAS")
+            keyPassword = System.getenv("SDZ_UPLOAD_KEY_PASSWORD")
+        }
     }
 
     buildTypes {
         release {
+            if (System.getenv("SDZ_UPLOAD_KEYSTORE") != null) {
+                signingConfig = signingConfigs.getByName("upload")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -50,7 +60,7 @@ android {
 
     // Three flavors abstract the permission model:
     // `fdroid` — MediaStore + SAF only, zero network permissions (air-gapped);
-    // `play`  — may additionally request MANAGE_EXTERNAL_STORAGE, still no network;
+    // `play`  — MediaStore + SAF only, with no all-files or network permission;
     // `cloud` — the ONLY flavor with android.permission.INTERNET, powering the
     //           opt-in Google Drive backup. The air-gap promise holds for the
     //           fdroid/play builds; cloud is a separate, clearly-labelled APK.
@@ -64,7 +74,7 @@ android {
         }
         create("play") {
             dimension = "distribution"
-            buildConfigField("boolean", "ALLOW_MANAGE_STORAGE", "true")
+            buildConfigField("boolean", "ALLOW_MANAGE_STORAGE", "false")
             buildConfigField("boolean", "SUPPORTS_DRIVE_BACKUP", "false")
             buildConfigField("boolean", "SUPPORTS_PHOTOS_ARCHIVE", "false")
         }
