@@ -138,7 +138,7 @@ fun StagingSheet(
                                 !state.backupConnected -> "Connect Google to back up these files before deletion."
                                 state.failedBackupCount > 0 -> "${state.failedBackupCount} upload(s) failed. Retry them in Backup Manager."
                                 state.pendingBackupCount > 0 -> "Local files stay untouched while uploads finish."
-                                else -> "Uploads finished. Google Photos will be checked again before deletion.",
+                                else -> "Uploads finished. Google Photos will be checked again before deletion."
                             },
                             color = SdzColor.TextSecondary,
                             style = MaterialTheme.typography.bodySmall,
