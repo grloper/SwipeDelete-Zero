@@ -45,14 +45,12 @@ sealed interface ArchiveItemState {
 /**
  * Flavor seam for the up-swipe "archive to Google Photos" flow.
  *
- * The fdroid/play flavors bind [NoOpPhotosArchive] — up-swipe keeps its Star
- * semantics and no network code is compiled in. The cloud flavor binds a
- * Google Photos implementation whose contract is strict: a file may only be
- * staged for local deletion after the upload was VERIFIED (batchCreate
- * returned a valid mediaItemId).
+ * The fdroid flavor binds [NoOpPhotosArchive]. Play/cloud bind the Google
+ * implementation: a file is only eligible for local deletion after upload,
+ * creation and live readback of the app-created Google Photos item.
  */
 interface PhotosArchive {
-    /** True only in the cloud flavor — gates the swipe-up semantics switch. */
+    /** True in Play/cloud — gates Google Photos backup UI and deletion safety. */
     val isAvailable: Boolean
 
     /** Live upload queue keyed by contentUri string. Empty flow when no-op. */

@@ -113,7 +113,12 @@ class GooglePhotosArchive @Inject constructor(
     override suspend fun enqueueStaged(item: StagedFileEntity) {
         if (!item.mimeType.startsWith("image/") && !item.mimeType.startsWith("video/")) return
         val existing = uploadDao.get(item.contentUri)
-        if (existing != null && existing.state != CloudUploadEntity.STATE_FAILED) return
+        if (existing?.state == CloudUploadEntity.STATE_VERIFIED) {
+            if (verifyRemote(item)) return
+            // A missing or unverifiable remote item must not keep a stale
+            // VERIFIED badge or ledger entry when the user requests repair.
+            backedUpFileDao.delete(item.contentUri)
+        } else if (existing != null && existing.state != CloudUploadEntity.STATE_FAILED) return
         val now = System.currentTimeMillis()
         uploadDao.upsert(CloudUploadEntity(
             contentUri = item.contentUri,
@@ -171,6 +176,9 @@ class GooglePhotosArchive @Inject constructor(
             uploadDao.upsert(
                 row.copy(
                     state = CloudUploadEntity.STATE_QUEUED,
+                    uploadUrl = if (row.mediaItemId == null) null else row.uploadUrl,
+                    bytesUploaded = if (row.mediaItemId == null) 0 else row.bytesUploaded,
+                    uploadToken = if (row.mediaItemId == null) null else row.uploadToken,
                     attempts = 0,
                     lastError = null,
                     updatedAtMillis = System.currentTimeMillis(),

@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Cloud-flavor-only overlay.
+  Cloud-flavor overlay. The Play flavor declares the same required permissions.
 
-  This is the ONLY flavor that declares android.permission.INTERNET, used
-  exclusively for the opt-in Google Drive backup and the swipe-up Google
-  Photos archive of kept & starred files. The fdroid and play flavors keep
-  the hard air-gap (zero network permissions). If you want the fully offline
-  guarantee, install the fdroid APK instead.
+  Network permission is used for opt-in Google Drive and Google Photos backup.
+  F-Droid remains the fully offline edition.
 
   The dataSync foreground service lets multi-gigabyte Photos uploads outlive
   WorkManager's ~10-minute background budget; Android 14+ requires the typed

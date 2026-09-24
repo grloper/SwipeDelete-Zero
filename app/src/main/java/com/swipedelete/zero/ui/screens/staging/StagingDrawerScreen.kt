@@ -216,6 +216,8 @@ fun StagingDrawerScreen(
                         Text("Connect Google Photos", modifier = Modifier.clickable(onClick = onOpenBackupSetup).padding(12.dp), color = SdzColor.Azure)
                     } else if (state.pendingBackupCount > 0) {
                         Text("Back up staged files", modifier = Modifier.clickable(onClick = viewModel::backUpStaged).padding(12.dp), color = SdzColor.Azure)
+                    } else {
+                        Text("Recheck backups", modifier = Modifier.clickable(onClick = viewModel::backUpStaged).padding(12.dp), color = SdzColor.Azure)
                     }
                 }
 
@@ -227,6 +229,7 @@ fun StagingDrawerScreen(
 
                 PurgeCta(
                     bytes = state.totalBytes,
+                    mode = state.mode,
                     enabled = !state.purging && state.canDelete,
                     onClick = viewModel::purge,
                     modifier = Modifier.padding(bottom = 24.dp),
@@ -582,6 +585,7 @@ private fun SegmentButton(
 @Composable
 internal fun PurgeCta(
     bytes: Long,
+    mode: ExecutionMode,
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -606,7 +610,8 @@ internal fun PurgeCta(
                 modifier = Modifier.size(20.dp),
             )
             Text(
-                text = "Delete and Free Up " + bytes.toReadableSize(),
+                text = if (mode == ExecutionMode.OS_TRASH_30_DAY)
+                    "Move to Android Trash" else "Delete and Free Up " + bytes.toReadableSize(),
                 color = if (enabled) SdzColor.OnAccent else SdzColor.TextSecondary,
                 fontWeight = FontWeight.Black,
                 style = MaterialTheme.typography.titleMedium,

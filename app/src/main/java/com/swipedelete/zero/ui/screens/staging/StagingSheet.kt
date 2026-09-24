@@ -147,6 +147,8 @@ fun StagingSheet(
                             OutlinedButton(onClick = onOpenBackupSetup) { Text("Connect Google Photos") }
                         } else if (state.pendingBackupCount > 0) {
                             Button(onClick = viewModel::backUpStaged) { Text("Back up staged files") }
+                        } else {
+                            OutlinedButton(onClick = viewModel::backUpStaged) { Text("Recheck backups") }
                         }
                     }
                 }
@@ -158,6 +160,7 @@ fun StagingSheet(
 
                 PurgeCta(
                     bytes = state.totalBytes,
+                    mode = state.mode,
                     enabled = !state.purging && state.canDelete,
                     onClick = { confirming = true },
                     modifier = Modifier.padding(bottom = 16.dp),

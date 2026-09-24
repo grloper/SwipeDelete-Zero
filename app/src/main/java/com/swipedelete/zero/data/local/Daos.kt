@@ -164,7 +164,11 @@ interface CloudUploadDao {
     @Query("DELETE FROM cloud_uploads WHERE contentUri = :uri AND state IN ('QUEUED', 'FAILED')")
     suspend fun deleteIfCancelable(uri: String): Int
 
-    @Query("UPDATE cloud_uploads SET state = 'QUEUED', attempts = 0, lastError = null, updatedAtMillis = :nowMillis WHERE state = 'FAILED'")
+    @Query("UPDATE cloud_uploads SET state = 'QUEUED', attempts = 0, lastError = null, " +
+        "uploadUrl = CASE WHEN mediaItemId IS NULL THEN NULL ELSE uploadUrl END, " +
+        "uploadToken = CASE WHEN mediaItemId IS NULL THEN NULL ELSE uploadToken END, " +
+        "bytesUploaded = CASE WHEN mediaItemId IS NULL THEN 0 ELSE bytesUploaded END, " +
+        "updatedAtMillis = :nowMillis WHERE state = 'FAILED'")
     suspend fun retryAllFailed(nowMillis: Long = System.currentTimeMillis()): Int
 
     @Query("DELETE FROM cloud_uploads WHERE state = 'VERIFIED' AND contentUri NOT IN " +

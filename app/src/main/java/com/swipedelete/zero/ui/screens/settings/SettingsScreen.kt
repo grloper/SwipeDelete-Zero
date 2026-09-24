@@ -5,6 +5,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -75,6 +77,7 @@ fun SettingsScreen(
             .background(SdzColor.Surface0)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp),
     ) {
         Row(
@@ -139,14 +142,9 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            Spacer(Modifier.weight(1f))
         } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
-            ) {
-                items(exclusions, key = { it.id }) { ex ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                exclusions.forEach { ex ->
                     ExclusionRow(ex = ex, onRemove = { viewModel.remove(ex.id) })
                 }
             }
@@ -240,7 +238,7 @@ private fun DriveBackupSection(
             )
         }
         Text(
-            "Kept & starred files are uploaded once each — view live speed, queue items, re-backup or reconcile deleted cloud files anytime.",
+            "Connect Google Photos before deleting staged images and videos. Review upload progress and open confirmed items in Backup Manager. Drive backup of kept files is separate.",
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
         )
