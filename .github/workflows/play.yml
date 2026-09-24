@@ -19,7 +19,9 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Install SDK
-        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+        run: |
+          SDKMANAGER=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -name sdkmanager -type f | head -n 1)
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0"
       - name: Test and build Play debug
         run: ./gradlew :app:testPlayDebugUnitTest :app:assemblePlayDebug --no-daemon
 
@@ -34,7 +36,9 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Install SDK
-        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+        run: |
+          SDKMANAGER=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -name sdkmanager -type f | head -n 1)
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0"
       - name: Build signed Play bundle
         env:
           KEYSTORE_BASE64: ${{ secrets.SDZ_UPLOAD_KEYSTORE_BASE64 }}
