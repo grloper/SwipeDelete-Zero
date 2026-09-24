@@ -159,7 +159,7 @@ fun SettingsScreen(
             if (backupState is BackupState.Unsupported) {
                 "SwipeDelete Zero · GPL v3 · 100% Offline · Zero Net-Permissions"
             } else {
-                "SwipeDelete Zero · GPL v3 · Cloud build — network used only for opt-in Drive backup"
+                "SwipeDelete Zero · GPL v3 · Google Photos and Drive backup"
             },
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
@@ -172,12 +172,13 @@ fun SettingsScreen(
             title = { Text("Privacy · SwipeDelete Zero") },
             text = {
                 Text(
-                    "The Google Play build works on your device. It reads the photos, videos and audio " +
-                        "you allow so you can review and clean them. It stores your decisions and " +
-                        "progress locally. It has no internet permission, account, ads or analytics, " +
-                        "and does not send your files or usage data to us. Deletion requires your " +
-                        "confirmation through Android. Uninstalling removes the app's local data. " +
-                        "The separate cloud build has optional Google Drive and Photos features."
+                    "The Google Play build scans the media you allow on your device and stores " +
+                        "review decisions locally. If you connect Google, selected photos and videos " +
+                        "are uploaded to your Google Photos account before deletion is enabled. " +
+                        "Kept files may be backed up to your Google Drive when you request it. " +
+                        "The app uses internet access for those transfers and does not run ads or analytics. " +
+                        "Android asks you to confirm deletion. Uninstalling clears local app data, " +
+                        "but does not remove uploaded Google files."
                 )
             },
             confirmButton = {

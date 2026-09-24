@@ -1,3 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Play uses the same scoped-storage permission model as the offline build. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+<!-- Play backs up to Google Photos before the user can delete local files. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <application>
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+    </application>
+</manifest>

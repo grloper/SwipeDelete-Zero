@@ -4,6 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -130,6 +131,29 @@ class PhotosUploader @Inject constructor() {
         return result.optJSONObject("mediaItem")?.optString("id").orEmpty()
     }
 
+    /** Live existence check for an app-created item, using the read scope. */
+    fun getMediaItem(authToken: String, mediaItemId: String): RemoteItem {
+        require(mediaItemId.isNotBlank())
+        val encoded = URLEncoder.encode(mediaItemId, "UTF-8")
+        val connection = open("$MEDIA_ITEMS_URL/$encoded", authToken).apply {
+            requestMethod = "GET"
+        }
+        try {
+            checkSuccess(connection)
+            val item = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+            return RemoteItem(
+                id = item.optString("id"),
+                filename = item.optString("filename"),
+                mimeType = item.optString("mimeType"),
+                productUrl = item.optString("productUrl"),
+            )
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    data class RemoteItem(val id: String, val filename: String, val mimeType: String, val productUrl: String)
+
     private fun open(urlString: String, authToken: String): HttpURLConnection =
         (URL(urlString).openConnection() as HttpURLConnection).apply {
             setRequestProperty("Authorization", "Bearer $authToken")
@@ -148,7 +172,9 @@ class PhotosUploader @Inject constructor() {
 
     companion object {
         const val PHOTOS_APPEND_SCOPE = "https://www.googleapis.com/auth/photoslibrary.appendonly"
+        const val PHOTOS_READ_SCOPE = "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata"
         private const val UPLOADS_URL = "https://photoslibrary.googleapis.com/v1/uploads"
         private const val BATCH_CREATE_URL = "https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate"
+        private const val MEDIA_ITEMS_URL = "https://photoslibrary.googleapis.com/v1/mediaItems"
     }
 }

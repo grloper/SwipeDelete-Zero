@@ -3,6 +3,8 @@ package com.swipedelete.zero.photos
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import com.google.android.gms.auth.GoogleAuthUtil
+import com.google.android.gms.auth.api.signin.GoogleSignIn
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
@@ -12,6 +14,7 @@ import androidx.work.WorkManager
 import com.swipedelete.zero.data.local.BackedUpFileDao
 import com.swipedelete.zero.data.local.CloudUploadDao
 import com.swipedelete.zero.data.local.CloudUploadEntity
+import com.swipedelete.zero.data.local.StagedFileEntity
 import com.swipedelete.zero.domain.backup.ArchiveItemState
 import com.swipedelete.zero.domain.backup.CloudUploadStats
 import com.swipedelete.zero.domain.backup.PhotosArchive
@@ -23,6 +26,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,6 +42,7 @@ class GooglePhotosArchive @Inject constructor(
     @ApplicationContext private val context: Context,
     private val uploadDao: CloudUploadDao,
     private val backedUpFileDao: BackedUpFileDao,
+    private val uploader: PhotosUploader,
 ) : PhotosArchive {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -68,11 +73,6 @@ class GooglePhotosArchive @Inject constructor(
                 if (it.sizeBytes <= 0) 0f else (it.bytesUploaded.toFloat() / it.sizeBytes).coerceIn(0f, 1f)
             }
 
-            val remainingBytes = (totalBytes - uploadedBytes).coerceAtLeast(0L)
-            // Estimated transfer rate baseline for broadband upload (1.5 MB/s nominal estimate when active)
-            val nominalSpeed = if (uploading > 0) 1_500_000L else 0L
-            val etaSec = if (nominalSpeed > 0 && remainingBytes > 0) remainingBytes / nominalSpeed else null
-
             CloudUploadStats(
                 totalCount = totalCount,
                 queuedCount = queued,
@@ -82,8 +82,8 @@ class GooglePhotosArchive @Inject constructor(
                 failedCount = failed,
                 totalBytes = totalBytes,
                 uploadedBytes = uploadedBytes,
-                uploadSpeedBytesPerSec = nominalSpeed,
-                etaSeconds = etaSec,
+                uploadSpeedBytesPerSec = 0L,
+                etaSeconds = null,
                 activeFileName = activeRow?.displayName,
                 activeFileProgress = activeFileProg,
             )
@@ -110,12 +110,58 @@ class GooglePhotosArchive @Inject constructor(
         kickWorker()
     }
 
+    override suspend fun enqueueStaged(item: StagedFileEntity) {
+        if (!item.mimeType.startsWith("image/") && !item.mimeType.startsWith("video/")) return
+        val existing = uploadDao.get(item.contentUri)
+        if (existing != null && existing.state != CloudUploadEntity.STATE_FAILED) return
+        val now = System.currentTimeMillis()
+        uploadDao.upsert(CloudUploadEntity(
+            contentUri = item.contentUri,
+            displayName = item.displayName,
+            mimeType = item.mimeType,
+            sizeBytes = item.sizeBytes,
+            state = CloudUploadEntity.STATE_QUEUED,
+            enqueuedAtMillis = now,
+            updatedAtMillis = now,
+        ))
+        kickWorker()
+    }
+
+    override suspend fun verifyRemote(item: StagedFileEntity): Boolean = withContext(Dispatchers.IO) {
+        val row = uploadDao.get(item.contentUri) ?: return@withContext false
+        val id = row.mediaItemId?.takeIf { it.isNotBlank() } ?: return@withContext false
+        if (row.state != CloudUploadEntity.STATE_VERIFIED ||
+            row.sizeBytes != item.sizeBytes || row.mimeType != item.mimeType) return@withContext false
+        val ledger = backedUpFileDao.get(item.contentUri) ?: return@withContext false
+        if (ledger.remoteId != "photos:$id" || ledger.sizeBytes != item.sizeBytes) return@withContext false
+        val account = GoogleSignIn.getLastSignedInAccount(context)?.account ?: return@withContext false
+        try {
+            val token = GoogleAuthUtil.getToken(context, account, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}")
+            val remote = uploader.getMediaItem(token, id)
+            remote.id == id && remote.mimeType == item.mimeType &&
+                remote.filename == item.displayName && remote.productUrl.startsWith("https://")
+        } catch (_: Exception) {
+            false // An unverifiable backup must never permit a local delete.
+        }
+    }
+
+    override suspend fun remoteUrl(remoteId: String): String? = withContext(Dispatchers.IO) {
+        val id = remoteId.removePrefix("photos:")
+        if (!remoteId.startsWith("photos:") || id.isBlank()) return@withContext null
+        val account = GoogleSignIn.getLastSignedInAccount(context)?.account ?: return@withContext null
+        try {
+            val token = GoogleAuthUtil.getToken(context, account, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}")
+            uploader.getMediaItem(token, id).takeIf { it.id == id && it.productUrl.startsWith("https://") }
+                ?.productUrl
+        } catch (_: Exception) { null }
+    }
+
     override suspend fun cancelIfQueued(contentUri: String) {
         uploadDao.deleteIfQueued(contentUri)
     }
 
     override suspend fun cancel(contentUri: String) {
-        uploadDao.delete(contentUri)
+        uploadDao.deleteIfCancelable(contentUri)
     }
 
     override fun retry(contentUri: String) {

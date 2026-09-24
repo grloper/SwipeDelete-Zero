@@ -75,6 +75,7 @@ import java.util.Locale
 @Composable
 fun StagingDrawerScreen(
     onBack: () -> Unit,
+    onOpenBackupSetup: () -> Unit = {},
     viewModel: StagingViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -199,6 +200,25 @@ fun StagingDrawerScreen(
                     }
                 }
 
+                if (state.backupRequired) {
+                    Text(
+                        "Google Photos backup: ${state.verifiedCount}/${state.count} ready",
+                        color = SdzColor.Phosphor,
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        if (state.failedBackupCount > 0) "Some uploads failed. Retry in Backup Manager."
+                        else if (state.pendingBackupCount > 0) "Files stay on your device until Google Photos confirms each backup."
+                        else "Google Photos will be checked again before deleting.",
+                        color = SdzColor.TextSecondary,
+                    )
+                    if (!state.backupConnected) {
+                        Text("Connect Google Photos", modifier = Modifier.clickable(onClick = onOpenBackupSetup).padding(12.dp), color = SdzColor.Azure)
+                    } else if (state.pendingBackupCount > 0) {
+                        Text("Back up staged files", modifier = Modifier.clickable(onClick = viewModel::backUpStaged).padding(12.dp), color = SdzColor.Azure)
+                    }
+                }
+
                 ExecutionModeToggle(
                     mode = state.mode,
                     onSelect = viewModel::setMode,
@@ -207,7 +227,7 @@ fun StagingDrawerScreen(
 
                 PurgeCta(
                     bytes = state.totalBytes,
-                    enabled = !state.purging,
+                    enabled = !state.purging && state.canDelete,
                     onClick = viewModel::purge,
                     modifier = Modifier.padding(bottom = 24.dp),
                 )

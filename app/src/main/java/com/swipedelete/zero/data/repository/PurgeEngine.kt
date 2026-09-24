@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import com.swipedelete.zero.data.local.StagedFileEntity
+import com.swipedelete.zero.domain.backup.PhotosArchive
 import com.swipedelete.zero.domain.model.ExecutionMode
 import com.swipedelete.zero.domain.model.MediaType
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -36,6 +37,7 @@ class PurgeEngine @Inject constructor(
     private val mediaStore: MediaStoreRepository,
     private val safBridge: SafStorageBridge,
     private val permissions: StoragePermissionManager,
+    private val photosArchive: PhotosArchive,
 ) {
 
     /** Outcome of preparing a purge batch. */
@@ -73,6 +75,16 @@ class PurgeEngine @Inject constructor(
         mode: ExecutionMode,
     ): PurgePlan = withContext(Dispatchers.IO) {
         if (staged.isEmpty()) return@withContext PurgePlan.NoConfirmationNeeded(NonMediaResult())
+        if (photosArchive.isAvailable) {
+            // Check every file before executing any deletion. A partial batch
+            // must never silently delete the backed-up subset while leaving
+            // unprotected items in the queue.
+            val unverified = staged.firstOrNull { !photosArchive.verifyRemote(it) }
+            if (unverified != null) return@withContext PurgePlan.Failed(
+                "${unverified.displayName} is not confirmed in Google Photos. " +
+                    "Back up the staged files and wait for verification before deleting."
+            )
+        }
         if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && mode == ExecutionMode.OS_TRASH_30_DAY) {
             return@withContext PurgePlan.Failed(
                 "Android 10 cannot move this batch to Trash. Choose Permanent delete, or keep it staged."

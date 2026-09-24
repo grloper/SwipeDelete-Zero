@@ -10,9 +10,11 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import androidx.room.withTransaction
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.swipedelete.zero.data.local.BackedUpFileDao
+import com.swipedelete.zero.data.local.AppDatabase
 import com.swipedelete.zero.data.local.BackedUpFileEntity
 import com.swipedelete.zero.data.local.CloudUploadDao
 import com.swipedelete.zero.data.local.CloudUploadEntity
@@ -50,6 +52,7 @@ class PhotosUploadWorker @AssistedInject constructor(
     private val backedUpFileDao: BackedUpFileDao,
     private val stagedFileDao: StagedFileDao,
     private val uploader: PhotosUploader,
+    private val database: AppDatabase,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -62,6 +65,8 @@ class PhotosUploadWorker @AssistedInject constructor(
         } catch (_: Exception) {
             return@withContext Result.retry()
         }
+
+        uploadDao.verifiedWithoutLedger().forEach { onVerified(it) }
 
         while (true) {
             if (isStopped) return@withContext Result.retry()
@@ -84,7 +89,8 @@ class PhotosUploadWorker @AssistedInject constructor(
                     }
                     RowOutcome.RETRY_NOW
                 } else {
-                    applyFailure(row, e.code, e.message ?: "HTTP ${e.code}")
+                    applyFailure(row, if (e.code == 404 && row.mediaItemId != null) null else e.code,
+                        e.message ?: "HTTP ${e.code}")
                 }
             } catch (e: IOException) {
                 applyFailure(row, null, e.message ?: "network error")
@@ -121,6 +127,8 @@ class PhotosUploadWorker @AssistedInject constructor(
             row = row.copy(sizeBytes = actualSize)
             uploadDao.upsert(row)
         }
+        if (row.sizeBytes <= 0) throw IOException("Cannot back up an empty or unreadable file")
+        chunkGranularity = 0
 
         // Upload phase (skipped when a crashed run already holds a token).
         if (row.uploadToken == null) {
@@ -166,10 +174,24 @@ class PhotosUploadWorker @AssistedInject constructor(
         }
 
         // Verification handshake — the ONLY path to VERIFIED.
-        val mediaItemId = uploader.batchCreate(
-            authToken, checkNotNull(row.uploadToken), row.displayName
-        )
-        row = reduceAndSave(row, UploadEvent.Created(mediaItemId))
+        if (row.mediaItemId.isNullOrBlank()) {
+            val mediaItemId = uploader.batchCreate(
+                authToken, checkNotNull(row.uploadToken), row.displayName
+            )
+            row = reduceAndSave(row, UploadEvent.Created(mediaItemId))
+        }
+        val readToken = try {
+            val account = checkNotNull(GoogleSignIn.getLastSignedInAccount(appContext)?.account)
+            GoogleAuthUtil.getToken(appContext, account, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}")
+        } catch (e: Exception) {
+            throw IOException("Could not authenticate Google Photos readback", e)
+        }
+        val remote = uploader.getMediaItem(readToken, checkNotNull(row.mediaItemId))
+        if (remote.id != row.mediaItemId || remote.mimeType != row.mimeType ||
+            remote.filename != row.displayName || !remote.productUrl.startsWith("https://")) {
+            throw IOException("Google Photos did not confirm matching media and link")
+        }
+        row = reduceAndSave(row, UploadEvent.RemoteVerified)
         if (row.state == CloudUploadEntity.STATE_VERIFIED) {
             onVerified(row)
         }
@@ -186,6 +208,7 @@ class PhotosUploadWorker @AssistedInject constructor(
     /** Ledger + staging — never a direct delete. */
     private suspend fun onVerified(row: CloudUploadEntity) {
         val now = System.currentTimeMillis()
+        database.withTransaction {
         backedUpFileDao.insert(
             BackedUpFileEntity(
                 contentUri = row.contentUri,
@@ -206,6 +229,7 @@ class PhotosUploadWorker @AssistedInject constructor(
                 sourceDeckId = VERIFIED_SOURCE_DECK,
             )
         )
+        }
     }
 
     private fun skipFully(input: InputStream, bytes: Long) {

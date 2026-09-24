@@ -68,7 +68,11 @@ class DriveCloudBackup @Inject constructor(
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             // One consent covers Drive backup AND the swipe-up Photos archive.
-            .requestScopes(Scope(DRIVE_FILE_SCOPE), Scope(PHOTOS_APPEND_SCOPE))
+            .requestScopes(
+                Scope(DRIVE_FILE_SCOPE),
+                Scope(PHOTOS_APPEND_SCOPE),
+                Scope(PhotosUploader.PHOTOS_READ_SCOPE),
+            )
             .build(),
     )
 
@@ -172,10 +176,8 @@ class DriveCloudBackup @Inject constructor(
      *
      * Drive is checked with an actual `about` request — that only succeeds when
      * the client is registered, consent was granted and the API is enabled.
-     * Photos has no read endpoint under the upload-only `appendonly` scope, so
-     * the strongest side-effect-free check is minting a token for that scope,
-     * which proves the scope was granted to this OAuth client. Uploads are not
-     * attempted here — a probe must never create content in someone's library.
+     * Photos is checked with a read-only list of app-created media. A token
+     * alone does not prove the Photos API is enabled or answering requests.
      */
     override suspend fun verifyConnection(): ConnectionCheck = withContext(Dispatchers.IO) {
         val account = GoogleSignIn.getLastSignedInAccount(context)
@@ -212,6 +214,10 @@ class DriveCloudBackup @Inject constructor(
 
         try {
             GoogleAuthUtil.getToken(context, androidAccount, "oauth2:$PHOTOS_APPEND_SCOPE")
+            val readToken = GoogleAuthUtil.getToken(
+                context, androidAccount, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}"
+            )
+            httpGet("https://photoslibrary.googleapis.com/v1/mediaItems?pageSize=1", readToken)
             photosOk = true
         } catch (e: UserRecoverableAuthException) {
             diagnostic = diagnostic ?: AuthDiagnostic.decode(AuthDiagnostic.SIGN_IN_REQUIRED)
@@ -223,8 +229,8 @@ class DriveCloudBackup @Inject constructor(
 
         val message = when {
             driveOk && photosOk ->
-                "Signed in as $email. Drive answered a live request and the Photos " +
-                    "upload scope is granted, so swipe-up archiving will work."
+                "Signed in as $email. Drive and Google Photos answered live requests. " +
+                    "A real upload must still finish before a file can be deleted."
             notes.isEmpty() -> "Connected as $email."
             else -> notes.joinToString(" ")
         }

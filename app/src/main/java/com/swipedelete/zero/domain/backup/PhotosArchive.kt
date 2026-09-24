@@ -1,6 +1,7 @@
 package com.swipedelete.zero.domain.backup
 
 import android.content.Intent
+import com.swipedelete.zero.data.local.StagedFileEntity
 import com.swipedelete.zero.domain.model.MediaItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,6 +64,15 @@ interface PhotosArchive {
     /** Queue an up-swiped file for upload; idempotent per uri. */
     suspend fun enqueue(item: MediaItem)
 
+    /** Queue a staged image/video for backup before any local deletion. */
+    suspend fun enqueueStaged(item: StagedFileEntity)
+
+    /** Check this exact app-created item still exists in Google Photos. */
+    suspend fun verifyRemote(item: StagedFileEntity): Boolean
+
+    /** Return Google's own URL for this app-created media ID after a live read. */
+    suspend fun remoteUrl(remoteId: String): String?
+
     /** Undo an up-swipe: drop the row only if the upload hasn't started. */
     suspend fun cancelIfQueued(contentUri: String)
 
@@ -96,6 +106,9 @@ class NoOpPhotosArchive @Inject constructor() : PhotosArchive {
     override val queue: Flow<Map<String, ArchiveItemState>> = MutableStateFlow(emptyMap())
     override val uploadStats: Flow<CloudUploadStats> = MutableStateFlow(CloudUploadStats())
     override suspend fun enqueue(item: MediaItem) = Unit
+    override suspend fun enqueueStaged(item: StagedFileEntity) = Unit
+    override suspend fun verifyRemote(item: StagedFileEntity): Boolean = false
+    override suspend fun remoteUrl(remoteId: String): String? = null
     override suspend fun cancelIfQueued(contentUri: String) = Unit
     override suspend fun cancel(contentUri: String) = Unit
     override fun retry(contentUri: String) = Unit
