@@ -73,6 +73,11 @@ class PurgeEngine @Inject constructor(
         mode: ExecutionMode,
     ): PurgePlan = withContext(Dispatchers.IO) {
         if (staged.isEmpty()) return@withContext PurgePlan.NoConfirmationNeeded(NonMediaResult())
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && mode == ExecutionMode.OS_TRASH_30_DAY) {
+            return@withContext PurgePlan.Failed(
+                "Android 10 cannot move this batch to Trash. Choose Permanent delete, or keep it staged."
+            )
+        }
 
         val (media, nonMedia) = staged.partition {
             runCatching { MediaType.valueOf(it.mediaType) }
@@ -117,8 +122,7 @@ class PurgeEngine @Inject constructor(
         val purged = mutableListOf<Uri>()
         for (uri in uris) {
             try {
-                context.contentResolver.delete(uri, null, null)
-                purged += uri
+                if (context.contentResolver.delete(uri, null, null) > 0) purged += uri
             } catch (_: Exception) {
                 // Left in queue; user can retry. Avoid crashing the batch.
             }

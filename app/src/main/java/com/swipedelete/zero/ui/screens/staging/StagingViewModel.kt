@@ -43,7 +43,7 @@ data class StagingUiState(
 /** One-shot effects the screen must react to (launch OS dialog / SAF picker). */
 sealed interface PurgeEffect {
     data class LaunchConfirmation(val sender: IntentSender) : PurgeEffect
-    data class Completed(val freedBytes: Long, val purgedCount: Int) : PurgeEffect
+    data class Completed(val freedBytes: Long, val purgedCount: Int, val mode: ExecutionMode) : PurgeEffect
     data class NeedsSafAccess(val uriCount: Int) : PurgeEffect
     data class Message(val text: String) : PurgeEffect
 }
@@ -64,6 +64,7 @@ class StagingViewModel @Inject constructor(
 
     /** URIs awaiting an OS-dialog result, remembered between the two calls. */
     private var pendingMediaUris: List<android.net.Uri> = emptyList()
+    private var pendingMode: ExecutionMode = ExecutionMode.OS_TRASH_30_DAY
 
     /** Sizes of everything in the current purge, so only *verified* bytes count. */
     private var pendingSizesByUri: Map<String, Long> = emptyMap()
@@ -100,11 +101,14 @@ class StagingViewModel @Inject constructor(
             purgingState.value = true
             val staged = stagingRepository.getAll()
             pendingSizesByUri = staged.associate { it.contentUri to it.sizeBytes }
-            when (val plan = purgeEngine.preparePurge(staged, modeState.value)) {
+            val selectedMode = modeState.value
+            try {
+            when (val plan = purgeEngine.preparePurge(staged, selectedMode)) {
                 is PurgeEngine.PurgePlan.NeedsConfirmation -> {
                     // Non-media already handled; remove its winners now.
-                    recordPurged(plan.nonMediaResult.purgedUris)
+                    recordPurged(plan.nonMediaResult.purgedUris, permanentlyDeleted = true)
                     pendingMediaUris = plan.mediaUris
+                    pendingMode = selectedMode
                     effects.send(PurgeEffect.LaunchConfirmation(plan.request))
                     // purging stays true until confirmation result arrives.
                     if (plan.nonMediaResult.needsSafFor.isNotEmpty()) {
@@ -112,13 +116,13 @@ class StagingViewModel @Inject constructor(
                     }
                 }
                 is PurgeEngine.PurgePlan.NoConfirmationNeeded -> {
-                    val freed = recordPurged(plan.nonMediaResult.purgedUris)
+                    val freed = recordPurged(plan.nonMediaResult.purgedUris, permanentlyDeleted = true)
                     purgingState.value = false
                     if (plan.nonMediaResult.needsSafFor.isNotEmpty()) {
                         effects.send(PurgeEffect.NeedsSafAccess(plan.nonMediaResult.needsSafFor.size))
                     } else {
                         effects.send(
-                            PurgeEffect.Completed(freed, plan.nonMediaResult.purgedUris.size)
+                            PurgeEffect.Completed(freed, plan.nonMediaResult.purgedUris.size, ExecutionMode.PERMANENT_PURGE)
                         )
                     }
                 }
@@ -127,6 +131,10 @@ class StagingViewModel @Inject constructor(
                     effects.send(PurgeEffect.Message(plan.reason))
                 }
             }
+            } catch (_: Exception) {
+                purgingState.value = false
+                effects.send(PurgeEffect.Message("Could not finish this batch. Files still in the queue can be retried."))
+            }
         }
     }
 
@@ -134,9 +142,9 @@ class StagingViewModel @Inject constructor(
     fun onConfirmationResult(confirmed: Boolean) {
         viewModelScope.launch {
             if (confirmed && pendingMediaUris.isNotEmpty()) {
-                val purged = purgeEngine.confirmMediaPurged(pendingMediaUris, modeState.value)
-                val freed = recordPurged(purged)
-                effects.send(PurgeEffect.Completed(freed, purged.size))
+                val purged = purgeEngine.confirmMediaPurged(pendingMediaUris, pendingMode)
+                val freed = recordPurged(purged, permanentlyDeleted = pendingMode == ExecutionMode.PERMANENT_PURGE)
+                effects.send(PurgeEffect.Completed(freed, purged.size, pendingMode))
             }
             pendingMediaUris = emptyList()
             purgingState.value = false
@@ -147,11 +155,13 @@ class StagingViewModel @Inject constructor(
      * Unstage the verified winners, add their (and only their) bytes to the
      * lifetime counter, and return how much was actually freed.
      */
-    private suspend fun recordPurged(uris: List<String>): Long {
+    private suspend fun recordPurged(uris: List<String>, permanentlyDeleted: Boolean): Long {
         if (uris.isEmpty()) return 0L
         stagingRepository.removePurged(uris)
         val freed = uris.sumOf { pendingSizesByUri[it] ?: 0L }
-        statsStore.addReclaimed(freed)
+        // Android's trash retains the bytes until the OS removes the items.
+        // Only permanent deletion represents storage actually reclaimed now.
+        if (permanentlyDeleted) statsStore.addReclaimed(freed)
         return freed
     }
 }

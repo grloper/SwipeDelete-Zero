@@ -24,6 +24,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.swipedelete.zero.data.local.StagedFileEntity
 import com.swipedelete.zero.ui.components.PurgeConfirmSheet
 import com.swipedelete.zero.ui.components.FreedCelebration
 import androidx.compose.ui.Alignment
@@ -51,12 +54,14 @@ import com.swipedelete.zero.ui.util.toReadableSize
 fun StagingSheet(
     viewModel: StagingViewModel,
     onDismiss: () -> Unit,
+    completedPurge: Pair<Long, Int>? = null,
+    onCelebrationFinished: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     // The custom explainer runs before the OS dialog, never instead of it.
     var confirming by remember { mutableStateOf(false) }
-    var celebrating by remember { mutableStateOf<Pair<Long, Int>?>(null) }
+    var previewItem by remember { mutableStateOf<StagedFileEntity?>(null) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -112,7 +117,7 @@ fun StagingSheet(
                     items(state.items, key = { it.contentUri }) { item ->
                         StagedRow(
                             item = item,
-                            onPreview = {},
+                            onPreview = { previewItem = item },
                             onRestore = { viewModel.restore(item.contentUri) },
                         )
                     }
@@ -131,11 +136,11 @@ fun StagingSheet(
                 )
             }
 
-            celebrating?.let { (bytes, count) ->
+            completedPurge?.let { (bytes, count) ->
                 FreedCelebration(
                     freedBytes = bytes,
                     fileCount = count,
-                    onFinished = { celebrating = null },
+                    onFinished = onCelebrationFinished,
                 )
             }
         }
@@ -148,11 +153,25 @@ fun StagingSheet(
             mode = state.mode,
             onConfirm = {
                 confirming = false
-                celebrating = state.totalBytes to state.count
                 viewModel.purge()
             },
             onDismiss = { confirming = false },
         )
+    }
+    previewItem?.let { item ->
+        Dialog(
+            onDismissRequest = { previewItem = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            StagedPreviewOverlay(
+                item = item,
+                onRestore = {
+                    viewModel.restore(item.contentUri)
+                    previewItem = null
+                },
+                onDismiss = { previewItem = null },
+            )
+        }
     }
 }
 
@@ -179,7 +198,7 @@ private fun SheetHeader(state: StagingUiState, onClear: () -> Unit) {
         }
         if (state.count > 0) {
             Text(
-                "Clear",
+                "Unstage all",
                 color = SdzColor.TextSecondary,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier

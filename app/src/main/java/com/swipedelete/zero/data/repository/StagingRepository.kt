@@ -29,7 +29,7 @@ class StagingRepository @Inject constructor(
                 mediaType = item.type.name,
                 sizeBytes = item.sizeBytes,
                 relativePath = item.relativePath,
-                stagedAtMillis = 0L,
+                stagedAtMillis = System.currentTimeMillis(),
                 sourceDeckId = deckId,
             )
         )

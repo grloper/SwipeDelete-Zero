@@ -2,16 +2,16 @@
 
 # 🗂️ SwipeDelete Zero
 
-### Tinder for your Android Storage. 100% Offline. Zero Net-Permissions.
+### Make room for what matters. Review your library on your device.
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-00E676.svg?style=for-the-badge)](LICENSE)
 [![Permissions: Zero Network](https://img.shields.io/badge/Network_Permissions-ZERO-FF3B30.svg?style=for-the-badge)](#-the-air-gap-guarantee)
 [![Min SDK 29](https://img.shields.io/badge/Min_SDK-29_(Android_10)-00F0FF.svg?style=for-the-badge)](#)
 [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack_Compose-FFD700.svg?style=for-the-badge)](#)
 
-**Reclaim gigabytes in minutes.** Blitz through your photo library one card at a
-time — swipe left to trash, right to keep, up to star. Nothing ever leaves your
-device.
+Review your photo library one card at a time: swipe left to stage for deletion,
+right to keep, or up to star. The fdroid and Play editions work entirely on
+your device. You review staged items and confirm deletion through Android.
 
 ### [⬇️ Download the latest APK](../../releases/latest)
 
@@ -145,8 +145,8 @@ app/
 
 ### Engineered safeguards
 
-- **Scoped Storage:** media via MediaStore; non-media (`.apk`/`.zip`) via SAF or
-  (Play flavor only) `MANAGE_EXTERNAL_STORAGE`, behind one abstraction.
+- **Scoped Storage:** media via MediaStore; the Play edition does not request
+  all-files access.
 - **Restricted app dirs** (`Android/media/com.whatsapp/...`): `SecurityException`
   degrades to an empty result, never a crash.
 - **Battery:** hashing/blur run in WorkManager with `setRequiresCharging(true)` +
@@ -164,21 +164,26 @@ app/
 # F-Droid flavor (no all-files permission, SAF fallback)
 ./gradlew :app:assembleFdroidDebug
 
-# Play flavor (optional MANAGE_EXTERNAL_STORAGE for non-media)
+# Play flavor (scoped storage, no all-files or internet permission)
 ./gradlew :app:assemblePlayDebug
+
+# Play release App Bundle (requires a private upload key; see docs/PLAY_RELEASE.md)
+./gradlew :app:bundlePlayRelease
 
 # Unit tests (pure-JVM algorithm coverage)
 ./gradlew :app:testFdroidDebugUnitTest
 ```
 
-Requirements: JDK 17, Android SDK 35.
+Requirements: JDK 17, Android SDK 36.
 
 ## 📦 Distribution
 
 - **F-Droid:** `fdroid` flavor — reproducible, no proprietary blobs, no
   `MANAGE_EXTERNAL_STORAGE`.
-- **Play:** `play` flavor — may request all-files access for one-tap non-media
-  purge, subject to Play policy declaration.
+- **Play:** `play` flavor — scoped media access only. See
+  [release preparation](docs/PLAY_RELEASE.md) and the
+  [privacy policy](docs/PRIVACY_POLICY.md). Non-media cleanup needs explicit
+  document access and should be verified before being promoted in the listing.
 
 ## 📄 License
 
