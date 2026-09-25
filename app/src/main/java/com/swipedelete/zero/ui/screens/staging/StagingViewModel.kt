@@ -7,6 +7,10 @@ import com.swipedelete.zero.data.local.StagedFileEntity
 import com.swipedelete.zero.data.repository.PurgeEngine
 import com.swipedelete.zero.data.repository.StagingRepository
 import com.swipedelete.zero.data.repository.StatsStore
+import com.swipedelete.zero.domain.backup.ArchiveItemState
+import com.swipedelete.zero.domain.backup.BackupState
+import com.swipedelete.zero.domain.backup.CloudBackup
+import com.swipedelete.zero.domain.backup.PhotosArchive
 import com.swipedelete.zero.domain.model.ExecutionMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -36,8 +40,14 @@ data class StagingUiState(
     val sort: StagingSort = StagingSort.NEWEST,
     /** Verified bytes reclaimed across the app's lifetime ("14.2 GB Reclaimed"). */
     val lifetimeReclaimedBytes: Long = 0,
+    val backupRequired: Boolean = false,
+    val backupConnected: Boolean = false,
+    val verifiedCount: Int = 0,
+    val pendingBackupCount: Int = 0,
+    val failedBackupCount: Int = 0,
 ) {
     val count: Int get() = items.size
+    val canDelete: Boolean get() = !backupRequired || (backupConnected && pendingBackupCount == 0)
 }
 
 /** One-shot effects the screen must react to (launch OS dialog / SAF picker). */
@@ -53,6 +63,8 @@ class StagingViewModel @Inject constructor(
     private val stagingRepository: StagingRepository,
     private val purgeEngine: PurgeEngine,
     private val statsStore: StatsStore,
+    private val photosArchive: PhotosArchive,
+    private val cloudBackup: CloudBackup,
 ) : ViewModel() {
 
     private val modeState = MutableStateFlow(ExecutionMode.OS_TRASH_30_DAY)
@@ -85,8 +97,18 @@ class StagingViewModel @Inject constructor(
                 StagingUiState(items = sorted, totalBytes = bytes, mode = mode, purging = purging, sort = sort)
             },
             statsStore.lifetimeReclaimedBytes,
-        ) { state, lifetime ->
-            state.copy(lifetimeReclaimedBytes = lifetime)
+            photosArchive.queue,
+            cloudBackup.state,
+        ) { state, lifetime, uploads, backup ->
+            val verified = state.items.count { uploads[it.contentUri] is ArchiveItemState.Verified }
+            state.copy(
+                lifetimeReclaimedBytes = lifetime,
+                backupRequired = photosArchive.isAvailable,
+                backupConnected = backup is BackupState.Ready || backup is BackupState.Running,
+                verifiedCount = verified,
+                pendingBackupCount = state.count - verified,
+                failedBackupCount = state.items.count { uploads[it.contentUri] is ArchiveItemState.Failed },
+            )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StagingUiState())
 
     fun setMode(mode: ExecutionMode) { modeState.value = mode }
@@ -94,6 +116,22 @@ class StagingViewModel @Inject constructor(
 
     fun restore(uri: String) = viewModelScope.launch { stagingRepository.restore(uri) }
     fun clearQueue() = viewModelScope.launch { stagingRepository.clearQueue() }
+
+    fun backUpStaged() = viewModelScope.launch {
+        if (!photosArchive.isAvailable || cloudBackup.state.value is BackupState.SignedOut ||
+            cloudBackup.state.value is BackupState.Unsupported) {
+            effects.send(PurgeEffect.Message("Connect your Google account in Settings first."))
+            return@launch
+        }
+        val items = stagingRepository.getAll()
+        val unsupported = items.count {
+            !it.mimeType.startsWith("image/") && !it.mimeType.startsWith("video/")
+        }
+        items.forEach { photosArchive.enqueueStaged(it) }
+        if (unsupported > 0) effects.send(PurgeEffect.Message(
+            "$unsupported file(s) cannot be backed up to Google Photos; remove them from staging."
+        ))
+    }
 
     /** Kick off a batched purge under the current execution mode. */
     fun purge() {

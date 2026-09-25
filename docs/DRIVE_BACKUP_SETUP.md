@@ -1,12 +1,13 @@
 # Google Drive Backup & Google Photos Archive — one-time setup
 
-The **cloud** APK (`SwipeDeleteZero-x.y.z-cloud-drive-debug.apk`) can back up every
+The **Play/cloud** APK can back up every
 file you *keep* or *star* to your own Google Drive. Each file is uploaded **once**;
 later runs only pick up newly kept files — nothing is uploaded twice.
 
-The same build also powers the **swipe-up "Archive to Google Photos"** action:
+The same builds also power the **swipe-up "Archive to Google Photos"** action:
 resumable chunked uploads to your Photos library, with the local copy offered
-for deletion only after Google confirms the upload with a valid `mediaItemId`.
+for deletion only after Google confirms the upload with a valid `mediaItemId`
+and a live readback provides the matching item and its Google Photos link.
 Both features share one Google sign-in and the OAuth client below.
 
 Google requires every app that touches Drive to have an OAuth client. Because this
@@ -80,14 +81,13 @@ Cloud project. It takes about ten minutes, once.
 
 ## 5. Use it
 
-1. Install the **cloud** APK from the Releases page.
+1. Install the current **Play debug** or **cloud debug** APK from the Actions artifact.
 2. App → ⚙ Settings → **Open setup wizard** → *Connect Google account*.
-3. Sign in with the test-user account and accept both scopes — `drive.file`
-   (the app sees only files it created, never your whole Drive) and
-   `photoslibrary.appendonly` (upload-only; it can add to your Photos library
-   but can never read or delete from it).
-4. Tap **Verify connection**. This makes a real Drive API call and checks the
-   Photos scope was granted, then reports exactly what responded — so you know
+3. Sign in with the test-user account and accept the scopes — `drive.file`
+   (the app sees only files it created, never your whole Drive),
+   `photoslibrary.appendonly` (upload), and `photoslibrary.readonly.appcreateddata`
+   (readback of items uploaded by this app; it cannot read your other Photos media).
+4. Tap **Verify connection**. This makes real Drive and Photos API calls, then reports exactly what responded — so you know
    it works before trusting it with anything.
 5. Tap **Back up now** for Drive, or swipe a card up to archive it to Google
    Photos. Drive files land in a folder named **SwipeDelete Zero Backup**.
@@ -105,13 +105,11 @@ The wizard decodes errors for you, but for reference:
 
 ## Privacy notes
 
-- Only the `cloud` flavor declares `android.permission.INTERNET`. The `fdroid`
-  APK remains architecturally incapable of network access.
-- Two scopes are requested: `drive.file` (non-sensitive — the app sees and
-  writes **only files it created itself**) and `photoslibrary.appendonly`
-  (upload-only — the app can add to your Photos library but can never read,
-  list or delete anything in it; this also means it survives Google's
-  March 2025 Photos API scope removals).
+- Play/cloud declare `android.permission.INTERNET`. The `fdroid` APK remains
+  architecturally incapable of network access.
+- Three scopes are requested: `drive.file` (the app sees and writes files it
+  created), `photoslibrary.appendonly` (uploads), and
+  `photoslibrary.readonly.appcreateddata` (reads only media created by this app).
 - `photoslibrary.appendonly` counts as a sensitive scope: in *Testing* mode it
   works for your test users without review; publishing to strangers would
   require Google's OAuth verification.

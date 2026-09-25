@@ -1,30 +1,31 @@
 package com.swipedelete.zero.photos
 
+import com.swipedelete.zero.domain.backup.PhotosMediaReadiness
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Raw Google Photos Library API client (cloud flavor only), speaking the
- * X-Goog-Upload resumable protocol over HttpURLConnection — same zero-SDK
- * style as the Drive backup.
+ * Google Photos Library API client shared by Play and cloud builds.
  *
- * Flow: `start` mints a resumable session URL → chunks POST with an offset
- * header (last one adds `finalize` and returns the upload token) → `query`
- * recovers the server-acked offset after a crash → `mediaItems:batchCreate`
- * exchanges the token for a mediaItemId, which is the verification handshake
- * the purge path requires.
+ * Resumable upload and batchCreate establish an app-created media item.
+ * Readback additionally requires usable media, including READY for videos.
+ * Neither metadata nor readiness proves original-byte integrity or restore.
  *
- * Scope note (post-March-2025 API): `photoslibrary.appendonly` is upload-only
- * and still fully supports this flow; the app can never read the library.
+ * Post-March-2025 scopes: appendonly uploads; readonly.appcreateddata reads
+ * only app-created items, not the user's entire pre-existing photo library.
  */
 @Singleton
 class PhotosUploader @Inject constructor() {
 
     class HttpStatusException(val code: Int, message: String) : Exception(message)
+    class MediaNotReadyException(message: String) : IOException(message)
+    class MediaRejectedException(message: String) : Exception(message)
 
     data class Session(val uploadUrl: String, val chunkGranularityBytes: Long)
 
@@ -93,10 +94,7 @@ class PhotosUploader @Inject constructor() {
         } else null
     }
 
-    /**
-     * The verification handshake: batchCreate must answer 200 with a
-     * non-empty mediaItem id, or the upload is NOT verified.
-     */
+    /** Create an item; the returned ID alone is not a verified backup. */
     fun batchCreate(authToken: String, uploadToken: String, fileName: String): String {
         val body = JSONObject()
             .put(
@@ -130,6 +128,46 @@ class PhotosUploader @Inject constructor() {
         return result.optJSONObject("mediaItem")?.optString("id").orEmpty()
     }
 
+    /**
+     * Live readback for an app-created item. Both upload completion and the
+     * pre-delete check use this method, so neither can accept an unavailable
+     * video. Processing retries through the worker's bounded backoff; failed
+     * or unknown states fail closed. No media bytes are restored here.
+     */
+    fun getMediaItem(authToken: String, mediaItemId: String): RemoteItem {
+        require(mediaItemId.isNotBlank())
+        val encoded = URLEncoder.encode(mediaItemId, "UTF-8")
+        val connection = open("$MEDIA_ITEMS_URL/$encoded", authToken).apply {
+            requestMethod = "GET"
+        }
+        try {
+            checkSuccess(connection)
+            val item = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+            val mimeType = item.optString("mimeType")
+            val videoStatus = item.optJSONObject("mediaMetadata")
+                ?.optJSONObject("video")?.optString("status")
+            when (PhotosMediaReadiness.evaluate(mimeType, item.optString("baseUrl"), videoStatus)) {
+                PhotosMediaReadiness.Result.AVAILABLE -> Unit
+                PhotosMediaReadiness.Result.WAITING -> throw MediaNotReadyException(
+                    "Google Photos is still processing this media or has not provided downloadable content. Local deletion remains blocked."
+                )
+                PhotosMediaReadiness.Result.REJECTED -> throw MediaRejectedException(
+                    "Google Photos returned failed, unsupported, or invalid media. Local deletion remains blocked."
+                )
+            }
+            return RemoteItem(
+                id = item.optString("id"),
+                filename = item.optString("filename"),
+                mimeType = mimeType,
+                productUrl = item.optString("productUrl"),
+            )
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    data class RemoteItem(val id: String, val filename: String, val mimeType: String, val productUrl: String)
+
     private fun open(urlString: String, authToken: String): HttpURLConnection =
         (URL(urlString).openConnection() as HttpURLConnection).apply {
             setRequestProperty("Authorization", "Bearer $authToken")
@@ -148,7 +186,9 @@ class PhotosUploader @Inject constructor() {
 
     companion object {
         const val PHOTOS_APPEND_SCOPE = "https://www.googleapis.com/auth/photoslibrary.appendonly"
+        const val PHOTOS_READ_SCOPE = "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata"
         private const val UPLOADS_URL = "https://photoslibrary.googleapis.com/v1/uploads"
         private const val BATCH_CREATE_URL = "https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate"
+        private const val MEDIA_ITEMS_URL = "https://photoslibrary.googleapis.com/v1/mediaItems"
     }
 }

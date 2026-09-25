@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -54,6 +56,7 @@ import com.swipedelete.zero.ui.util.toReadableSize
 fun StagingSheet(
     viewModel: StagingViewModel,
     onDismiss: () -> Unit,
+    onOpenBackupSetup: () -> Unit = {},
     completedPurge: Pair<Long, Int>? = null,
     onCelebrationFinished: () -> Unit = {},
 ) {
@@ -123,6 +126,33 @@ fun StagingSheet(
                     }
                 }
 
+                if (state.backupRequired) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "Google Photos backup · ${state.verifiedCount}/${state.count} ready",
+                            color = SdzColor.Phosphor,
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Text(
+                            when {
+                                !state.backupConnected -> "Connect Google to back up these files before deletion."
+                                state.failedBackupCount > 0 -> "${state.failedBackupCount} upload(s) failed. Retry them in Backup Manager."
+                                state.pendingBackupCount > 0 -> "Local files stay untouched while uploads finish."
+                                else -> "Uploads finished. Google Photos will be checked again before deletion."
+                            },
+                            color = SdzColor.TextSecondary,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        if (!state.backupConnected) {
+                            OutlinedButton(onClick = onOpenBackupSetup) { Text("Connect Google Photos") }
+                        } else if (state.pendingBackupCount > 0) {
+                            Button(onClick = viewModel::backUpStaged) { Text("Back up staged files") }
+                        } else {
+                            OutlinedButton(onClick = viewModel::backUpStaged) { Text("Recheck backups") }
+                        }
+                    }
+                }
+
                 ExecutionModeToggle(
                     mode = state.mode,
                     onSelect = viewModel::setMode,
@@ -130,7 +160,8 @@ fun StagingSheet(
 
                 PurgeCta(
                     bytes = state.totalBytes,
-                    enabled = !state.purging,
+                    mode = state.mode,
+                    enabled = !state.purging && state.canDelete,
                     onClick = { confirming = true },
                     modifier = Modifier.padding(bottom = 16.dp),
                 )

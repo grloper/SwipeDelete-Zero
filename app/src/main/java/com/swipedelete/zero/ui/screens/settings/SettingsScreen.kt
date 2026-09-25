@@ -5,6 +5,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -75,6 +77,7 @@ fun SettingsScreen(
             .background(SdzColor.Surface0)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp),
     ) {
         Row(
@@ -139,14 +142,9 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            Spacer(Modifier.weight(1f))
         } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
-            ) {
-                items(exclusions, key = { it.id }) { ex ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                exclusions.forEach { ex ->
                     ExclusionRow(ex = ex, onRemove = { viewModel.remove(ex.id) })
                 }
             }
@@ -159,7 +157,7 @@ fun SettingsScreen(
             if (backupState is BackupState.Unsupported) {
                 "SwipeDelete Zero · GPL v3 · 100% Offline · Zero Net-Permissions"
             } else {
-                "SwipeDelete Zero · GPL v3 · Cloud build — network used only for opt-in Drive backup"
+                "SwipeDelete Zero · GPL v3 · Google Photos and Drive backup"
             },
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
@@ -172,12 +170,13 @@ fun SettingsScreen(
             title = { Text("Privacy · SwipeDelete Zero") },
             text = {
                 Text(
-                    "The Google Play build works on your device. It reads the photos, videos and audio " +
-                        "you allow so you can review and clean them. It stores your decisions and " +
-                        "progress locally. It has no internet permission, account, ads or analytics, " +
-                        "and does not send your files or usage data to us. Deletion requires your " +
-                        "confirmation through Android. Uninstalling removes the app's local data. " +
-                        "The separate cloud build has optional Google Drive and Photos features."
+                    "The Google Play build scans the media you allow on your device and stores " +
+                        "review decisions locally. If you connect Google, selected photos and videos " +
+                        "are uploaded to your Google Photos account before deletion is enabled. " +
+                        "Kept files may be backed up to your Google Drive when you request it. " +
+                        "The app uses internet access for those transfers and does not run ads or analytics. " +
+                        "Android asks you to confirm deletion. Uninstalling clears local app data, " +
+                        "but does not remove uploaded Google files."
                 )
             },
             confirmButton = {
@@ -239,7 +238,7 @@ private fun DriveBackupSection(
             )
         }
         Text(
-            "Kept & starred files are uploaded once each — view live speed, queue items, re-backup or reconcile deleted cloud files anytime.",
+            "Connect Google Photos before deleting staged images and videos. Review upload progress and open confirmed items in Backup Manager. Drive backup of kept files is separate.",
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
         )

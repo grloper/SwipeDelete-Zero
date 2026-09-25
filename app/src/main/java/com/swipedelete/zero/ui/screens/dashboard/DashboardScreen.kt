@@ -221,7 +221,8 @@ fun DashboardScreen(
                         Text("Your library, your call", style = SdzType.Subtitle, color = SdzColor.Phosphor)
                         Text(
                             "Allow access to photos and videos to find files worth reviewing. " +
-                                "Everything stays on this device. You can choose selected photos on supported Android versions.",
+                                "Review happens on this device. Google Photos backup is optional until you choose to delete; " +
+                                "deletion requires a confirmed backup. You can choose selected photos on supported Android versions.",
                             style = SdzType.BodySmall,
                             color = SdzColor.TextSecondary,
                         )
@@ -319,6 +320,10 @@ fun DashboardScreen(
             StagingSheet(
                 viewModel = stagingViewModel,
                 onDismiss = { showStaging = false },
+                onOpenBackupSetup = {
+                    showStaging = false
+                    onOpenSettings()
+                },
                 completedPurge = completedPurge,
                 onCelebrationFinished = { completedPurge = null },
             )

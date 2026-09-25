@@ -75,6 +75,7 @@ import java.util.Locale
 @Composable
 fun StagingDrawerScreen(
     onBack: () -> Unit,
+    onOpenBackupSetup: () -> Unit = {},
     viewModel: StagingViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -199,6 +200,27 @@ fun StagingDrawerScreen(
                     }
                 }
 
+                if (state.backupRequired) {
+                    Text(
+                        "Google Photos backup: ${state.verifiedCount}/${state.count} ready",
+                        color = SdzColor.Phosphor,
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        if (state.failedBackupCount > 0) "Some uploads failed. Retry in Backup Manager."
+                        else if (state.pendingBackupCount > 0) "Files stay on your device until Google Photos confirms each backup."
+                        else "Google Photos will be checked again before deleting.",
+                        color = SdzColor.TextSecondary,
+                    )
+                    if (!state.backupConnected) {
+                        Text("Connect Google Photos", modifier = Modifier.clickable(onClick = onOpenBackupSetup).padding(12.dp), color = SdzColor.Azure)
+                    } else if (state.pendingBackupCount > 0) {
+                        Text("Back up staged files", modifier = Modifier.clickable(onClick = viewModel::backUpStaged).padding(12.dp), color = SdzColor.Azure)
+                    } else {
+                        Text("Recheck backups", modifier = Modifier.clickable(onClick = viewModel::backUpStaged).padding(12.dp), color = SdzColor.Azure)
+                    }
+                }
+
                 ExecutionModeToggle(
                     mode = state.mode,
                     onSelect = viewModel::setMode,
@@ -207,7 +229,8 @@ fun StagingDrawerScreen(
 
                 PurgeCta(
                     bytes = state.totalBytes,
-                    enabled = !state.purging,
+                    mode = state.mode,
+                    enabled = !state.purging && state.canDelete,
                     onClick = viewModel::purge,
                     modifier = Modifier.padding(bottom = 24.dp),
                 )
@@ -562,6 +585,7 @@ private fun SegmentButton(
 @Composable
 internal fun PurgeCta(
     bytes: Long,
+    mode: ExecutionMode,
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -586,7 +610,8 @@ internal fun PurgeCta(
                 modifier = Modifier.size(20.dp),
             )
             Text(
-                text = "Delete and Free Up " + bytes.toReadableSize(),
+                text = if (mode == ExecutionMode.OS_TRASH_30_DAY)
+                    "Move to Android Trash" else "Delete and Free Up " + bytes.toReadableSize(),
                 color = if (enabled) SdzColor.OnAccent else SdzColor.TextSecondary,
                 fontWeight = FontWeight.Black,
                 style = MaterialTheme.typography.titleMedium,

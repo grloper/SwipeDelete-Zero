@@ -13,8 +13,11 @@ sealed interface UploadEvent {
     /** The finalize chunk returned the upload token. */
     data class Finalized(val uploadToken: String) : UploadEvent
 
-    /** mediaItems:batchCreate answered — the verification handshake. */
+    /** batchCreate created an item; remote readback must still succeed. */
     data class Created(val mediaItemId: String) : UploadEvent
+
+    /** GET of that exact app-created item returned matching metadata. */
+    data object RemoteVerified : UploadEvent
 
     /** Any transport/HTTP failure; null [httpCode] = network-level error. */
     data class Failed(val httpCode: Int?, val message: String) : UploadEvent
@@ -74,12 +77,23 @@ object UploadReducer {
                     )
                 } else {
                     entity.copy(
-                        state = CloudUploadEntity.STATE_VERIFIED,
+                        state = CloudUploadEntity.STATE_VERIFYING,
                         mediaItemId = event.mediaItemId,
                         lastError = null,
                         updatedAtMillis = nowMillis,
                     )
                 }
+            UploadEvent.RemoteVerified -> {
+                if (entity.mediaItemId.isNullOrBlank()) entity.copy(
+                    state = CloudUploadEntity.STATE_FAILED,
+                    lastError = "Remote verification has no media item ID",
+                    updatedAtMillis = nowMillis,
+                ) else entity.copy(
+                    state = CloudUploadEntity.STATE_VERIFIED,
+                    lastError = null,
+                    updatedAtMillis = nowMillis,
+                )
+            }
             is UploadEvent.Failed -> {
                 val attempts = entity.attempts + 1
                 if (isRetryable(event.httpCode) && attempts < MAX_ATTEMPTS) {

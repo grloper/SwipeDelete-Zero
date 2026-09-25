@@ -146,6 +146,11 @@ interface CloudUploadDao {
     )
     suspend fun nextPending(): CloudUploadEntity?
 
+    /** Recover a crash after verification but before ledger/staging writes. */
+    @Query("SELECT u.* FROM cloud_uploads u LEFT JOIN backed_up_files b ON b.contentUri = u.contentUri " +
+        "WHERE u.state = 'VERIFIED' AND u.mediaItemId IS NOT NULL AND b.contentUri IS NULL")
+    suspend fun verifiedWithoutLedger(): List<CloudUploadEntity>
+
     @Upsert
     suspend fun upsert(entity: CloudUploadEntity)
 
@@ -156,10 +161,18 @@ interface CloudUploadDao {
     @Query("DELETE FROM cloud_uploads WHERE contentUri = :uri")
     suspend fun delete(uri: String)
 
-    @Query("UPDATE cloud_uploads SET state = 'QUEUED', attempts = 0, lastError = null, updatedAtMillis = :nowMillis WHERE state = 'FAILED'")
+    @Query("DELETE FROM cloud_uploads WHERE contentUri = :uri AND state IN ('QUEUED', 'FAILED')")
+    suspend fun deleteIfCancelable(uri: String): Int
+
+    @Query("UPDATE cloud_uploads SET state = 'QUEUED', attempts = 0, lastError = null, " +
+        "uploadUrl = CASE WHEN mediaItemId IS NULL THEN NULL ELSE uploadUrl END, " +
+        "uploadToken = CASE WHEN mediaItemId IS NULL THEN NULL ELSE uploadToken END, " +
+        "bytesUploaded = CASE WHEN mediaItemId IS NULL THEN 0 ELSE bytesUploaded END, " +
+        "updatedAtMillis = :nowMillis WHERE state = 'FAILED'")
     suspend fun retryAllFailed(nowMillis: Long = System.currentTimeMillis()): Int
 
-    @Query("DELETE FROM cloud_uploads WHERE state = 'VERIFIED'")
+    @Query("DELETE FROM cloud_uploads WHERE state = 'VERIFIED' AND contentUri NOT IN " +
+        "(SELECT contentUri FROM staged_files)")
     suspend fun clearCompleted(): Int
 
     @Query("SELECT COUNT(*) FROM cloud_uploads WHERE state = :state")

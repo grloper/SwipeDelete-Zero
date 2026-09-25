@@ -9,7 +9,7 @@ import javax.inject.Singleton
 
 /** Auth + upload status of the cloud backup engine. */
 sealed interface BackupState {
-    /** Backup exists only in the cloud flavor; fdroid/play always report this. */
+    /** The offline F-Droid flavor reports this. */
     data object Unsupported : BackupState
 
     /**
@@ -44,8 +44,8 @@ data class ConnectionCheck(
  * Flavor seam for the opt-in cloud features (Drive backup of kept files and the
  * swipe-up Google Photos archive).
  *
- * The fdroid/play flavors bind [NoOpCloudBackup] — no network code is even
- * compiled into those builds. The cloud flavor binds a Google implementation.
+ * F-Droid binds [NoOpCloudBackup] without network access. Play/cloud bind
+ * the Google implementation.
  * UI code talks only to this interface.
  */
 interface CloudBackup {

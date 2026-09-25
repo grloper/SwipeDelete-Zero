@@ -82,7 +82,6 @@ import com.swipedelete.zero.data.local.BackedUpFileEntity
 import com.swipedelete.zero.data.local.CloudUploadEntity
 import com.swipedelete.zero.domain.backup.BackupState
 import com.swipedelete.zero.domain.backup.CloudUploadStats
-import com.swipedelete.zero.ui.components.CloudConflictDialog
 import com.swipedelete.zero.ui.theme.SdzColor
 import com.swipedelete.zero.ui.theme.SdzRadius
 import com.swipedelete.zero.ui.theme.SdzSpace
@@ -98,7 +97,6 @@ fun CloudManagerScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var selectedConflictFile by remember { mutableStateOf<BackedUpFileEntity?>(null) }
 
     LaunchedEffect(uiState.userMessage) {
         uiState.userMessage?.let { msg ->
@@ -107,27 +105,6 @@ fun CloudManagerScreen(
         }
     }
 
-    selectedConflictFile?.let { file ->
-        val uri = file.contentUri
-        val displayName = uri.substringAfterLast("/").ifBlank { "Media file" }
-        CloudConflictDialog(
-            fileName = displayName,
-            sizeBytes = file.sizeBytes,
-            isAlreadyBackedUp = true,
-            onRebackup = {
-                viewModel.rebackupFile(
-                    uri = uri,
-                    displayName = displayName,
-                    mimeType = "image/jpeg",
-                    sizeBytes = file.sizeBytes,
-                )
-            },
-            onForgetLedger = {
-                viewModel.forgetBackedUp(uri)
-            },
-            onDismiss = { selectedConflictFile = null },
-        )
-    }
 
     Scaffold(
         containerColor = SdzColor.Surface0,
@@ -252,7 +229,7 @@ fun CloudManagerScreen(
                     files = uiState.filteredBackedUpFiles,
                     searchQuery = uiState.searchQuery,
                     onSearchChange = viewModel::updateSearchQuery,
-                    onSelectFile = { selectedConflictFile = it },
+                    onSelectFile = { viewModel.openBackedUpFile(context, it) },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -288,7 +265,7 @@ private fun CloudPerformanceCard(
                     )
                     Spacer(modifier = Modifier.width(SdzSpace.xs))
                     Text(
-                        text = if (stats.isIdle) "Queue Idle" else "Uploading · ${stats.uploadSpeedBytesPerSec.toReadableSize()}/s",
+                            text = if (stats.isIdle) "Queue Idle" else "Backing up to Google Photos",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = SdzColor.Phosphor,
@@ -501,10 +478,13 @@ private fun UploadItemRow(
                         Text("Retry", style = MaterialTheme.typography.labelSmall)
                     }
                 }
-                TextButton(onClick = onCancel) {
-                    Icon(Icons.Rounded.DeleteOutline, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Remove", style = MaterialTheme.typography.labelSmall)
+                if (upload.state == CloudUploadEntity.STATE_QUEUED ||
+                    upload.state == CloudUploadEntity.STATE_FAILED) {
+                    TextButton(onClick = onCancel) {
+                        Icon(Icons.Rounded.DeleteOutline, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Remove", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
@@ -628,7 +608,7 @@ private fun BackedUpFileRow(
 
             Icon(
                 imageVector = Icons.Rounded.CloudDone,
-                contentDescription = "Tap to manage",
+                contentDescription = "Open confirmed Google Photos item",
                 tint = SdzColor.Teal,
                 modifier = Modifier.size(20.dp),
             )

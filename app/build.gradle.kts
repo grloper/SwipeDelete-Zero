@@ -60,10 +60,8 @@ android {
 
     // Three flavors abstract the permission model:
     // `fdroid` — MediaStore + SAF only, zero network permissions (air-gapped);
-    // `play`  — MediaStore + SAF only, with no all-files or network permission;
-    // `cloud` — the ONLY flavor with android.permission.INTERNET, powering the
-    //           opt-in Google Drive backup. The air-gap promise holds for the
-    //           fdroid/play builds; cloud is a separate, clearly-labelled APK.
+    // `play` and `cloud` — opt-in Photos/Drive backup with network access;
+    // `fdroid` remains the offline edition.
     flavorDimensions += "distribution"
     productFlavors {
         create("fdroid") {
@@ -75,8 +73,8 @@ android {
         create("play") {
             dimension = "distribution"
             buildConfigField("boolean", "ALLOW_MANAGE_STORAGE", "false")
-            buildConfigField("boolean", "SUPPORTS_DRIVE_BACKUP", "false")
-            buildConfigField("boolean", "SUPPORTS_PHOTOS_ARCHIVE", "false")
+            buildConfigField("boolean", "SUPPORTS_DRIVE_BACKUP", "true")
+            buildConfigField("boolean", "SUPPORTS_PHOTOS_ARCHIVE", "true")
         }
         create("cloud") {
             dimension = "distribution"
@@ -85,6 +83,10 @@ android {
             buildConfigField("boolean", "SUPPORTS_PHOTOS_ARCHIVE", "true")
         }
     }
+
+    // Play and cloud share the authenticated Google Photos implementation.
+    // F-Droid remains the separate offline build.
+    sourceSets.getByName("play").java.srcDir("src/cloud/java")
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -161,6 +163,7 @@ dependencies {
     // Cloud flavor only: Google Sign-In for the opt-in Drive backup. The
     // fdroid/play flavors never compile against any network-capable library.
     "cloudImplementation"(libs.play.services.auth)
+    "playImplementation"(libs.play.services.auth)
 
     // Test
     testImplementation(libs.junit)

@@ -2,6 +2,7 @@ package com.swipedelete.zero.ui.screens.cloud
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.swipedelete.zero.data.local.BackedUpFileEntity
@@ -161,7 +162,23 @@ class CloudManagerViewModel @Inject constructor(
     fun openInGooglePhotos(context: Context) {
         val intent = photosArchive.openInPhotosIntent()
         if (intent != null) {
-            runCatching { context.startActivity(intent) }
+            runCatching { context.startActivity(intent) }.onFailure {
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://photos.google.com/"))) }
+                    .onFailure { userMessage.value = "No app can open Google Photos." }
+            }
+        }
+    }
+
+    fun openBackedUpFile(context: Context, file: BackedUpFileEntity) {
+        viewModelScope.launch {
+            val url = photosArchive.remoteUrl(file.remoteId)
+            if (url == null) {
+                userMessage.value = "Could not confirm this item in Google Photos. Local deletion remains locked."
+                return@launch
+            }
+            runCatching {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            }.onFailure { userMessage.value = "No app can open the Google Photos link." }
         }
     }
 }
