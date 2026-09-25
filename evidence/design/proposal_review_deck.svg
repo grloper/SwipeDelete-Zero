@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 412 892" width="412" height="892">
+  <title>SwipeDelete Zero — Proposed M2 Review Deck (Token Spec v1.0)</title>
+  <desc>PROPOSED DESIGN INPUT — NOT IMPLEMENTED UI. Uses dark palette (#101418/#191F25/#242C35), 20dp horizontal padding, 52dp primary controls, 48dp min hit targets, and non-color-only proof iconography.</desc>
+
+  <!-- Canvas Background (#101418) -->
+  <rect width="412" height="892" fill="#101418" />
+
+  <!-- Watermark Header Banner -->
+  <rect x="0" y="0" width="412" height="28" fill="#352D18" />
+  <text x="206" y="18" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#F4CE78" text-anchor="middle">
+    PROPOSED DESIGN (M2 SPEC) — NOT IMPLEMENTED UI — SYNTHETIC FIXTURE
+  </text>
+
+  <!-- Top App Bar (y=40..88, min interactive 48dp) -->
+  <rect x="20" y="40" width="48" height="48" rx="12" fill="#191F25" stroke="#46515D" stroke-width="1.5" />
+  <path d="M48 56 L40 64 L48 72" stroke="#F5F7FA" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+
+  <text x="80" y="62" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="600" fill="#F5F7FA">Screenshots Deck</text>
+  <text x="80" y="80" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="400" fill="#B5C1CD">14 of 48 reviewed • 4 staged</text>
+
+  <!-- Undo Button (48x48dp hit target) -->
+  <rect x="344" y="40" width="48" height="48" rx="12" fill="#242C35" stroke="#46515D" stroke-width="1.5" />
+  <path d="M362 60 H374 A6 6 0 0 1 374 72 H364 M362 60 L366 56 M362 60 L366 64" stroke="#F5F7FA" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Main Media Review Card (x=20, y=104, w=372, h=500, rx=20 card token) -->
+  <rect x="20" y="104" width="372" height="500" rx="20" fill="#191F25" stroke="#46515D" stroke-width="1.5" />
+
+  <!-- Synthetic Image Viewport -->
+  <rect x="32" y="116" width="348" height="388" rx="12" fill="#242C35" />
+  <!-- Synthetic Grid Pattern -->
+  <line x1="32" y1="245" x2="380" y2="245" stroke="#46515D" stroke-dasharray="4 4" />
+  <line x1="32" y1="374" x2="380" y2="374" stroke="#46515D" stroke-dasharray="4 4" />
+  <line x1="148" y1="116" x2="148" y2="504" stroke="#46515D" stroke-dasharray="4 4" />
+  <line x1="264" y1="116" x2="264" y2="504" stroke="#46515D" stroke-dasharray="4 4" />
+  <circle cx="206" cy="290" r="44" fill="#163B30" stroke="#7DE6C1" stroke-width="2" />
+  <text x="206" y="295" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#7DE6C1" text-anchor="middle">SYNTHETIC_014</text>
+
+  <!-- Proof Status Pill (Shape + Icon + Label: Not Color Alone) -->
+  <rect x="44" y="128" width="216" height="32" rx="8" fill="#352D18" stroke="#F4CE78" stroke-width="1.5" />
+  <polygon points="58,136 66,150 50,150" fill="#F4CE78" />
+  <text x="74" y="149" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#F4CE78">Local Only • Not Vault Verified</text>
+
+  <!-- File Metadata Footer Inside Card -->
+  <text x="40" y="534" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#F5F7FA">IMG_SYNTHETIC_20260925_014.png</text>
+  <text x="40" y="558" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="400" fill="#B5C1CD">2,418 KB • 1440 × 3120 px • Yesterday 14:22</text>
+  <text x="40" y="582" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="400" fill="#7DE6C1">Swipe stages intent only — never deletes immediately</text>
+
+  <!-- Filmstrip Scrubber (y=620, h=64) -->
+  <rect x="20" y="620" width="372" height="64" rx="12" fill="#191F25" stroke="#46515D" stroke-width="1" />
+  <rect x="32" y="628" width="48" height="48" rx="8" fill="#242C35" />
+  <rect x="88" y="628" width="48" height="48" rx="8" fill="#242C35" />
+  <rect x="144" y="626" width="52" height="52" rx="8" fill="#163B30" stroke="#A9C2FF" stroke-width="2.5" />
+  <rect x="204" y="628" width="48" height="48" rx="8" fill="#242C35" />
+  <rect x="260" y="628" width="48" height="48" rx="8" fill="#242C35" />
+  <rect x="316" y="628" width="48" height="48" rx="8" fill="#242C35" />
+
+  <!-- Accessible No-Swipe Action Row (y=704, button height=52dp) -->
+  <!-- Stage for Cleanup Button (Secondary / Danger Subtle with explicit border) -->
+  <rect x="20" y="704" width="178" height="52" rx="12" fill="#382020" stroke="#FFB4AB" stroke-width="1.5" />
+  <text x="109" y="736" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#FFB4AB" text-anchor="middle">Stage Cleanup</text>
+
+  <!-- Keep Item Primary CTA (52dp height, #7DE6C1 accent, #0B241A onAccent) -->
+  <rect x="214" y="704" width="178" height="52" rx="12" fill="#7DE6C1" />
+  <text x="303" y="736" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#0B241A" text-anchor="middle">Keep Original</text>
+
+  <!-- Bottom Staging Queue Summary Bar (y=776, h=76, rx=20) -->
+  <rect x="20" y="776" width="372" height="76" rx="20" fill="#242C35" stroke="#46515D" stroke-width="1.5" />
+  <text x="40" y="808" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#F5F7FA">4 Staged Files (18.4 MB)</text>
+  <text x="40" y="832" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="400" fill="#B5C1CD">Deletion locked until original restore proof</text>
+  <rect x="276" y="790" width="100" height="48" rx="12" fill="#191F25" stroke="#7DE6C1" stroke-width="1.5" />
+  <text x="326" y="820" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#7DE6C1" text-anchor="middle">Review Queue</text>
+</svg>

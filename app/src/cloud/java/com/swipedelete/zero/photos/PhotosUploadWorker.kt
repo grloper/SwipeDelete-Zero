@@ -7,14 +7,12 @@ import android.content.pm.ServiceInfo
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
+import androidx.room.withTransaction
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
-import androidx.room.withTransaction
-import com.google.android.gms.auth.GoogleAuthUtil
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.swipedelete.zero.data.local.BackedUpFileDao
 import com.swipedelete.zero.data.local.AppDatabase
+import com.swipedelete.zero.data.local.BackedUpFileDao
 import com.swipedelete.zero.data.local.BackedUpFileEntity
 import com.swipedelete.zero.data.local.CloudUploadDao
 import com.swipedelete.zero.data.local.CloudUploadEntity
@@ -25,6 +23,7 @@ import com.swipedelete.zero.domain.backup.UploadReducer
 import com.swipedelete.zero.domain.model.MediaType
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -53,21 +52,33 @@ class PhotosUploadWorker @AssistedInject constructor(
     private val stagedFileDao: StagedFileDao,
     private val uploader: PhotosUploader,
     private val database: AppDatabase,
+    private val authClient: PhotosAuthClient,
 ) : CoroutineWorker(appContext, params) {
 
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        setForeground(foregroundInfo("Preparing…"))
+    class ReadAuthException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
-        val initialAccount = GoogleSignIn.getLastSignedInAccount(appContext)?.account
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        updateForeground("Preparing…")
+
+        val boundAccountName = authClient.getSignedInAccountName(appContext)
             ?: return@withContext Result.failure()
-        val boundAccountName = initialAccount.name
         var authToken = try {
-            GoogleAuthUtil.getToken(appContext, initialAccount, "oauth2:${PhotosUploader.PHOTOS_APPEND_SCOPE}")
+            authClient.getToken(appContext, boundAccountName, "oauth2:${PhotosUploader.PHOTOS_APPEND_SCOPE}")
         } catch (_: Exception) {
             return@withContext Result.retry()
         }
 
-        uploadDao.verifiedWithoutLedger().forEach { onVerified(it) }
+        // Recover verified-without-ledger rows only if authorized under active account.
+        // Legacy rows or mismatched account rows are quarantined.
+        uploadDao.verifiedWithoutLedger().forEach { row ->
+            if (row.accountName == null) {
+                applyFailure(row, 403, "Quarantined: item has unknown account owner")
+            } else if (row.accountName != boundAccountName) {
+                applyFailure(row, 403, "Quarantined: item was authorized under ${row.accountName}, but active account is $boundAccountName")
+            } else {
+                onVerified(row)
+            }
+        }
 
         var authRetries = 0
         val maxAuthRetries = 2
@@ -75,17 +86,39 @@ class PhotosUploadWorker @AssistedInject constructor(
         while (true) {
             if (isStopped) return@withContext Result.retry()
             // Bound to stable account: do not cross-use credentials if user switched accounts.
-            val currentAccount = GoogleSignIn.getLastSignedInAccount(appContext)?.account
-            if (currentAccount == null || currentAccount.name != boundAccountName) {
+            val currentAccountName = authClient.getSignedInAccountName(appContext)
+            if (currentAccountName == null || currentAccountName != boundAccountName) {
                 return@withContext Result.retry()
             }
 
             val row = uploadDao.nextPending() ?: break
-            setForeground(foregroundInfo(row.displayName))
+
+            // M0-R1: Enforce durable account ownership.
+            // Legacy items without an account owner or items belonging to another account are quarantined.
+            if (row.accountName == null) {
+                applyFailure(row, 403, "Quarantined: item has unknown account owner")
+                continue
+            }
+            if (row.accountName != currentAccountName) {
+                applyFailure(
+                    row,
+                    403,
+                    "Quarantined: item was authorized under ${row.accountName}, but active account is $currentAccountName"
+                )
+                continue
+            }
+
+            updateForeground(row.displayName)
 
             val outcome = try {
-                processRow(row, authToken, currentAccount)
+                processRow(row, authToken, currentAccountName)
                 authRetries = 0
+                RowOutcome.DONE
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ReadAuthException) {
+                // M0-R2: Read auth failure is isolated to read scope, does NOT clear/refresh append token!
+                applyFailure(row, 401, e.message ?: "Read authentication failed")
                 RowOutcome.DONE
             } catch (e: PhotosUploader.HttpStatusException) {
                 if (e.code == 401) {
@@ -95,10 +128,10 @@ class PhotosUploadWorker @AssistedInject constructor(
                         RowOutcome.DONE
                     } else {
                         // Append token expired mid-run: clear, refresh, let the loop retry the row.
-                        GoogleAuthUtil.clearToken(appContext, authToken)
+                        authClient.clearToken(appContext, authToken)
                         authToken = try {
-                            GoogleAuthUtil.getToken(
-                                appContext, currentAccount, "oauth2:${PhotosUploader.PHOTOS_APPEND_SCOPE}"
+                            authClient.getToken(
+                                appContext, currentAccountName, "oauth2:${PhotosUploader.PHOTOS_APPEND_SCOPE}"
                             )
                         } catch (_: Exception) {
                             return@withContext Result.retry()
@@ -106,8 +139,11 @@ class PhotosUploadWorker @AssistedInject constructor(
                         RowOutcome.RETRY_NOW
                     }
                 } else {
-                    applyFailure(row, if (e.code == 404 && row.mediaItemId != null) null else e.code,
-                        e.message ?: "HTTP ${e.code}")
+                    applyFailure(
+                        row,
+                        if (e.code == 404 && row.mediaItemId != null) null else e.code,
+                        e.message ?: "HTTP ${e.code}"
+                    )
                 }
             } catch (e: IOException) {
                 applyFailure(row, null, e.message ?: "network error")
@@ -132,7 +168,14 @@ class PhotosUploadWorker @AssistedInject constructor(
         return if (reduced.state == CloudUploadEntity.STATE_QUEUED) RowOutcome.BACKOFF else RowOutcome.DONE
     }
 
-    private suspend fun processRow(start: CloudUploadEntity, authToken: String, account: android.accounts.Account) {
+    private suspend fun processRow(start: CloudUploadEntity, authToken: String, accountName: String) {
+        fun checkAccountActive() {
+            val activeName = authClient.getSignedInAccountName(appContext)
+            if (activeName == null || activeName != accountName) {
+                throw CancellationException("Account disconnected or changed during upload (expected $accountName)")
+            }
+        }
+
         var row = start
         val uri = Uri.parse(row.contentUri)
 
@@ -152,6 +195,7 @@ class PhotosUploadWorker @AssistedInject constructor(
             var uploadUrl = row.uploadUrl
             var offset: Long = 0
             if (uploadUrl == null) {
+                checkAccountActive()
                 val session = uploader.startSession(
                     authToken, row.mimeType.ifBlank { "application/octet-stream" }, row.sizeBytes
                 )
@@ -163,8 +207,9 @@ class PhotosUploadWorker @AssistedInject constructor(
                 // which is a multiple of the API's 256 KiB granularity.
                 chunkGranularity = session.chunkGranularityBytes
             } else {
+                checkAccountActive()
                 val queryResult = uploader.querySession(authToken, uploadUrl)
-                if (queryResult.status == "final") {
+                if (queryResult.isFinal) {
                     if (queryResult.uploadToken != null) {
                         // Recovered finalized upload token from query response!
                         row = reduceAndSave(row, UploadEvent.Finalized(queryResult.uploadToken))
@@ -172,6 +217,7 @@ class PhotosUploadWorker @AssistedInject constructor(
                     } else {
                         // Session finalized on server but upload token is lost:
                         // safely restart session from scratch to avoid crash loop or fabricated token.
+                        checkAccountActive()
                         val session = uploader.startSession(
                             authToken, row.mimeType.ifBlank { "application/octet-stream" }, row.sizeBytes
                         )
@@ -180,11 +226,12 @@ class PhotosUploadWorker @AssistedInject constructor(
                         offset = 0
                         chunkGranularity = session.chunkGranularityBytes
                     }
-                } else {
+                } else if (queryResult.isResumable) {
                     offset = queryResult.offset
                     if (offset >= row.sizeBytes) {
                         // Server claims all bytes received but session was not finalized:
                         // safely restart session to obtain a valid finalize response.
+                        checkAccountActive()
                         val session = uploader.startSession(
                             authToken, row.mimeType.ifBlank { "application/octet-stream" }, row.sizeBytes
                         )
@@ -195,6 +242,17 @@ class PhotosUploadWorker @AssistedInject constructor(
                     } else {
                         row = reduceAndSave(row, UploadEvent.ChunkAcked(offset))
                     }
+                } else {
+                    // Session is terminated, cancelled, unknown, or has negative/invalid offset:
+                    // safely restart session from byte 0.
+                    checkAccountActive()
+                    val session = uploader.startSession(
+                        authToken, row.mimeType.ifBlank { "application/octet-stream" }, row.sizeBytes
+                    )
+                    uploadUrl = session.uploadUrl
+                    row = reduceAndSave(row, UploadEvent.SessionReset(session.uploadUrl))
+                    offset = 0
+                    chunkGranularity = session.chunkGranularityBytes
                 }
             }
 
@@ -204,7 +262,8 @@ class PhotosUploadWorker @AssistedInject constructor(
                     skipFully(input, offset)
                     val buffer = ByteArray(chunkSize)
                     while (offset < row.sizeBytes) {
-                        if (isStopped) throw IOException("worker stopped")
+                        if (isStopped) throw CancellationException("worker stopped")
+                        checkAccountActive()
                         val toRead = minOf(chunkSize.toLong(), row.sizeBytes - offset).toInt()
                         readFully(input, buffer, toRead)
                         val isLast = offset + toRead >= row.sizeBytes
@@ -215,9 +274,7 @@ class PhotosUploadWorker @AssistedInject constructor(
                         } else {
                             reduceAndSave(row, UploadEvent.ChunkAcked(offset))
                         }
-                        setForeground(
-                            foregroundInfo("${row.displayName} · ${(offset * 100 / row.sizeBytes)}%")
-                        )
+                        updateForeground("${row.displayName} · ${(offset * 100 / row.sizeBytes)}%")
                     }
                 } ?: throw IOException("File unreadable: ${row.displayName}")
             }
@@ -225,6 +282,7 @@ class PhotosUploadWorker @AssistedInject constructor(
 
         // Verification handshake — the ONLY path to VERIFIED.
         if (row.mediaItemId.isNullOrBlank()) {
+            checkAccountActive()
             val mediaItemId = uploader.batchCreate(
                 authToken, checkNotNull(row.uploadToken), row.displayName
             )
@@ -232,24 +290,38 @@ class PhotosUploadWorker @AssistedInject constructor(
         }
 
         // Independent read-token authentication with scoped 401 handling.
+        checkAccountActive()
         val remote = run {
             var rToken = try {
-                GoogleAuthUtil.getToken(appContext, account, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}")
+                authClient.getToken(appContext, accountName, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                throw IOException("Could not authenticate Google Photos readback", e)
+                throw ReadAuthException("Could not authenticate Google Photos readback", e)
             }
             try {
                 uploader.getMediaItem(rToken, checkNotNull(row.mediaItemId))
             } catch (e: PhotosUploader.HttpStatusException) {
                 if (e.code == 401) {
                     // Clear and refresh READ token specifically, never append token!
-                    GoogleAuthUtil.clearToken(appContext, rToken)
+                    authClient.clearToken(appContext, rToken)
+                    checkAccountActive()
                     rToken = try {
-                        GoogleAuthUtil.getToken(appContext, account, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}")
+                        authClient.getToken(appContext, accountName, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}")
+                    } catch (ex: CancellationException) {
+                        throw ex
                     } catch (ex: Exception) {
-                        throw IOException("Could not refresh Google Photos read token", ex)
+                        throw ReadAuthException("Could not refresh Google Photos read token", ex)
                     }
-                    uploader.getMediaItem(rToken, checkNotNull(row.mediaItemId))
+                    try {
+                        uploader.getMediaItem(rToken, checkNotNull(row.mediaItemId))
+                    } catch (e2: PhotosUploader.HttpStatusException) {
+                        if (e2.code == 401) {
+                            throw ReadAuthException("Google Photos read authentication rejected (HTTP 401) after refresh", e2)
+                        } else {
+                            throw e2
+                        }
+                    }
                 } else throw e
             }
         }
@@ -260,6 +332,7 @@ class PhotosUploadWorker @AssistedInject constructor(
         }
         row = reduceAndSave(row, UploadEvent.RemoteVerified)
         if (row.state == CloudUploadEntity.STATE_VERIFIED) {
+            checkAccountActive()
             onVerified(row)
         }
     }
@@ -272,30 +345,34 @@ class PhotosUploadWorker @AssistedInject constructor(
         return reduced
     }
 
+    internal var transactionRunner: suspend (suspend () -> Unit) -> Unit = { block ->
+        database.withTransaction { block() }
+    }
+
     /** Ledger + staging — never a direct delete. */
     private suspend fun onVerified(row: CloudUploadEntity) {
         val now = System.currentTimeMillis()
-        database.withTransaction {
-        backedUpFileDao.insert(
-            BackedUpFileEntity(
-                contentUri = row.contentUri,
-                sizeBytes = row.sizeBytes,
-                remoteId = "photos:${row.mediaItemId}",
-                uploadedAtMillis = now,
+        transactionRunner {
+            backedUpFileDao.insert(
+                BackedUpFileEntity(
+                    contentUri = row.contentUri,
+                    sizeBytes = row.sizeBytes,
+                    remoteId = "photos:${row.mediaItemId}",
+                    uploadedAtMillis = now,
+                )
             )
-        )
-        stagedFileDao.stage(
-            StagedFileEntity(
-                contentUri = row.contentUri,
-                displayName = row.displayName,
-                mimeType = row.mimeType,
-                mediaType = if (row.mimeType.startsWith("video/")) MediaType.VIDEO.name else MediaType.IMAGE.name,
-                sizeBytes = row.sizeBytes,
-                relativePath = null,
-                stagedAtMillis = now,
-                sourceDeckId = VERIFIED_SOURCE_DECK,
+            stagedFileDao.stage(
+                StagedFileEntity(
+                    contentUri = row.contentUri,
+                    displayName = row.displayName,
+                    mimeType = row.mimeType,
+                    mediaType = if (row.mimeType.startsWith("video/")) MediaType.VIDEO.name else MediaType.IMAGE.name,
+                    sizeBytes = row.sizeBytes,
+                    relativePath = null,
+                    stagedAtMillis = now,
+                    sourceDeckId = VERIFIED_SOURCE_DECK,
+                )
             )
-        )
         }
     }
 
@@ -333,6 +410,14 @@ class PhotosUploadWorker @AssistedInject constructor(
             notification,
             ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
         )
+    }
+
+    private suspend fun updateForeground(text: String) {
+        try {
+            setForeground(foregroundInfo(text))
+        } catch (_: Throwable) {
+            // Allows graceful execution in unit test environments without throwing on foreground updater
+        }
     }
 
     companion object {

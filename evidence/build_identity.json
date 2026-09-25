@@ -1,0 +1,50 @@
+{
+  "project": "grloper/SwipeDelete-Zero",
+  "pr_number": 16,
+  "pr_url": "https://github.com/grloper/SwipeDelete-Zero/pull/16",
+  "pr_status": "open_draft",
+  "branch": "worker/m0-safety-foundation",
+  "base_branch": "codex/verified-photos-backup",
+  "base_sha": "6e0f5a9d5200914743dcebe8da5e7c4372fbd1da",
+  "tested_checkout_path": "c:\\Users\\ofekv\\Desktop\\repos\\SwipeDelete-Zero",
+  "environment": {
+    "os": "Windows_NT 10.0.26100",
+    "java_home": "C:\\Program Files\\Android\\Android Studio\\jbr",
+    "java_version": "21.0.6",
+    "android_home": "C:\\Users\\ofekv\\AppData\\Local\\Android\\Sdk",
+    "gradle_version": "8.13",
+    "compile_sdk": 35,
+    "target_sdk": 35,
+    "min_sdk": 29
+  },
+  "apk": {
+    "variant": "playDebug",
+    "application_id": "com.swipedelete.zero",
+    "version_code": 1,
+    "version_name": "1.0.0",
+    "file_name": "app-play-debug.apk",
+    "file_size_bytes": 72682339,
+    "sha256": "65E954F89D4899C35A5C0B105937F9C6C65E3CEB915A58384F3453ED55972239",
+    "signer_dn": "CN=Android Debug, O=Android, C=US",
+    "signer_sha256": "d0ced91bfd3c223622aebcc7d737c83cfc824839bab856122f0e2ebb6b9e2e25"
+  },
+  "unit_tests": {
+    "play_debug": {
+      "suites": 29,
+      "tests": 143,
+      "failures": 0,
+      "skipped": 0,
+      "exit_code": 0
+    },
+    "fdroid_debug": {
+      "suites": 27,
+      "tests": 130,
+      "failures": 0,
+      "skipped": 0,
+      "exit_code": 0
+    },
+    "total_executed": 273,
+    "total_failures": 0,
+    "total_skipped": 0
+  }
+}

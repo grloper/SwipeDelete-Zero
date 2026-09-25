@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.swipedelete.zero.PhotosMediaReadinessTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-09-25T23:54:43.246Z" hostname="OFEKVPC" time="0.003">
+  <properties/>
+  <testcase name="failed video is rejected even when it has a URL" classname="com.swipedelete.zero.PhotosMediaReadinessTest" time="0.001"/>
+  <testcase name="unsupported media does not qualify" classname="com.swipedelete.zero.PhotosMediaReadinessTest" time="0.0"/>
+  <testcase name="ready video without downloadable content is blocked" classname="com.swipedelete.zero.PhotosMediaReadinessTest" time="0.0"/>
+  <testcase name="image requires a download URL but no video state" classname="com.swipedelete.zero.PhotosMediaReadinessTest" time="0.0"/>
+  <testcase name="processing video is blocked even when it has a URL" classname="com.swipedelete.zero.PhotosMediaReadinessTest" time="0.0"/>
+  <testcase name="unknown video state fails closed" classname="com.swipedelete.zero.PhotosMediaReadinessTest" time="0.0"/>
+  <testcase name="malformed insecure or credential-bearing URL fails closed" classname="com.swipedelete.zero.PhotosMediaReadinessTest" time="0.0"/>
+  <testcase name="ready video with download URL is available" classname="com.swipedelete.zero.PhotosMediaReadinessTest" time="0.0"/>
+  <testcase name="missing or unspecified video state never qualifies" classname="com.swipedelete.zero.PhotosMediaReadinessTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

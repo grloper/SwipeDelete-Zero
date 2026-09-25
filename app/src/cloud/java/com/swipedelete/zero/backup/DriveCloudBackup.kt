@@ -15,6 +15,7 @@ import com.swipedelete.zero.domain.backup.BackupState
 import com.swipedelete.zero.domain.backup.CloudBackup
 import com.swipedelete.zero.domain.backup.ConnectionCheck
 import com.swipedelete.zero.domain.setup.AuthDiagnostic
+import com.swipedelete.zero.photos.PhotosUploadWorker
 import com.swipedelete.zero.photos.PhotosUploader
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -97,6 +98,9 @@ class DriveCloudBackup @Inject constructor(
     override fun signOut() {
         signInClient().signOut()
         _state.value = BackupState.SignedOut()
+        try {
+            androidx.work.WorkManager.getInstance(context).cancelUniqueWork(PhotosUploadWorker.WORK_NAME)
+        } catch (_: Exception) {}
     }
 
     override fun backupNow() {

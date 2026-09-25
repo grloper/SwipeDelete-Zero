@@ -207,9 +207,12 @@ fun StagingDrawerScreen(
                         style = MaterialTheme.typography.titleSmall,
                     )
                     Text(
-                        if (state.failedBackupCount > 0) "Some uploads failed. Retry in Backup Manager."
-                        else if (state.pendingBackupCount > 0) "Files stay on your device until Google Photos confirms each backup."
-                        else "Google Photos will be checked again before deleting.",
+                        when {
+                            !state.cleanupAvailable -> state.cleanupLockExplanation ?: "Cleanup is unavailable in this test build. Your originals stay on this device."
+                            state.failedBackupCount > 0 -> "Some uploads failed. Retry in Backup Manager."
+                            state.pendingBackupCount > 0 -> "Files stay on your device until Google Photos confirms each backup."
+                            else -> "Google Photos backup verified."
+                        },
                         color = SdzColor.TextSecondary,
                     )
                     if (!state.backupConnected) {
@@ -218,6 +221,17 @@ fun StagingDrawerScreen(
                         Text("Back up staged files", modifier = Modifier.clickable(onClick = viewModel::backUpStaged).padding(12.dp), color = SdzColor.Azure)
                     } else {
                         Text("Recheck backups", modifier = Modifier.clickable(onClick = viewModel::backUpStaged).padding(12.dp), color = SdzColor.Azure)
+                    }
+                }
+
+                if (!state.cleanupAvailable) {
+                    state.cleanupLockExplanation?.let { explanation ->
+                        Text(
+                            explanation,
+                            color = SdzColor.Amber,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
                     }
                 }
 
@@ -290,7 +304,10 @@ internal fun StagedRow(
             )
             if (item.sourceDeckId == PhotosArchive.VERIFIED_SOURCE_DECK) {
                 Text(
-                    "☁ Verified in Google Photos — safe to delete",
+                    if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
+                        "☁ Backed up to Google Photos · Originals stay on device"
+                    else
+                        "☁ Verified in Google Photos — safe to delete",
                     color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.labelSmall,
                 )

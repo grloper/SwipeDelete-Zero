@@ -28,7 +28,9 @@ import javax.inject.Singleton
 @Singleton
 class MediaStoreRepository @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val permissionManager: StoragePermissionManager = StoragePermissionManager(context),
 ) {
+    internal var sdkInt: Int = Build.VERSION.SDK_INT
 
     private val resolver get() = context.contentResolver
 
@@ -129,7 +131,9 @@ class MediaStoreRepository @Inject constructor(
      * Crucial safety rule: query failure or permission revocation yields UNKNOWN, never ABSENT.
      */
     fun inspectMediaState(uri: Uri): MediaItemState = try {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        if (!permissionManager.hasMediaAccess()) {
+            MediaItemState.UNKNOWN
+        } else if (sdkInt >= Build.VERSION_CODES.R) {
             val bundle = android.os.Bundle().apply {
                 putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
             }
@@ -144,7 +148,13 @@ class MediaStoreRepository @Inject constructor(
             } else {
                 cursor.use { c ->
                     if (!c.moveToFirst()) {
-                        MediaItemState.ABSENT
+                        if (permissionManager.hasLimitedMediaAccessOnly()) {
+                            // Android 14+ selected-media access: empty cursor cannot distinguish
+                            // absence from lack of visibility. Fail closed to UNKNOWN.
+                            MediaItemState.UNKNOWN
+                        } else {
+                            MediaItemState.ABSENT
+                        }
                     } else {
                         val trashedIdx = c.getColumnIndex(MediaStore.MediaColumns.IS_TRASHED)
                         if (trashedIdx >= 0 && c.getInt(trashedIdx) == 1) {
@@ -167,7 +177,15 @@ class MediaStoreRepository @Inject constructor(
                 MediaItemState.UNKNOWN
             } else {
                 cursor.use { c ->
-                    if (!c.moveToFirst()) MediaItemState.ABSENT else MediaItemState.PRESENT
+                    if (!c.moveToFirst()) {
+                        if (permissionManager.hasLimitedMediaAccessOnly()) {
+                            MediaItemState.UNKNOWN
+                        } else {
+                            MediaItemState.ABSENT
+                        }
+                    } else {
+                        MediaItemState.PRESENT
+                    }
                 }
             }
         }

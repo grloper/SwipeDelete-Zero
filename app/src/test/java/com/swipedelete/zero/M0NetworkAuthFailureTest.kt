@@ -10,10 +10,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Network and authentication failure tests for M0:
- * NET-01: Session status query parsing, lost finalization recovery, session reset without token fabrication.
- * NET-02: Independent read vs upload scopes, account rotation guard, bounded auth retries.
+ * Reducer state transition and HTTP status code classification tests for M0:
+ * NET-01: SessionReset and Finalized event reduction in UploadReducer.
  * NET-03: HTTP status code classification, retry-after/backoff handling, retry bounds.
+ *
+ * Note: HTTP parser tests are located in [com.swipedelete.zero.photos.PhotosUploaderQueryParserTest]
+ * and worker auth orchestrator tests are in [com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest].
  */
 class M0NetworkAuthFailureTest {
 
@@ -41,7 +43,7 @@ class M0NetworkAuthFailureTest {
     )
 
     // =========================================================================
-    // NET-01: Lost Finalization & Session Recovery
+    // NET-01: Lost Finalization & Session Recovery Reducer Transitions
     // =========================================================================
 
     @Test
@@ -76,54 +78,6 @@ class M0NetworkAuthFailureTest {
         assertEquals(entity.sizeBytes, finalized.bytesUploaded)
     }
 
-    @Test
-    fun `NET-01 - SessionQueryResult models active, final with token, and final lost-token cases`() {
-        val activeResult = UploadReducer.SessionQueryResult(
-            offset = 4096L,
-            status = "active",
-            uploadToken = null,
-        )
-        assertEquals(4096L, activeResult.offset)
-        assertEquals("active", activeResult.status)
-        assertNull(activeResult.uploadToken)
-
-        val finalRecovered = UploadReducer.SessionQueryResult(
-            offset = 10_000_000L,
-            status = "final",
-            uploadToken = "recovered_token_abc",
-        )
-        assertEquals("final", finalRecovered.status)
-        assertEquals("recovered_token_abc", finalRecovered.uploadToken)
-
-        val finalLost = UploadReducer.SessionQueryResult(
-            offset = 10_000_000L,
-            status = "final",
-            uploadToken = null,
-        )
-        assertEquals("final", finalLost.status)
-        assertNull(finalLost.uploadToken)
-    }
-
-    // =========================================================================
-    // NET-02: Independent Scopes & Auth Discipline
-    // =========================================================================
-
-    @Test
-    fun `NET-02 - append and read scopes are separate and distinct`() {
-        assertFalse(
-            "Append and read scopes must not be identical",
-            UploadReducer.PHOTOS_APPEND_SCOPE == UploadReducer.PHOTOS_READ_SCOPE,
-        )
-        assertTrue(
-            "Append scope must declare appendonly",
-            UploadReducer.PHOTOS_APPEND_SCOPE.contains("appendonly"),
-        )
-        assertTrue(
-            "Read scope must declare appcreateddata",
-            UploadReducer.PHOTOS_READ_SCOPE.contains("appcreateddata"),
-        )
-    }
-
     // =========================================================================
     // NET-03: HTTP Classification & Terminal Error Safety
     // =========================================================================
@@ -148,20 +102,33 @@ class M0NetworkAuthFailureTest {
     @Test
     fun `NET-03 - retryable error transitions to failed when MAX_ATTEMPTS is reached`() {
         val entity = testEntity(attempts = 4) // next attempt will be 5 (MAX_ATTEMPTS)
-        val reduced = UploadReducer.reduce(entity, UploadEvent.Failed(500, "Server Error"), 2000L)
 
-        assertEquals("After MAX_ATTEMPTS, state must become FAILED", CloudUploadEntity.STATE_FAILED, reduced.state)
-        assertEquals(5, reduced.attempts)
-        assertEquals("Server Error", reduced.lastError)
+        val failed = UploadReducer.reduce(entity, UploadEvent.Failed(500, "Internal Server Error"), 2000L)
+
+        assertEquals(CloudUploadEntity.STATE_FAILED, failed.state)
+        assertEquals(5, failed.attempts)
+        assertEquals("Internal Server Error", failed.lastError)
     }
 
     @Test
-    fun `NET-03 - terminal error immediately transitions to STATE_FAILED regardless of attempt count`() {
-        val entity = testEntity(attempts = 0)
-        val reduced = UploadReducer.reduce(entity, UploadEvent.Failed(403, "Quota Exceeded"), 2000L)
+    fun `NET-03 - retryable error re-queues entity when attempts are below MAX_ATTEMPTS`() {
+        val entity = testEntity(attempts = 1)
 
-        assertEquals("Terminal error must immediately fail", CloudUploadEntity.STATE_FAILED, reduced.state)
-        assertEquals(1, reduced.attempts)
-        assertEquals("Quota Exceeded", reduced.lastError)
+        val requeued = UploadReducer.reduce(entity, UploadEvent.Failed(503, "Service Unavailable"), 2000L)
+
+        assertEquals(CloudUploadEntity.STATE_QUEUED, requeued.state)
+        assertEquals(2, requeued.attempts)
+        assertEquals("Service Unavailable", requeued.lastError)
+    }
+
+    @Test
+    fun `NET-03 - terminal error transitions immediately to STATE_FAILED regardless of attempts`() {
+        val entity = testEntity(attempts = 0)
+
+        val terminalFailed = UploadReducer.reduce(entity, UploadEvent.Failed(403, "Quota exceeded"), 2000L)
+
+        assertEquals(CloudUploadEntity.STATE_FAILED, terminalFailed.state)
+        assertEquals(1, terminalFailed.attempts)
+        assertEquals("Quota exceeded", terminalFailed.lastError)
     }
 }

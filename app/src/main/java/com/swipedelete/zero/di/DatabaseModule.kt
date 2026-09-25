@@ -21,13 +21,18 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
+    val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE cloud_uploads ADD COLUMN accountName TEXT DEFAULT NULL")
+            db.execSQL("UPDATE cloud_uploads SET state = 'FAILED', lastError = 'Quarantined: legacy upload without account ownership' WHERE accountName IS NULL AND state IN ('QUEUED', 'UPLOADING', 'VERIFYING')")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
-            // v1 schema; destructive fallback is fine — the DB only holds
-            // regenerable queue/session/analysis state, never user files.
-            .fallbackToDestructiveMigration()
+            .addMigrations(MIGRATION_4_5)
             .build()
 
     @Provides fun provideStagedFileDao(db: AppDatabase): StagedFileDao = db.stagedFileDao()

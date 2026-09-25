@@ -135,10 +135,11 @@ fun StagingSheet(
                         )
                         Text(
                             when {
+                                !state.cleanupAvailable -> state.cleanupLockExplanation ?: "Cleanup is unavailable in this test build. Your originals stay on this device."
                                 !state.backupConnected -> "Connect Google to back up these files before deletion."
                                 state.failedBackupCount > 0 -> "${state.failedBackupCount} upload(s) failed. Retry them in Backup Manager."
                                 state.pendingBackupCount > 0 -> "Local files stay untouched while uploads finish."
-                                else -> "Google Photos verified (metadata only). Local deletion is locked in M0 until independent original-file restore proof is verified (M1)."
+                                else -> "Google Photos backup verified."
                             },
                             color = SdzColor.TextSecondary,
                             style = MaterialTheme.typography.bodySmall,
@@ -150,6 +151,16 @@ fun StagingSheet(
                         } else {
                             OutlinedButton(onClick = viewModel::backUpStaged) { Text("Recheck backups") }
                         }
+                    }
+                }
+
+                if (!state.cleanupAvailable) {
+                    state.cleanupLockExplanation?.let { explanation ->
+                        Text(
+                            explanation,
+                            color = SdzColor.Amber,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
                 }
 

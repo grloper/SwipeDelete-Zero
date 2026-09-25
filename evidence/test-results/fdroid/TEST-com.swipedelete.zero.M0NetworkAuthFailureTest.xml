@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.swipedelete.zero.M0NetworkAuthFailureTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-25T23:54:43.105Z" hostname="OFEKVPC" time="0.002">
+  <properties/>
+  <testcase name="NET-03 - retryable error transitions to failed when MAX_ATTEMPTS is reached" classname="com.swipedelete.zero.M0NetworkAuthFailureTest" time="0.001"/>
+  <testcase name="NET-03 - transport errors, timeouts, rate-limits and server errors are retryable" classname="com.swipedelete.zero.M0NetworkAuthFailureTest" time="0.0"/>
+  <testcase name="NET-03 - retryable error re-queues entity when attempts are below MAX_ATTEMPTS" classname="com.swipedelete.zero.M0NetworkAuthFailureTest" time="0.0"/>
+  <testcase name="NET-01 - SessionReset clears uploadUrl and uploadToken cleanly" classname="com.swipedelete.zero.M0NetworkAuthFailureTest" time="0.0"/>
+  <testcase name="NET-03 - terminal error transitions immediately to STATE_FAILED regardless of attempts" classname="com.swipedelete.zero.M0NetworkAuthFailureTest" time="0.0"/>
+  <testcase name="NET-01 - Finalized event transitions entity to VERIFYING and sets uploadToken" classname="com.swipedelete.zero.M0NetworkAuthFailureTest" time="0.0"/>
+  <testcase name="NET-03 - client errors such as quota exhaustion and bad requests are terminal" classname="com.swipedelete.zero.M0NetworkAuthFailureTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

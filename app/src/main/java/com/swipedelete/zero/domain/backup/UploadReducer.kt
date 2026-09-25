@@ -38,14 +38,6 @@ sealed interface UploadEvent {
 object UploadReducer {
 
     const val MAX_ATTEMPTS = 5
-    const val PHOTOS_APPEND_SCOPE = "https://www.googleapis.com/auth/photoslibrary.appendonly"
-    const val PHOTOS_READ_SCOPE = "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata"
-
-    data class SessionQueryResult(
-        val offset: Long,
-        val status: String?,
-        val uploadToken: String?,
-    )
 
     /** 408/429/5xx and transport errors retry with backoff; 4xx are terminal. */
     fun isRetryable(httpCode: Int?): Boolean =

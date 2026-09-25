@@ -48,6 +48,18 @@ class StoragePermissionManager @Inject constructor(
         return mediaPermissions.any { isGranted(it) }
     }
 
+    /**
+     * True on Android 14+ (API 34+) when user granted partial access (READ_MEDIA_VISUAL_USER_SELECTED)
+     * without full media permissions or all-files access.
+     * Under this access model, absence from an empty query cursor cannot distinguish deletion from lack of visibility.
+     */
+    fun hasLimitedMediaAccessOnly(): Boolean {
+        if (Build.VERSION.SDK_INT < 34) return false
+        val hasSelected = isGranted("android.permission.READ_MEDIA_VISUAL_USER_SELECTED")
+        val hasFull = mediaPermissions.any { isGranted(it) } || hasAllFilesAccess()
+        return hasSelected && !hasFull
+    }
+
     /** True only on the `play` flavor when the user granted all-files access. */
     fun hasAllFilesAccess(): Boolean {
         if (!BuildConfig.ALLOW_MANAGE_STORAGE) return false

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-25T23:54:43.346Z" hostname="OFEKVPC" time="0.105">
+  <properties/>
+  <testcase name="M0-R2 - two consecutive read 401s fail the row without touching append token or consuming retries" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.086"/>
+  <testcase name="M0-R1 - disconnect during upload throws CancellationException and prevents new operations" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.007"/>
+  <testcase name="M0-R1 - worker restarted under Account B quarantines pending item authorized under Account A" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.004"/>
+  <testcase name="M0-R2 - read 401 invalidates read token only, never clearing append token" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.004"/>
+  <testcase name="M0-R1 - legacy queue item with null account owner is quarantined and never sent" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

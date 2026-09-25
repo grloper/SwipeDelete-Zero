@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.swipedelete.zero.MediaStoreReconciliationTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-25T23:54:43.117Z" hostname="OFEKVPC" time="0.122">
+  <properties/>
+  <testcase name="M0-R6 - null cursor or exception returns UNKNOWN" classname="com.swipedelete.zero.MediaStoreReconciliationTest" time="0.078"/>
+  <testcase name="M0-R6 - full media access confirms ABSENT on empty cursor" classname="com.swipedelete.zero.MediaStoreReconciliationTest" time="0.038"/>
+  <testcase name="M0-R6 - Android 14 limited media access fails closed to UNKNOWN on empty cursor" classname="com.swipedelete.zero.MediaStoreReconciliationTest" time="0.003"/>
+  <testcase name="M0-R6 - active untrashed row confirms PRESENT" classname="com.swipedelete.zero.MediaStoreReconciliationTest" time="0.001"/>
+  <testcase name="M0-R6 - permission denial returns UNKNOWN, never ABSENT" classname="com.swipedelete.zero.MediaStoreReconciliationTest" time="0.001"/>
+  <testcase name="M0-R6 - trashed row confirms TRASHED" classname="com.swipedelete.zero.MediaStoreReconciliationTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
