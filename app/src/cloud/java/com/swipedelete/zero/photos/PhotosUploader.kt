@@ -50,8 +50,18 @@ class PhotosUploader @Inject constructor() {
         return Session(url, granularity)
     }
 
-    /** How many bytes the server has already received (resume after death). */
-    fun queryOffset(authToken: String, uploadUrl: String): Long {
+    data class SessionQueryResult(
+        val offset: Long,
+        val status: String?,
+        val uploadToken: String?,
+    )
+
+    /**
+     * Query session state from the server.
+     * Evaluates X-Goog-Upload-Status, received byte count, and recovers the finalized
+     * upload token from the response body when status is "final".
+     */
+    fun querySession(authToken: String, uploadUrl: String): SessionQueryResult {
         val connection = open(uploadUrl, authToken).apply {
             requestMethod = "POST"
             setRequestProperty("Content-Length", "0")
@@ -61,9 +71,21 @@ class PhotosUploader @Inject constructor() {
         connection.outputStream.use { }
         checkSuccess(connection)
         val received = connection.getHeaderField("X-Goog-Upload-Size-Received")?.toLongOrNull() ?: 0L
+        val status = connection.getHeaderField("X-Goog-Upload-Status")?.lowercase()
+        val token = if (status == "final") {
+            try {
+                connection.inputStream.bufferedReader().use { it.readText() }.trim().ifEmpty { null }
+            } catch (_: Exception) {
+                null
+            }
+        } else null
         connection.disconnect()
-        return received
+        return SessionQueryResult(received, status, token)
     }
+
+    /** How many bytes the server has already received (resume after death). */
+    fun queryOffset(authToken: String, uploadUrl: String): Long =
+        querySession(authToken, uploadUrl).offset
 
     /**
      * Upload one chunk at [offset]. Returns the upload token when [isLast]

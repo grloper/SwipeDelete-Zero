@@ -32,7 +32,7 @@ import javax.inject.Singleton
  * .StartIntentSenderForResult`. This keeps the repository free of Activity refs.
  */
 @Singleton
-class PurgeEngine @Inject constructor(
+open class PurgeEngine @Inject constructor(
     @ApplicationContext private val context: Context,
     private val mediaStore: MediaStoreRepository,
     private val safBridge: SafStorageBridge,
@@ -70,35 +70,83 @@ class PurgeEngine @Inject constructor(
      * non-media (SAF/direct), applies the existence recheck, and prepares one
      * grouped MediaStore request for all trashable media.
      */
-    suspend fun preparePurge(
-        staged: List<StagedFileEntity>,
-        mode: ExecutionMode,
-    ): PurgePlan = withContext(Dispatchers.IO) {
-        if (staged.isEmpty()) return@withContext PurgePlan.NoConfirmationNeeded(NonMediaResult())
+    sealed interface DeletionEligibility {
+        data object Permitted : DeletionEligibility
+        data class Blocked(val reason: String) : DeletionEligibility
+    }
+
+    /**
+     * Typed domain safety check.
+     * Enforces default-deny:
+     * - In Play/cloud, unavailable provider, unverified files, or metadata-only evidence blocks deletion.
+     * - In M0, the safety lock centrally prevents destructive operations because original-byte restore proof does not exist yet.
+     */
+    open suspend fun checkDeletionEligibility(staged: List<StagedFileEntity>): DeletionEligibility {
+        if (staged.isEmpty()) return DeletionEligibility.Permitted
+
+        // In Play/cloud, provider availability is mandatory.
+        if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE && !photosArchive.isAvailable) {
+            return DeletionEligibility.Blocked(
+                "Google Photos backup provider is unavailable. Local deletion requires a connected and verified backup provider."
+            )
+        }
+
         if (photosArchive.isAvailable) {
             // Check every file before executing any deletion. A partial batch
             // must never silently delete the backed-up subset while leaving
             // unprotected items in the queue.
             val unverified = staged.firstOrNull { !photosArchive.verifyRemote(it) }
-            if (unverified != null) return@withContext PurgePlan.Failed(
-                "${unverified.displayName} is not confirmed in Google Photos. " +
-                    "Back up the staged files and wait for verification before deleting."
-            )
+            if (unverified != null) {
+                return DeletionEligibility.Blocked(
+                    "${unverified.displayName} is not confirmed in Google Photos. " +
+                        "Back up the staged files and wait for verification before deleting."
+                )
+            }
+
+            // Central M0 Non-Destructive Safety Lock:
+            // Google Photos evidence is metadata-only and does not verify original-byte restoration.
+            // In M0, deleting local originals is centrally locked in the domain layer.
+            return DeletionEligibility.Blocked(M0_SAFETY_LOCK_MESSAGE)
         }
+
+        return DeletionEligibility.Permitted
+    }
+
+    internal var uriParser: (String) -> Uri = { Uri.parse(it) }
+
+    /**
+     * Build a batched purge plan. Splits [staged] into media (MediaStore) and
+     * non-media (SAF/direct), applies the existence recheck, and prepares one
+     * grouped MediaStore request for all trashable media.
+     */
+    suspend fun preparePurge(
+        staged: List<StagedFileEntity>,
+        mode: ExecutionMode,
+    ): PurgePlan = withContext(Dispatchers.IO) {
+        if (staged.isEmpty()) return@withContext PurgePlan.NoConfirmationNeeded(NonMediaResult())
+
+        when (val eligibility = checkDeletionEligibility(staged)) {
+            is DeletionEligibility.Blocked -> return@withContext PurgePlan.Failed(eligibility.reason)
+            DeletionEligibility.Permitted -> Unit
+        }
+
         if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && mode == ExecutionMode.OS_TRASH_30_DAY) {
             return@withContext PurgePlan.Failed(
                 "Android 10 cannot move this batch to Trash. Choose Permanent delete, or keep it staged."
             )
         }
 
-        val (media, nonMedia) = staged.partition {
+        // Bound batch size to avoid OS Binder transaction and provider request limits.
+        val batch = staged.take(MAX_PURGE_BATCH_SIZE)
+
+        val (media, nonMedia) = batch.partition {
             runCatching { MediaType.valueOf(it.mediaType) }
                 .getOrDefault(MediaType.DOCUMENT).isMediaStoreTrashable
         }
 
         // Data-drift guard: drop rows whose files vanished/changed externally.
         val liveMediaUris = media
-            .map { Uri.parse(it.contentUri) }
+            .map { uriParser(it.contentUri) }
             .filter { mediaStore.stillExists(it) }
 
         val nonMediaResult = purgeNonMedia(nonMedia)
@@ -171,19 +219,30 @@ class PurgeEngine @Inject constructor(
      * After the OS dialog returns RESULT_OK, verify each media uri is really
      * gone (permanent) or trashed, and report which succeeded. Only the winners
      * are removed from the staging queue by the caller — partial-success safe.
+     *
+     * Safety rules:
+     * - Unreadable != deleted: query errors and permission losses result in UNKNOWN, never success.
+     * - Mode OS_TRASH_30_DAY verifies MediaItemState.TRASHED (IS_TRASHED == 1 on API 30+).
+     * - Mode PERMANENT_PURGE verifies MediaItemState.ABSENT.
      */
     suspend fun confirmMediaPurged(
         uris: List<Uri>,
         mode: ExecutionMode,
     ): List<String> = withContext(Dispatchers.IO) {
         uris.filter { uri ->
+            val state = mediaStore.inspectMediaState(uri)
             when (mode) {
-                // Permanent: success == no longer present.
-                ExecutionMode.PERMANENT_PURGE -> !mediaStore.stillExists(uri)
-                // Trash: the row still exists (IS_TRASHED=1) but the user
-                // confirmed; treat confirmation as success.
-                ExecutionMode.OS_TRASH_30_DAY -> true
+                ExecutionMode.PERMANENT_PURGE -> state == MediaStoreRepository.MediaItemState.ABSENT
+                ExecutionMode.OS_TRASH_30_DAY -> state == MediaStoreRepository.MediaItemState.TRASHED
             }
         }.map { it.toString() }
+    }
+
+    companion object {
+        const val MAX_PURGE_BATCH_SIZE = 100
+        const val M0_SAFETY_LOCK_MESSAGE =
+            "Deletion locked (M0 safety containment): Google Photos evidence is metadata-only " +
+                "and does not prove original-byte restoration. Removing local originals requires " +
+                "verified original-file restore proof (M1). Local review, staging, and undo remain active."
     }
 }

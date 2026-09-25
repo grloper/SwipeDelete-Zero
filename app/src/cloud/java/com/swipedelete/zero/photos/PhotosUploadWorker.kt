@@ -58,36 +58,53 @@ class PhotosUploadWorker @AssistedInject constructor(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         setForeground(foregroundInfo("Preparing…"))
 
-        val account = GoogleSignIn.getLastSignedInAccount(appContext)?.account
+        val initialAccount = GoogleSignIn.getLastSignedInAccount(appContext)?.account
             ?: return@withContext Result.failure()
+        val boundAccountName = initialAccount.name
         var authToken = try {
-            GoogleAuthUtil.getToken(appContext, account, "oauth2:${PhotosUploader.PHOTOS_APPEND_SCOPE}")
+            GoogleAuthUtil.getToken(appContext, initialAccount, "oauth2:${PhotosUploader.PHOTOS_APPEND_SCOPE}")
         } catch (_: Exception) {
             return@withContext Result.retry()
         }
 
         uploadDao.verifiedWithoutLedger().forEach { onVerified(it) }
 
+        var authRetries = 0
+        val maxAuthRetries = 2
+
         while (true) {
             if (isStopped) return@withContext Result.retry()
+            // Bound to stable account: do not cross-use credentials if user switched accounts.
+            val currentAccount = GoogleSignIn.getLastSignedInAccount(appContext)?.account
+            if (currentAccount == null || currentAccount.name != boundAccountName) {
+                return@withContext Result.retry()
+            }
+
             val row = uploadDao.nextPending() ?: break
             setForeground(foregroundInfo(row.displayName))
 
             val outcome = try {
-                processRow(row, authToken)
+                processRow(row, authToken, currentAccount)
+                authRetries = 0
                 RowOutcome.DONE
             } catch (e: PhotosUploader.HttpStatusException) {
                 if (e.code == 401) {
-                    // Token expired mid-run: clear, refresh, let the loop retry the row.
-                    GoogleAuthUtil.clearToken(appContext, authToken)
-                    authToken = try {
-                        GoogleAuthUtil.getToken(
-                            appContext, account, "oauth2:${PhotosUploader.PHOTOS_APPEND_SCOPE}"
-                        )
-                    } catch (_: Exception) {
-                        return@withContext Result.retry()
+                    authRetries++
+                    if (authRetries > maxAuthRetries) {
+                        applyFailure(row, 401, "Authentication failed after token refresh")
+                        RowOutcome.DONE
+                    } else {
+                        // Append token expired mid-run: clear, refresh, let the loop retry the row.
+                        GoogleAuthUtil.clearToken(appContext, authToken)
+                        authToken = try {
+                            GoogleAuthUtil.getToken(
+                                appContext, currentAccount, "oauth2:${PhotosUploader.PHOTOS_APPEND_SCOPE}"
+                            )
+                        } catch (_: Exception) {
+                            return@withContext Result.retry()
+                        }
+                        RowOutcome.RETRY_NOW
                     }
-                    RowOutcome.RETRY_NOW
                 } else {
                     applyFailure(row, if (e.code == 404 && row.mediaItemId != null) null else e.code,
                         e.message ?: "HTTP ${e.code}")
@@ -115,7 +132,7 @@ class PhotosUploadWorker @AssistedInject constructor(
         return if (reduced.state == CloudUploadEntity.STATE_QUEUED) RowOutcome.BACKOFF else RowOutcome.DONE
     }
 
-    private suspend fun processRow(start: CloudUploadEntity, authToken: String) {
+    private suspend fun processRow(start: CloudUploadEntity, authToken: String, account: android.accounts.Account) {
         var row = start
         val uri = Uri.parse(row.contentUri)
 
@@ -133,7 +150,7 @@ class PhotosUploadWorker @AssistedInject constructor(
         // Upload phase (skipped when a crashed run already holds a token).
         if (row.uploadToken == null) {
             var uploadUrl = row.uploadUrl
-            var offset: Long
+            var offset: Long = 0
             if (uploadUrl == null) {
                 val session = uploader.startSession(
                     authToken, row.mimeType.ifBlank { "application/octet-stream" }, row.sizeBytes
@@ -146,31 +163,64 @@ class PhotosUploadWorker @AssistedInject constructor(
                 // which is a multiple of the API's 256 KiB granularity.
                 chunkGranularity = session.chunkGranularityBytes
             } else {
-                offset = uploader.queryOffset(authToken, uploadUrl)
-                row = reduceAndSave(row, UploadEvent.ChunkAcked(offset))
+                val queryResult = uploader.querySession(authToken, uploadUrl)
+                if (queryResult.status == "final") {
+                    if (queryResult.uploadToken != null) {
+                        // Recovered finalized upload token from query response!
+                        row = reduceAndSave(row, UploadEvent.Finalized(queryResult.uploadToken))
+                        offset = row.sizeBytes
+                    } else {
+                        // Session finalized on server but upload token is lost:
+                        // safely restart session from scratch to avoid crash loop or fabricated token.
+                        val session = uploader.startSession(
+                            authToken, row.mimeType.ifBlank { "application/octet-stream" }, row.sizeBytes
+                        )
+                        uploadUrl = session.uploadUrl
+                        row = reduceAndSave(row, UploadEvent.SessionReset(session.uploadUrl))
+                        offset = 0
+                        chunkGranularity = session.chunkGranularityBytes
+                    }
+                } else {
+                    offset = queryResult.offset
+                    if (offset >= row.sizeBytes) {
+                        // Server claims all bytes received but session was not finalized:
+                        // safely restart session to obtain a valid finalize response.
+                        val session = uploader.startSession(
+                            authToken, row.mimeType.ifBlank { "application/octet-stream" }, row.sizeBytes
+                        )
+                        uploadUrl = session.uploadUrl
+                        row = reduceAndSave(row, UploadEvent.SessionReset(session.uploadUrl))
+                        offset = 0
+                        chunkGranularity = session.chunkGranularityBytes
+                    } else {
+                        row = reduceAndSave(row, UploadEvent.ChunkAcked(offset))
+                    }
+                }
             }
 
-            val chunkSize = UploadReducer.chunkSizeFor(chunkGranularity)
-            appContext.contentResolver.openInputStream(uri)?.use { input ->
-                skipFully(input, offset)
-                val buffer = ByteArray(chunkSize)
-                while (offset < row.sizeBytes) {
-                    if (isStopped) throw IOException("worker stopped")
-                    val toRead = minOf(chunkSize.toLong(), row.sizeBytes - offset).toInt()
-                    readFully(input, buffer, toRead)
-                    val isLast = offset + toRead >= row.sizeBytes
-                    val token = uploader.uploadChunk(authToken, uploadUrl, buffer, toRead, offset, isLast)
-                    offset += toRead
-                    row = if (isLast) {
-                        reduceAndSave(row, UploadEvent.Finalized(checkNotNull(token)))
-                    } else {
-                        reduceAndSave(row, UploadEvent.ChunkAcked(offset))
+            if (row.uploadToken == null) {
+                val chunkSize = UploadReducer.chunkSizeFor(chunkGranularity)
+                appContext.contentResolver.openInputStream(uri)?.use { input ->
+                    skipFully(input, offset)
+                    val buffer = ByteArray(chunkSize)
+                    while (offset < row.sizeBytes) {
+                        if (isStopped) throw IOException("worker stopped")
+                        val toRead = minOf(chunkSize.toLong(), row.sizeBytes - offset).toInt()
+                        readFully(input, buffer, toRead)
+                        val isLast = offset + toRead >= row.sizeBytes
+                        val token = uploader.uploadChunk(authToken, checkNotNull(uploadUrl), buffer, toRead, offset, isLast)
+                        offset += toRead
+                        row = if (isLast) {
+                            reduceAndSave(row, UploadEvent.Finalized(checkNotNull(token)))
+                        } else {
+                            reduceAndSave(row, UploadEvent.ChunkAcked(offset))
+                        }
+                        setForeground(
+                            foregroundInfo("${row.displayName} · ${(offset * 100 / row.sizeBytes)}%")
+                        )
                     }
-                    setForeground(
-                        foregroundInfo("${row.displayName} · ${(offset * 100 / row.sizeBytes)}%")
-                    )
-                }
-            } ?: throw IOException("File unreadable: ${row.displayName}")
+                } ?: throw IOException("File unreadable: ${row.displayName}")
+            }
         }
 
         // Verification handshake — the ONLY path to VERIFIED.
@@ -180,13 +230,30 @@ class PhotosUploadWorker @AssistedInject constructor(
             )
             row = reduceAndSave(row, UploadEvent.Created(mediaItemId))
         }
-        val readToken = try {
-            val account = checkNotNull(GoogleSignIn.getLastSignedInAccount(appContext)?.account)
-            GoogleAuthUtil.getToken(appContext, account, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}")
-        } catch (e: Exception) {
-            throw IOException("Could not authenticate Google Photos readback", e)
+
+        // Independent read-token authentication with scoped 401 handling.
+        val remote = run {
+            var rToken = try {
+                GoogleAuthUtil.getToken(appContext, account, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}")
+            } catch (e: Exception) {
+                throw IOException("Could not authenticate Google Photos readback", e)
+            }
+            try {
+                uploader.getMediaItem(rToken, checkNotNull(row.mediaItemId))
+            } catch (e: PhotosUploader.HttpStatusException) {
+                if (e.code == 401) {
+                    // Clear and refresh READ token specifically, never append token!
+                    GoogleAuthUtil.clearToken(appContext, rToken)
+                    rToken = try {
+                        GoogleAuthUtil.getToken(appContext, account, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}")
+                    } catch (ex: Exception) {
+                        throw IOException("Could not refresh Google Photos read token", ex)
+                    }
+                    uploader.getMediaItem(rToken, checkNotNull(row.mediaItemId))
+                } else throw e
+            }
         }
-        val remote = uploader.getMediaItem(readToken, checkNotNull(row.mediaItemId))
+
         if (remote.id != row.mediaItemId || remote.mimeType != row.mimeType ||
             remote.filename != row.displayName || !remote.productUrl.startsWith("https://")) {
             throw IOException("Google Photos did not confirm matching media and link")
