@@ -1,5 +1,7 @@
 package com.swipedelete.zero.ui.screens.cloud
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -96,6 +98,9 @@ fun CloudManagerScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val signInLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        viewModel.onSignInResult(it.data)
+    }
 
 
     LaunchedEffect(uiState.userMessage) {
@@ -114,7 +119,7 @@ fun CloudManagerScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Cloud Control Manager",
+                            text = "Backups",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = SdzColor.Phosphor,
@@ -169,6 +174,17 @@ fun CloudManagerScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            if (uiState.backupState is BackupState.SignedOut) {
+                Column(Modifier.fillMaxWidth().padding(SdzSpace.lg)) {
+                    Text("Connect Google to upload from SwipeRise.", color = SdzColor.TextSecondary)
+                    (uiState.backupState as BackupState.SignedOut).message?.let {
+                        Text(it, color = SdzColor.Amber)
+                    }
+                    Button(onClick = { viewModel.signInIntent()?.let { signInLauncher.launch(it) } }) {
+                        Text("Connect Google account")
+                    }
+                }
+            }
             // Real-Time Speed & Performance Meter
             CloudPerformanceCard(
                 stats = uiState.uploadStats,

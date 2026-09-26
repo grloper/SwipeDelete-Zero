@@ -10,8 +10,9 @@ def capture(name):
  (SC/(name+'.png')).write_bytes(adb('exec-out','screencap','-p'))
  return ET.fromstring(raw)
 def nodes(): return list(capture('latest').iter('node'))
-def click(pattern, timeout=20):
+def click(pattern, timeout=20, scroll=False):
  deadline=time.time()+timeout
+ scrolls=0
  while time.time()<deadline:
   tree=capture('latest')
   parents={child:parent for parent in tree.iter() for child in parent}
@@ -20,6 +21,10 @@ def click(pattern, timeout=20):
    while ancestors[-1] in parents: ancestors.append(parents[ancestors[-1]])
    if re.search(pattern,(n.get('text','')+' '+n.get('content-desc','')).strip()) and n.get('enabled')=='true' and not any(a.get('enabled')=='false' for a in ancestors):
     x1,y1,x2,y2=map(int,re.findall(r'\d+',n.get('bounds')));adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2));time.sleep(1);return
+  if scroll and scrolls < 3:
+   width,height=map(int,re.findall(r'(\d+)x(\d+)',adb('shell','wm','size').decode())[-1])
+   adb('shell','input','swipe',str(width//2),str(int(height*.78)),str(width//2),str(int(height*.32)),'450')
+   scrolls+=1
   time.sleep(1)
  raise AssertionError('Missing enabled control: '+pattern)
 def start(): adb('shell','am','start','-W','-n',PKG+'/com.swipedelete.zero.MainActivity');time.sleep(2)
@@ -46,7 +51,7 @@ try:
   time.sleep(1)
  steps.append('three synthetic images indexed in MediaStore')
  start();capture('01-dashboard');steps.append('permissions and dashboard')
- click(r'Start reviewing|Browse library')
+ click(r'Start reviewing|Browse library', scroll=True)
  if any('Got it' in n.get('text','') for n in nodes()):click(r'Got it')
  click(r'^Keep\b');click(r'^Undo\b');steps.append('keep and undo')
  click(r'^Stage\b');click(r'^Undo\b');click(r'^Stage\b');steps.append('stage, undo, stage again')

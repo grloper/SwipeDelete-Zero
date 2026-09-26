@@ -427,4 +427,95 @@ class DriveCloudBackupAuthTest {
         assertEquals(1, calls)
         assertTrue(ledger.backedUp.isEmpty())
     }
+    private suspend fun exerciseDownloadVerification(
+        downloaded: ByteArray,
+        downloadCode: Int = 200,
+        changeLocal: Boolean = false,
+        disconnect: Boolean = false,
+    ): Pair<List<BackedUpFileEntity>, List<String>> {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val original = "original-image-bytes".toByteArray()
+        val source = java.io.File.createTempFile("drive-backup-", ".jpg", context.cacheDir)
+        source.writeBytes(original)
+        try {
+            val kept = InMemoryKeptFileDao()
+            kept.upsert(sampleKept(android.net.Uri.fromFile(source).toString(), "fixture.jpg").copy(sizeBytes = original.size.toLong()))
+            val ledger = InMemoryBackedUpFileDao()
+            val backup = DriveCloudBackup(context, BackupRepository(kept, ledger, InMemoryCloudUploadDao()))
+            backup.getSignedInAccount = { "alice@example.com" to Account("alice@example.com", "com.google") }
+            backup.getAuthToken = { "test-token" }
+            backup.folderResolver = { "folder" }
+            backup.clientSignOutAction = {}
+            val requests = mutableListOf<String>()
+            backup.connectionFactory = { url ->
+                requests += url
+                val isDownload = url.endsWith("?alt=media")
+                object : java.net.HttpURLConnection(java.net.URL(url)) {
+                    override fun connect() {}
+                    override fun disconnect() {}
+                    override fun usingProxy() = false
+                    override fun getOutputStream(): java.io.OutputStream = java.io.ByteArrayOutputStream()
+                    override fun getResponseCode(): Int {
+                        assertEquals("Bearer test-token", getRequestProperty("Authorization"))
+                        if (isDownload) {
+                            assertFalse(useCaches)
+                            assertFalse(instanceFollowRedirects)
+                        }
+                        return if (isDownload) downloadCode else 200
+                    }
+                    override fun getInputStream(): java.io.InputStream {
+                        if (isDownload) {
+                            if (changeLocal) source.writeBytes("modified-image-bytes".toByteArray())
+                            if (disconnect) backup.signOut()
+                            return downloaded.inputStream()
+                        }
+                        return """{"id":"remote-file"}""".byteInputStream()
+                    }
+                }
+            }
+            try { backup.runBackup() } catch (_: kotlinx.coroutines.CancellationException) {
+                assertTrue("Only requested disconnection may cancel", disconnect)
+            }
+            assertTrue("The local original must never be removed", source.exists())
+            return ledger.backedUp.toList() to requests
+        } finally {
+            source.delete()
+        }
+    }
+
+    @Test
+    fun `Drive writes receipt only after separate download matches original bytes`() = runTest {
+        val (receipts, requests) = exerciseDownloadVerification("original-image-bytes".toByteArray())
+        assertEquals(listOf("remote-file"), receipts.map { it.remoteId })
+        assertEquals(2, requests.size)
+        assertTrue(requests.last().endsWith("/remote-file?alt=media"))
+    }
+
+    @Test
+    fun `Drive rejects same length corruption and truncated or oversized downloads`() = runTest {
+        for (bytes in listOf("corrupt!-image-bytes", "short", "original-image-bytes-extra")) {
+            val (receipts, requests) = exerciseDownloadVerification(bytes.toByteArray())
+            assertTrue("Corrupt content must not receive a backup receipt", receipts.isEmpty())
+            assertEquals(2, requests.size)
+        }
+    }
+
+    @Test
+    fun `Drive download permission failure never creates a backup receipt`() = runTest {
+        val (receipts, _) = exerciseDownloadVerification(byteArrayOf(), downloadCode = 403)
+        assertTrue(receipts.isEmpty())
+    }
+
+    @Test
+    fun `Drive rejects original modified during remote verification`() = runTest {
+        val (receipts, _) = exerciseDownloadVerification("original-image-bytes".toByteArray(), changeLocal = true)
+        assertTrue(receipts.isEmpty())
+    }
+
+    @Test
+    fun `Drive disconnect during download prevents receipt commit`() = runTest {
+        val (receipts, _) = exerciseDownloadVerification("original-image-bytes".toByteArray(), disconnect = true)
+        assertTrue(receipts.isEmpty())
+    }
+
 }

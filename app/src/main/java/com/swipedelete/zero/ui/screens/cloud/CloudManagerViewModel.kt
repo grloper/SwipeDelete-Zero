@@ -155,6 +155,10 @@ class CloudManagerViewModel @Inject constructor(
         }
     }
 
+    fun signInIntent(): Intent? = cloudBackup.signInIntent()
+
+    fun onSignInResult(data: Intent?) = cloudBackup.onSignInResult(data)
+
     fun backupNow() {
         cloudBackup.backupNow()
     }
@@ -171,14 +175,19 @@ class CloudManagerViewModel @Inject constructor(
 
     fun openBackedUpFile(context: Context, file: BackedUpFileEntity) {
         viewModelScope.launch {
-            val url = photosArchive.remoteUrl(file.remoteId)
+            // Legacy Drive receipts use the raw file ID; Photos receipts are namespaced.
+            val isPhotos = file.remoteId.startsWith("photos:")
+            val url = if (isPhotos) photosArchive.remoteUrl(file.remoteId) else {
+                file.remoteId.takeIf { it.matches(Regex("[A-Za-z0-9_-]+")) }
+                    ?.let { "https://drive.google.com/file/d/$it/view" }
+            }
             if (url == null) {
-                userMessage.value = "Could not confirm this item in Google Photos. Local deletion remains locked."
+                userMessage.value = "Could not open this backup. Local deletion remains locked."
                 return@launch
             }
             runCatching {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-            }.onFailure { userMessage.value = "No app can open the Google Photos link." }
+            }.onFailure { userMessage.value = "No app can open the backup link." }
         }
     }
 }

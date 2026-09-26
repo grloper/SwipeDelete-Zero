@@ -201,7 +201,7 @@ class DriveCloudBackup @Inject constructor(
         if (pending.isEmpty()) {
             synchronized(sessionLock) {
             if (currentSessionId.get() == sessionId && _state.value !is BackupState.SignedOut) {
-                _state.value = BackupState.Ready(email, "Everything is already backed up.")
+                _state.value = BackupState.Ready(email, "No new kept files are pending in this backup ledger.")
             }
             }
             return
@@ -355,7 +355,7 @@ class DriveCloudBackup @Inject constructor(
             return@withContext ConnectionCheck(
                 signedIn = false,
                 diagnostic = AuthDiagnostic.decode(AuthDiagnostic.SIGN_IN_REQUIRED),
-                message = "Not connected yet — finish step 5 first.",
+                message = "Connect your Google account to check backup access.",
             )
         }
         val email = account.email
@@ -460,6 +460,7 @@ class DriveCloudBackup @Inject constructor(
             guard()
             activeConnection.set(connection)
         }
+        val uploadedDigest = java.security.MessageDigest.getInstance("SHA-256")
         try {
             connection.outputStream.use { out ->
                 out.writeAscii("--$BOUNDARY\r\n")
@@ -470,7 +471,11 @@ class DriveCloudBackup @Inject constructor(
 
                 val input = context.contentResolver.openInputStream(Uri.parse(file.contentUri))
                     ?: throw IllegalStateException("File unreadable: ${file.displayName}")
-                input.use { copyStreamWithCancellation(it, out, guard) }
+                input.use {
+                    val counted = java.security.DigestInputStream(it, uploadedDigest)
+                    val uploadedBytes = copyStreamWithCancellation(counted, out, guard)
+                    check(uploadedBytes == file.sizeBytes) { "Local file changed size; backup was not verified." }
+                }
 
                 out.writeAscii("\r\n--$BOUNDARY--\r\n")
             }
@@ -481,20 +486,91 @@ class DriveCloudBackup @Inject constructor(
                 throw HttpStatusException(code, error ?: "HTTP $code")
             }
             val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-            return JSONObject(responseText).getString("id")
+            val remoteId = JSONObject(responseText).getString("id")
+            check(remoteId.matches(Regex("[A-Za-z0-9_-]+"))) { "Invalid Drive file ID" }
+            val expectedHash = uploadedDigest.digest()
+            // Release the upload socket before opening the independent download.
+            activeConnection.compareAndSet(connection, null)
+            connection.disconnect()
+            verifyDownloadedOriginal(token, remoteId, file.sizeBytes, expectedHash, guard)
+            // A file replaced while uploading must not be labelled backed up.
+            val localHash = context.contentResolver.openInputStream(Uri.parse(file.contentUri))?.use {
+                digestStream(it, file.sizeBytes, guard)
+            } ?: error("Local original is no longer readable.")
+            check(java.security.MessageDigest.isEqual(expectedHash, localHash)) {
+                "Local file changed during backup; review and retry."
+            }
+            guard()
+            return remoteId
         } finally {
             activeConnection.compareAndSet(connection, null)
             connection.disconnect()
         }
     }
 
-    private fun copyStreamWithCancellation(input: java.io.InputStream, out: OutputStream, guard: () -> Unit) {
+    private fun copyStreamWithCancellation(input: java.io.InputStream, out: OutputStream, guard: () -> Unit): Long {
         val buffer = ByteArray(8192)
         var bytesRead: Int
+        var total = 0L
         while (input.read(buffer).also { bytesRead = it } >= 0) {
             guard()
             out.write(buffer, 0, bytesRead)
+            total += bytesRead
         }
+        guard()
+        return total
+    }
+
+    /** Fresh authenticated download, never metadata or a local cache, before ledger write. */
+    private fun verifyDownloadedOriginal(
+        token: String, remoteId: String, size: Long, expectedHash: ByteArray, guard: () -> Unit,
+    ) {
+        guard()
+        val connection = connectionFactory("https://www.googleapis.com/drive/v3/files/$remoteId?alt=media").apply {
+            requestMethod = "GET"
+            setRequestProperty("Authorization", "Bearer $token")
+            setRequestProperty("Accept-Encoding", "identity")
+            setRequestProperty("Cache-Control", "no-cache")
+            useCaches = false
+            instanceFollowRedirects = false
+            connectTimeout = 30_000
+            readTimeout = 120_000
+        }
+        synchronized(sessionLock) {
+            guard()
+            activeConnection.set(connection)
+        }
+        try {
+            guard()
+            val code = connection.responseCode
+            if (code != 200) throw HttpStatusException(code, "Drive download verification failed: HTTP $code")
+            val actualHash = connection.inputStream.use { digestStream(it, size, guard) }
+            check(java.security.MessageDigest.isEqual(expectedHash, actualHash)) {
+                "Drive download did not match the original. Local file retained."
+            }
+            guard()
+        } finally {
+            activeConnection.compareAndSet(connection, null)
+            connection.disconnect()
+        }
+    }
+
+    private fun digestStream(input: java.io.InputStream, expectedSize: Long, guard: () -> Unit): ByteArray {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(8192)
+        var total = 0L
+        while (true) {
+            guard()
+            val count = input.read(buffer)
+            if (count < 0) break
+            guard()
+            total += count
+            check(total <= expectedSize) { "Backup size exceeds the expected original." }
+            digest.update(buffer, 0, count)
+        }
+        guard()
+        check(total == expectedSize) { "Backup download is incomplete." }
+        return digest.digest()
     }
 
     private fun httpGet(urlString: String, token: String): String =
