@@ -305,7 +305,11 @@ class PurgeBatchReconciliationTest {
         val purgeEngine = PurgeEngine(context, mediaStore, safBridge, permissions, photosArchive)
         purgeEngine.ioDispatcher = testDispatcher
         purgeEngine.sdkInt = android.os.Build.VERSION_CODES.R
-        purgeEngine.requestBuilder = { _, _ -> mock(IntentSender::class.java) }
+        var confirmationRequestCount = 0
+        purgeEngine.requestBuilder = { _, _ ->
+            confirmationRequestCount++
+            mock(IntentSender::class.java)
+        }
         val uriMap = stagedItems.associate { it.contentUri to mockUri(it.contentUri) }
         purgeEngine.uriParser = { uriMap[it] ?: mockUri(it) }
 
@@ -327,6 +331,7 @@ class PurgeBatchReconciliationTest {
 
         // Verify: OS confirmation effect was emitted and purging flag was set
         assertTrue("Confirmation dialog must be requested for live batch", collectedEffects.any { it is PurgeEffect.LaunchConfirmation })
+        assertEquals("Exactly 1 confirmation request must be created for live batch", 1, confirmationRequestCount)
         assertTrue("ViewModel should be in purging state while dialog is open", collectedStates.last().purging)
 
         // User dismisses / cancels OS confirmation dialog
@@ -342,6 +347,9 @@ class PurgeBatchReconciliationTest {
 
         // Assert 3: No bytes credited to stats store
         verify(statsStore, never()).addReclaimed(org.mockito.ArgumentMatchers.anyLong())
+
+        // Assert 4: Confirmation request counter proves no second confirmation/batch begins after cancellation
+        assertEquals("No second confirmation request or follow-on batch launched after cancellation", 1, confirmationRequestCount)
 
         stateJob.cancel()
         effectJob.cancel()

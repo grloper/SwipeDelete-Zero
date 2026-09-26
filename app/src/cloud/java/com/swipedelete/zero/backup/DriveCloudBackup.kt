@@ -56,7 +56,7 @@ class DriveCloudBackup @Inject constructor(
 ) : CloudBackup {
 
     internal var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val running = AtomicBoolean(false)
+    internal val running = AtomicBoolean(false)
     internal var backupJob: kotlinx.coroutines.Job? = null
 
     internal var getSignedInAccount: () -> Pair<String?, android.accounts.Account?> = {
@@ -84,6 +84,9 @@ class DriveCloudBackup @Inject constructor(
             signInClient().signOut()
         } catch (_: Exception) {}
     }
+
+    internal val currentSessionId = java.util.concurrent.atomic.AtomicLong(0)
+    internal val activeConnection = java.util.concurrent.atomic.AtomicReference<HttpURLConnection?>(null)
 
     private val _state = kotlinx.coroutines.flow.MutableStateFlow<BackupState>(initialState())
     override val state = _state
@@ -129,9 +132,11 @@ class DriveCloudBackup @Inject constructor(
     }
 
     override fun signOut() {
+        currentSessionId.incrementAndGet()
         backupJob?.cancel()
         backupJob = null
         running.set(false)
+        activeConnection.getAndSet(null)?.disconnect()
         clientSignOutAction()
         _state.value = BackupState.SignedOut()
         try {
@@ -141,108 +146,165 @@ class DriveCloudBackup @Inject constructor(
 
     override fun backupNow() {
         if (!running.compareAndSet(false, true)) return
+        val sessionId = currentSessionId.incrementAndGet()
         backupJob = scope.launch {
             try {
-                runBackup()
+                runBackup(sessionId)
             } finally {
-                running.set(false)
+                if (currentSessionId.get() == sessionId) {
+                    running.set(false)
+                }
             }
         }
     }
 
-    internal suspend fun runBackup() {
+    internal suspend fun runBackup(sessionId: Long = currentSessionId.get()) {
         val (email, androidAccount) = getSignedInAccount()
         if (email == null || androidAccount == null) {
-            _state.value = BackupState.SignedOut("Connect Google Drive first.")
+            if (currentSessionId.get() == sessionId) {
+                _state.value = BackupState.SignedOut("Connect Google Drive first.")
+            }
             return
         }
+        if (currentSessionId.get() == sessionId && _state.value is BackupState.SignedOut) {
+            _state.value = BackupState.Ready(email)
+        }
+
+        suspend fun isSessionActive(): Boolean {
+            return currentSessionId.get() == sessionId &&
+                _state.value !is BackupState.SignedOut &&
+                currentCoroutineContext().isActive &&
+                backupJob?.isActive != false
+        }
+
+        suspend fun checkSessionActive() {
+            if (!isSessionActive()) {
+                if (currentSessionId.get() == sessionId) {
+                    _state.value = BackupState.SignedOut()
+                }
+                throw kotlinx.coroutines.CancellationException("Drive backup cancelled or session invalidated")
+            }
+        }
+
+        checkSessionActive()
 
         val pending = backupRepository.pendingBackup()
         if (pending.isEmpty()) {
-            if (_state.value !is BackupState.SignedOut) {
+            if (currentSessionId.get() == sessionId && _state.value !is BackupState.SignedOut) {
                 _state.value = BackupState.Ready(email, "Everything is already backed up.")
             }
             return
         }
 
         try {
+            checkSessionActive()
             var token = getAuthToken(androidAccount)
+            checkSessionActive()
             val folderId = folderResolver(token)
+            checkSessionActive()
 
             var done = 0
             var failed = 0
-            _state.value = BackupState.Running(done, pending.size)
-
-            for (file in pending) {
-                if (_state.value is BackupState.SignedOut || !currentCoroutineContext().isActive || backupJob?.isActive == false) {
-                    _state.value = BackupState.SignedOut()
-                    throw kotlinx.coroutines.CancellationException("Drive backup job cancelled")
-                }
-                val (currentEmail, _) = getSignedInAccount()
-                if (currentEmail == null || currentEmail != email) {
-                    _state.value = BackupState.SignedOut("Account disconnected during backup.")
-                    return
-                }
-
-                val result = runCatching { fileUploader(token, folderId, file) }
-                    .recoverCatching { error ->
-                        if (error is HttpStatusException && error.code == 401) {
-                            // Token expired mid-run: clear, refresh, retry once.
-                            clearAuthToken(token)
-                            token = getAuthToken(androidAccount)
-                            fileUploader(token, folderId, file)
-                        } else {
-                            throw error
-                        }
-                    }
-
-                if (_state.value is BackupState.SignedOut || !currentCoroutineContext().isActive || backupJob?.isActive == false) {
-                    _state.value = BackupState.SignedOut()
-                    return
-                }
-
-                result.fold(
-                    onSuccess = { remoteId ->
-                        if (_state.value is BackupState.SignedOut) return
-                        val (checkEmail, _) = getSignedInAccount()
-                        if (checkEmail == null || checkEmail != email) {
-                            _state.value = BackupState.SignedOut("Account disconnected during backup.")
-                            return
-                        }
-                        backupRepository.markBackedUp(file, remoteId)
-                        done++
-                    },
-                    onFailure = { failed++ },
-                )
-                if (_state.value is BackupState.SignedOut) return
+            if (currentSessionId.get() == sessionId) {
                 _state.value = BackupState.Running(done, pending.size)
             }
 
+            for (file in pending) {
+                checkSessionActive()
+                val (currentEmail, _) = getSignedInAccount()
+                if (currentEmail == null || currentEmail != email) {
+                    if (currentSessionId.get() == sessionId) {
+                        _state.value = BackupState.SignedOut("Account disconnected during backup.")
+                    }
+                    return
+                }
+
+                val remoteId = try {
+                    checkSessionActive()
+                    fileUploader(token, folderId, file)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (error: Exception) {
+                    if (error is HttpStatusException && error.code == 401) {
+                        checkSessionActive()
+                        val (recheckEmail, _) = getSignedInAccount()
+                        if (recheckEmail == null || recheckEmail != email) {
+                            if (currentSessionId.get() == sessionId) {
+                                _state.value = BackupState.SignedOut("Account disconnected during backup.")
+                            }
+                            return
+                        }
+                        clearAuthToken(token)
+                        checkSessionActive()
+                        token = getAuthToken(androidAccount)
+                        checkSessionActive()
+                        try {
+                            fileUploader(token, folderId, file)
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (retryError: Exception) {
+                            failed++
+                            null
+                        }
+                    } else {
+                        failed++
+                        null
+                    }
+                }
+
+                checkSessionActive()
+                if (remoteId != null) {
+                    val (checkEmail, _) = getSignedInAccount()
+                    if (checkEmail == null || checkEmail != email) {
+                        if (currentSessionId.get() == sessionId) {
+                            _state.value = BackupState.SignedOut("Account disconnected during backup.")
+                        }
+                        return
+                    }
+                    backupRepository.markBackedUp(file, remoteId)
+                    done++
+                }
+
+                checkSessionActive()
+                if (currentSessionId.get() == sessionId) {
+                    _state.value = BackupState.Running(done, pending.size)
+                }
+            }
+
+            checkSessionActive()
             val (finalEmail, _) = getSignedInAccount()
-            if (finalEmail == null || finalEmail != email || _state.value is BackupState.SignedOut) {
-                _state.value = BackupState.SignedOut("Account disconnected during backup.")
+            if (finalEmail == null || finalEmail != email) {
+                if (currentSessionId.get() == sessionId) {
+                    _state.value = BackupState.SignedOut("Account disconnected during backup.")
+                }
                 return
             }
 
-            if (_state.value is BackupState.SignedOut) return
-
-            _state.value = BackupState.Ready(
-                email,
-                if (failed == 0) "Backed up $done file${if (done == 1) "" else "s"}."
-                else "Backed up $done, $failed failed — run again to retry.",
-            )
+            if (currentSessionId.get() == sessionId) {
+                _state.value = BackupState.Ready(
+                    email,
+                    if (failed == 0) "Backed up $done file${if (done == 1) "" else "s"}."
+                    else "Backed up $done, $failed failed — run again to retry.",
+                )
+            }
         } catch (e: kotlinx.coroutines.CancellationException) {
-            _state.value = BackupState.SignedOut()
+            if (currentSessionId.get() == sessionId) {
+                _state.value = BackupState.SignedOut()
+            }
             throw e
         } catch (e: UserRecoverableAuthException) {
-            _state.value = BackupState.SignedOut("Google needs re-consent — connect again.")
+            if (currentSessionId.get() == sessionId) {
+                _state.value = BackupState.SignedOut("Google needs re-consent — connect again.")
+            }
             clientSignOutAction()
         } catch (e: Exception) {
-            val (checkEmail, _) = getSignedInAccount()
-            if (checkEmail == null || checkEmail != email || _state.value is BackupState.SignedOut) {
-                _state.value = BackupState.SignedOut("Account disconnected during backup.")
-            } else {
-                _state.value = BackupState.Ready(email, "Backup failed: ${e.message ?: e.javaClass.simpleName}")
+            if (currentSessionId.get() == sessionId) {
+                val (checkEmail, _) = getSignedInAccount()
+                if (checkEmail == null || checkEmail != email || _state.value is BackupState.SignedOut) {
+                    _state.value = BackupState.SignedOut("Account disconnected during backup.")
+                } else {
+                    _state.value = BackupState.Ready(email, "Backup failed: ${e.message ?: e.javaClass.simpleName}")
+                }
             }
         }
     }
@@ -360,29 +422,44 @@ class DriveCloudBackup @Inject constructor(
             readTimeout = 120_000
         }
 
-        connection.outputStream.use { out ->
-            out.writeAscii("--$BOUNDARY\r\n")
-            out.writeAscii("Content-Type: application/json; charset=UTF-8\r\n\r\n")
-            out.write(metadata.toByteArray(Charsets.UTF_8))
-            out.writeAscii("\r\n--$BOUNDARY\r\n")
-            out.writeAscii("Content-Type: ${file.mimeType.ifBlank { "application/octet-stream" }}\r\n\r\n")
+        activeConnection.set(connection)
+        try {
+            connection.outputStream.use { out ->
+                out.writeAscii("--$BOUNDARY\r\n")
+                out.writeAscii("Content-Type: application/json; charset=UTF-8\r\n\r\n")
+                out.write(metadata.toByteArray(Charsets.UTF_8))
+                out.writeAscii("\r\n--$BOUNDARY\r\n")
+                out.writeAscii("Content-Type: ${file.mimeType.ifBlank { "application/octet-stream" }}\r\n\r\n")
 
-            val input = context.contentResolver.openInputStream(Uri.parse(file.contentUri))
-                ?: throw IllegalStateException("File unreadable: ${file.displayName}")
-            input.use { it.copyTo(out) }
+                val input = context.contentResolver.openInputStream(Uri.parse(file.contentUri))
+                    ?: throw IllegalStateException("File unreadable: ${file.displayName}")
+                input.use { copyStreamWithCancellation(it, out) }
 
-            out.writeAscii("\r\n--$BOUNDARY--\r\n")
-        }
+                out.writeAscii("\r\n--$BOUNDARY--\r\n")
+            }
 
-        val code = connection.responseCode
-        if (code !in 200..299) {
-            val error = connection.errorStream?.bufferedReader()?.use { it.readText() }
+            val code = connection.responseCode
+            if (code !in 200..299) {
+                val error = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                throw HttpStatusException(code, error ?: "HTTP $code")
+            }
+            val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+            return JSONObject(responseText).getString("id")
+        } finally {
+            activeConnection.compareAndSet(connection, null)
             connection.disconnect()
-            throw HttpStatusException(code, error ?: "HTTP $code")
         }
-        val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-        connection.disconnect()
-        return JSONObject(responseText).getString("id")
+    }
+
+    private fun copyStreamWithCancellation(input: java.io.InputStream, out: OutputStream) {
+        val buffer = ByteArray(8192)
+        var bytesRead: Int
+        while (input.read(buffer).also { bytesRead = it } >= 0) {
+            if (_state.value is BackupState.SignedOut) {
+                throw kotlinx.coroutines.CancellationException("Upload stream aborted: signed out")
+            }
+            out.write(buffer, 0, bytesRead)
+        }
     }
 
     private fun httpGet(urlString: String, token: String): String =
@@ -402,23 +479,27 @@ class DriveCloudBackup @Inject constructor(
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
             }
         }
-        if (body != null) {
-            connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-        }
-        val code = connection.responseCode
-        if (code !in 200..299) {
-            val error = connection.errorStream?.bufferedReader()?.use { it.readText() }
+        activeConnection.set(connection)
+        try {
+            if (body != null) {
+                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            }
+            val code = connection.responseCode
+            if (code !in 200..299) {
+                val error = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                throw HttpStatusException(code, error ?: "HTTP $code")
+            }
+            val text = connection.inputStream.bufferedReader().use { it.readText() }
+            return text
+        } finally {
+            activeConnection.compareAndSet(connection, null)
             connection.disconnect()
-            throw HttpStatusException(code, error ?: "HTTP $code")
         }
-        val text = connection.inputStream.bufferedReader().use { it.readText() }
-        connection.disconnect()
-        return text
     }
 
     private fun OutputStream.writeAscii(text: String) = write(text.toByteArray(Charsets.US_ASCII))
 
-    private class HttpStatusException(val code: Int, message: String) : Exception(message)
+    internal class HttpStatusException(val code: Int, message: String) : Exception(message)
 
     private companion object {
         const val DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"

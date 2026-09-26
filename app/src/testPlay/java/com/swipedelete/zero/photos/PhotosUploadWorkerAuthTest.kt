@@ -11,6 +11,7 @@ import com.swipedelete.zero.data.local.CloudUploadDao
 import com.swipedelete.zero.data.local.CloudUploadEntity
 import com.swipedelete.zero.data.local.StagedFileDao
 import com.swipedelete.zero.data.local.StagedFileEntity
+import com.swipedelete.zero.domain.backup.UploadReducer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -67,10 +68,20 @@ class PhotosUploadWorkerAuthTest {
         val uploadChunkCalls = mutableListOf<Long>()
         val batchCreateCalls = mutableListOf<String>()
         val getMediaItemCalls = mutableListOf<String>()
+        val querySessionCalls = mutableListOf<String>()
 
         var onStartSession: (() -> Unit)? = null
         var onUploadChunk: (() -> String?)? = null
         var onGetMediaItem: ((String) -> RemoteItem)? = null
+        var querySessionResult: PhotosUploader.SessionQueryResult? = null
+        var onQuerySession: ((String) -> PhotosUploader.SessionQueryResult)? = null
+
+        override fun querySession(authToken: String, uploadUrl: String): PhotosUploader.SessionQueryResult {
+            querySessionCalls.add(uploadUrl)
+            return onQuerySession?.invoke(uploadUrl)
+                ?: querySessionResult
+                ?: PhotosUploader.SessionQueryResult(0L, "active", null, isResumable = true, isFinal = false)
+        }
 
         override fun startSession(authToken: String, mimeType: String, rawSizeBytes: Long): Session {
             startSessionCalls.add(authToken)
@@ -485,5 +496,252 @@ class PhotosUploadWorkerAuthTest {
         // Worker returns without modifying ledger
         assertTrue("Ledger must NOT receive entries when account is disconnected", backedUpDao.getAll().isEmpty())
         assertTrue("Staged files must NOT receive entries when account is disconnected", stagedDao.getAll().isEmpty())
+    }
+
+    @Test
+    fun `M0-V3-02 - Photos token acquisition observes disconnect before readback - no following media request or success persistence`() = runTest {
+        val context = mock(Context::class.java)
+        val uploadDao = InMemoryCloudUploadDao()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val stagedDao = InMemoryStagedFileDao()
+
+        val authClient = object : PhotosAuthClient {
+            var activeAccount: String? = "alice@example.com"
+            val requestedScopes = mutableListOf<String>()
+
+            override fun getSignedInAccountName(context: Context): String? = activeAccount
+            override fun getSignedInAccount(context: Context): Account? = null
+            override fun getToken(context: Context, accountName: String, scope: String): String {
+                requestedScopes.add(scope)
+                if (scope.contains(PhotosUploader.PHOTOS_READ_SCOPE)) {
+                    // Sign out right during read token acquisition!
+                    activeAccount = null
+                    return "stale_read_token"
+                }
+                return "valid_append_token"
+            }
+            override fun clearToken(context: Context, token: String) {}
+        }
+
+        val uploader = TestPhotosUploader()
+        val resolver = mock(ContentResolver::class.java)
+        `when`(context.contentResolver).thenReturn(resolver)
+        `when`(resolver.openInputStream(org.mockito.ArgumentMatchers.any())).thenReturn(ByteArrayInputStream(ByteArray(100)))
+
+        val item = sampleEntity("content://media/external/images/media/42", accountName = "alice@example.com")
+        uploadDao.upsert(item)
+
+        val worker = createWorker(context, uploadDao, authClient, uploader, backedUpDao, stagedDao)
+
+        var thrown = false
+        try {
+            worker.doWork()
+        } catch (e: CancellationException) {
+            thrown = true
+        }
+
+        assertTrue("CancellationException must be thrown on disconnect during read token acquisition", thrown)
+        assertEquals("uploader.getMediaItem must never be called after disconnect", 0, uploader.getMediaItemCalls.size)
+        assertTrue("Ledger must have no entries", backedUpDao.getAll().isEmpty())
+        assertTrue("Staged files must have no entries", stagedDao.getAll().isEmpty())
+        val saved = uploadDao.get(item.contentUri)
+        assertNotNull(saved)
+        assertFalse("Item must NOT be marked VERIFIED", saved!!.state == CloudUploadEntity.STATE_VERIFIED)
+    }
+
+    // =========================================================================
+    // M0-V3-03: Session Recovery Full Orchestrator & HTTP Boundary Tests
+    // =========================================================================
+
+    @Test
+    fun `M0-V3-03 - session recovery with active partial offset resumes upload from reported offset`() = runTest {
+        val context = mock(Context::class.java)
+        val uploadDao = InMemoryCloudUploadDao()
+        val authClient = TestAuthClient(activeAccountName = "alice@example.com")
+        val uploader = TestPhotosUploader()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val stagedDao = InMemoryStagedFileDao()
+
+        val resolver = mock(ContentResolver::class.java)
+        `when`(context.contentResolver).thenReturn(resolver)
+        `when`(resolver.openInputStream(org.mockito.ArgumentMatchers.any())).thenReturn(ByteArrayInputStream(ByteArray(100)))
+
+        // Pre-existing session in UPLOADING state with uploadUrl
+        val existingRow = sampleEntity("content://media/external/images/media/70", accountName = "alice@example.com", state = CloudUploadEntity.STATE_UPLOADING).copy(
+            uploadUrl = "https://upload.google.com/sessions/resumable_123",
+            bytesUploaded = 0L,
+            sizeBytes = 100L,
+        )
+        uploadDao.upsert(existingRow)
+
+        // Query session returns active partial offset of 40 bytes
+        uploader.querySessionResult = PhotosUploader.SessionQueryResult(
+            offset = 40L,
+            status = "active",
+            uploadToken = null,
+            isResumable = true,
+            isFinal = false,
+        )
+
+        val worker = createWorker(context, uploadDao, authClient, uploader, backedUpDao, stagedDao)
+        val result = worker.doWork()
+
+        assertEquals(androidx.work.ListenableWorker.Result.success(), result)
+        assertEquals("querySession must be called for existing uploadUrl", 1, uploader.querySessionCalls.size)
+        assertEquals("existing uploadUrl must be queried", "https://upload.google.com/sessions/resumable_123", uploader.querySessionCalls[0])
+        assertEquals("startSession must NOT be called for resumable active session", 0, uploader.startSessionCalls.size)
+        assertTrue("Upload chunk must resume from offset 40", uploader.uploadChunkCalls.contains(40L))
+        assertEquals("First chunk offset must be 40", 40L, uploader.uploadChunkCalls[0])
+        assertEquals(1, backedUpDao.getAll().size)
+    }
+
+    @Test
+    fun `M0-V3-03 - session recovery with full or out-of-range offset resets session and restarts from byte 0`() = runTest {
+        val context = mock(Context::class.java)
+        val uploadDao = InMemoryCloudUploadDao()
+        val authClient = TestAuthClient(activeAccountName = "alice@example.com")
+        val uploader = TestPhotosUploader()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val stagedDao = InMemoryStagedFileDao()
+
+        val resolver = mock(ContentResolver::class.java)
+        `when`(context.contentResolver).thenReturn(resolver)
+        `when`(resolver.openInputStream(org.mockito.ArgumentMatchers.any())).thenReturn(ByteArrayInputStream(ByteArray(100)))
+
+        val existingRow = sampleEntity("content://media/external/images/media/71", accountName = "alice@example.com", state = CloudUploadEntity.STATE_UPLOADING).copy(
+            uploadUrl = "https://upload.google.com/sessions/resumable_out_of_range",
+            bytesUploaded = 50L,
+            sizeBytes = 100L,
+        )
+        uploadDao.upsert(existingRow)
+
+        // Query session returns offset 100 (>= sizeBytes) but isFinal is false (token missing)
+        uploader.querySessionResult = PhotosUploader.SessionQueryResult(
+            offset = 100L,
+            status = "active",
+            uploadToken = null,
+            isResumable = true,
+            isFinal = false,
+        )
+
+        val worker = createWorker(context, uploadDao, authClient, uploader, backedUpDao, stagedDao)
+        val result = worker.doWork()
+
+        assertEquals(androidx.work.ListenableWorker.Result.success(), result)
+        assertEquals(1, uploader.querySessionCalls.size)
+        assertEquals("startSession must be called to reset out-of-range unfinalized session", 1, uploader.startSessionCalls.size)
+        assertEquals("Upload chunk must restart from byte 0", 0L, uploader.uploadChunkCalls[0])
+    }
+
+    @Test
+    fun `M0-V3-03 - session recovery with lost completion receipt recovers finalized upload token`() = runTest {
+        val context = mock(Context::class.java)
+        val uploadDao = InMemoryCloudUploadDao()
+        val authClient = TestAuthClient(activeAccountName = "alice@example.com")
+        val uploader = TestPhotosUploader()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val stagedDao = InMemoryStagedFileDao()
+
+        val resolver = mock(ContentResolver::class.java)
+        `when`(context.contentResolver).thenReturn(resolver)
+        `when`(resolver.openInputStream(org.mockito.ArgumentMatchers.any())).thenReturn(ByteArrayInputStream(ByteArray(100)))
+
+        val existingRow = sampleEntity("content://media/external/images/media/72", accountName = "alice@example.com", state = CloudUploadEntity.STATE_UPLOADING).copy(
+            uploadUrl = "https://upload.google.com/sessions/finalized_url",
+            bytesUploaded = 100L,
+            sizeBytes = 100L,
+        )
+        uploadDao.upsert(existingRow)
+
+        // Query returns final status with uploadToken
+        uploader.querySessionResult = PhotosUploader.SessionQueryResult(
+            offset = 100L,
+            status = "final",
+            uploadToken = "recovered_upload_token_999",
+            isResumable = false,
+            isFinal = true,
+        )
+
+        val worker = createWorker(context, uploadDao, authClient, uploader, backedUpDao, stagedDao)
+        val result = worker.doWork()
+
+        assertEquals(androidx.work.ListenableWorker.Result.success(), result)
+        assertEquals(1, uploader.querySessionCalls.size)
+        assertEquals("No chunk uploads needed when final token is recovered", 0, uploader.uploadChunkCalls.size)
+        assertEquals(1, uploader.batchCreateCalls.size)
+        assertEquals("recovered_upload_token_999", uploader.batchCreateCalls[0])
+        assertEquals(1, backedUpDao.getAll().size)
+    }
+
+    @Test
+    fun `M0-V3-03 - session recovery with final status but lost token resets session and restarts from byte 0`() = runTest {
+        val context = mock(Context::class.java)
+        val uploadDao = InMemoryCloudUploadDao()
+        val authClient = TestAuthClient(activeAccountName = "alice@example.com")
+        val uploader = TestPhotosUploader()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val stagedDao = InMemoryStagedFileDao()
+
+        val resolver = mock(ContentResolver::class.java)
+        `when`(context.contentResolver).thenReturn(resolver)
+        `when`(resolver.openInputStream(org.mockito.ArgumentMatchers.any())).thenReturn(ByteArrayInputStream(ByteArray(100)))
+
+        val existingRow = sampleEntity("content://media/external/images/media/73", accountName = "alice@example.com", state = CloudUploadEntity.STATE_UPLOADING).copy(
+            uploadUrl = "https://upload.google.com/sessions/lost_token_url",
+            bytesUploaded = 100L,
+            sizeBytes = 100L,
+        )
+        uploadDao.upsert(existingRow)
+
+        // Final status but upload token is lost (null)
+        uploader.querySessionResult = PhotosUploader.SessionQueryResult(
+            offset = 100L,
+            status = "final",
+            uploadToken = null,
+            isResumable = false,
+            isFinal = true,
+        )
+
+        val worker = createWorker(context, uploadDao, authClient, uploader, backedUpDao, stagedDao)
+        val result = worker.doWork()
+
+        assertEquals(androidx.work.ListenableWorker.Result.success(), result)
+        assertEquals(1, uploader.querySessionCalls.size)
+        assertEquals("startSession must be called when token is lost from final session", 1, uploader.startSessionCalls.size)
+        assertEquals("Upload chunk must restart from byte 0", 0L, uploader.uploadChunkCalls[0])
+    }
+
+    @Test
+    fun `M0-V3-03 - session recovery encountering HTTP 404 or 410 expired session resets session and restarts from byte 0`() = runTest {
+        val context = mock(Context::class.java)
+        val uploadDao = InMemoryCloudUploadDao()
+        val authClient = TestAuthClient(activeAccountName = "alice@example.com")
+        val uploader = TestPhotosUploader()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val stagedDao = InMemoryStagedFileDao()
+
+        val resolver = mock(ContentResolver::class.java)
+        `when`(context.contentResolver).thenReturn(resolver)
+        `when`(resolver.openInputStream(org.mockito.ArgumentMatchers.any())).thenReturn(ByteArrayInputStream(ByteArray(100)))
+
+        val existingRow = sampleEntity("content://media/external/images/media/74", accountName = "alice@example.com", state = CloudUploadEntity.STATE_UPLOADING).copy(
+            uploadUrl = "https://upload.google.com/sessions/expired_url",
+            bytesUploaded = 50L,
+            sizeBytes = 100L,
+        )
+        uploadDao.upsert(existingRow)
+
+        // querySession throws HTTP 404 (session expired)
+        uploader.onQuerySession = { _ ->
+            throw PhotosUploader.HttpStatusException(404, "Session Expired")
+        }
+
+        val worker = createWorker(context, uploadDao, authClient, uploader, backedUpDao, stagedDao)
+        val result = worker.doWork()
+
+        assertEquals(androidx.work.ListenableWorker.Result.success(), result)
+        assertEquals(1, uploader.querySessionCalls.size)
+        assertEquals("startSession must be called after 404 expired session", 1, uploader.startSessionCalls.size)
+        assertEquals("Upload chunk must restart from byte 0", 0L, uploader.uploadChunkCalls[0])
     }
 }

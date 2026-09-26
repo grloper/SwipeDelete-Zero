@@ -31,8 +31,13 @@ import java.io.File
  * 4. Legacy unowned active rows (QUEUED, UPLOADING, VERIFYING) are quarantined to FAILED with explicit reason.
  * 5. Completed VERIFIED and FAILED rows retain their state, mediaItemId, and error strings with accountName = null.
  * 6. Other tables (staged_files, kept_files, backed_up_files, deck_sessions, exclusions, media_analysis)
- *    are fully preserved.
+ *    are fully preserved with seeded sentinel records.
  * 7. The migrated database survives closing and reopening with Room v5.
+ *
+ * Baseline Schema Origin:
+ * The v4 SQLite schema fixture below reflects the canonical Room version 4 schema of SwipeDelete-Zero
+ * prior to migration 4->5, defining all 7 entities (staged_files, kept_files, backed_up_files,
+ * deck_sessions, exclusions, media_analysis, and the v4 cloud_uploads table without accountName).
  */
 import org.robolectric.annotation.SQLiteMode
 
@@ -97,6 +102,8 @@ class DatabaseMigrationTest {
         val keptFileDao = v5RoomDb.keptFileDao()
         val backedUpFileDao = v5RoomDb.backedUpFileDao()
         val deckSessionDao = v5RoomDb.deckSessionDao()
+        val exclusionDao = v5RoomDb.exclusionDao()
+        val mediaAnalysisDao = v5RoomDb.mediaAnalysisDao()
 
         // 4. Validate cloud_uploads quarantine and state preservation
         val queuedRow = cloudUploadDao.get("content://media/queued_1")
@@ -127,7 +134,7 @@ class DatabaseMigrationTest {
         assertEquals("HTTP 404", failedRow.lastError)
         assertNull("Account name must be null for legacy row", failedRow.accountName)
 
-        // 5. Validate preservation across other tables
+        // 5. Validate preservation across all other tables
         val staged = stagedFileDao.getAll()
         assertEquals(1, staged.size)
         assertEquals("content://media/staged_101", staged[0].contentUri)
@@ -146,6 +153,17 @@ class DatabaseMigrationTest {
         assertNotNull(session)
         assertEquals(24, session!!.cursor)
 
+        val excludedHashes = exclusionDao.excludedHashes()
+        assertEquals(1, excludedHashes.size)
+        assertEquals(987654321L, excludedHashes[0])
+
+        val analysis = mediaAnalysisDao.get(5001L)
+        assertNotNull("media_analysis sentinel record must exist", analysis)
+        assertEquals("content://media/analyzed_5001", analysis!!.contentUri)
+        assertEquals(22222L, analysis.pHash)
+        assertEquals(15.5, analysis.sharpnessVariance!!, 0.001)
+        assertEquals(50000L, analysis.sizeBytes)
+
         // 6. Close and reopen to verify durability
         v5RoomDb.close()
 
@@ -162,6 +180,15 @@ class DatabaseMigrationTest {
         val reopenedStaged = reopenedRoomDb.stagedFileDao().getAll()
         assertEquals(1, reopenedStaged.size)
         assertEquals("content://media/staged_101", reopenedStaged[0].contentUri)
+
+        val reopenedExcludedHashes = reopenedRoomDb.exclusionDao().excludedHashes()
+        assertEquals(1, reopenedExcludedHashes.size)
+        assertEquals(987654321L, reopenedExcludedHashes[0])
+
+        val reopenedAnalysis = reopenedRoomDb.mediaAnalysisDao().get(5001L)
+        assertNotNull("media_analysis sentinel record must survive reopen", reopenedAnalysis)
+        assertEquals(22222L, reopenedAnalysis!!.pHash)
+        assertEquals(50000L, reopenedAnalysis.sizeBytes)
 
         reopenedRoomDb.close()
         } finally {
@@ -303,6 +330,18 @@ class DatabaseMigrationTest {
         db.execSQL("""
             INSERT INTO `deck_sessions` VALUES (
                 'deck_july_2024', 'MONTH', 'July 2024', 24, 50, $now
+            )
+        """.trimIndent())
+
+        db.execSQL("""
+            INSERT INTO `exclusions` VALUES (
+                1, 'STARRED_FILE', 'content://media/starred_501', 987654321, NULL, 'Starred Family Photo', $now
+            )
+        """.trimIndent())
+
+        db.execSQL("""
+            INSERT INTO `media_analysis` VALUES (
+                5001, 'content://media/analyzed_5001', 11111, 22222, 15.5, 128.0, 0, 50000, $now, NULL, NULL, NULL, NULL
             )
         """.trimIndent())
 

@@ -22,14 +22,30 @@ jobs:
         run: |
           SDKMANAGER=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -name sdkmanager -type f | head -n 1)
           "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0"
-      - name: Test and build Play debug
-        run: ./gradlew :app:testPlayDebugUnitTest :app:assemblePlayDebug --no-daemon
+      - name: Test both flavors and assemble Play debug
+        run: |
+          ./gradlew :app:testPlayDebugUnitTest :app:testFdroidDebugUnitTest :app:assemblePlayDebug --no-daemon
       - name: Validate Play release bundle
         run: ./gradlew :app:bundlePlayRelease --no-daemon
+      - name: Audit test XML and package evidence archive
+        run: |
+          mkdir -p evidence/apk
+          cp app/build/outputs/apk/play/debug/*.apk evidence/apk/app-play-debug.apk
+          mkdir -p evidence/test-results/play evidence/test-results/fdroid
+          cp app/build/test-results/testPlayDebugUnitTest/*.xml evidence/test-results/play/
+          cp app/build/test-results/testFdroidDebugUnitTest/*.xml evidence/test-results/fdroid/
+          python tools/audit_junit.py evidence/test-results --skip-policy tools/expected_skips.json --output evidence/junit_audit.json
+          python scripts/package_evidence.py
       - uses: actions/upload-artifact@v4
         with:
           name: play-debug-apk
           path: app/build/outputs/apk/play/debug/*.apk
+          retention-days: 7
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: evidence-archive
+          path: evidence.zip
           retention-days: 7
           if-no-files-found: error
 

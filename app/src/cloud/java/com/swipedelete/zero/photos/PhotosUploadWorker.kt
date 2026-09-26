@@ -216,7 +216,21 @@ class PhotosUploadWorker @AssistedInject constructor(
                 chunkGranularity = session.chunkGranularityBytes
             } else {
                 checkAccountActive()
-                val queryResult = uploader.querySession(authToken, uploadUrl)
+                val queryResult = try {
+                    uploader.querySession(authToken, uploadUrl)
+                } catch (e: PhotosUploader.HttpStatusException) {
+                    if (e.code == 404 || e.code == 410) {
+                        PhotosUploader.SessionQueryResult(
+                            offset = 0L,
+                            status = "expired",
+                            uploadToken = null,
+                            isResumable = false,
+                            isFinal = false,
+                        )
+                    } else {
+                        throw e
+                    }
+                }
                 if (queryResult.isFinal) {
                     if (queryResult.uploadToken != null) {
                         // Recovered finalized upload token from query response!
@@ -299,6 +313,7 @@ class PhotosUploadWorker @AssistedInject constructor(
 
         // Independent read-token authentication with scoped 401 handling.
         checkAccountActive()
+        if (isStopped) throw CancellationException("worker stopped")
         val remote = run {
             var rToken = try {
                 authClient.getToken(appContext, accountName, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}")
@@ -307,6 +322,8 @@ class PhotosUploadWorker @AssistedInject constructor(
             } catch (e: Exception) {
                 throw ReadAuthException("Could not authenticate Google Photos readback", e)
             }
+            checkAccountActive()
+            if (isStopped) throw CancellationException("worker stopped")
             try {
                 uploader.getMediaItem(rToken, checkNotNull(row.mediaItemId))
             } catch (e: PhotosUploader.HttpStatusException) {
@@ -314,6 +331,7 @@ class PhotosUploadWorker @AssistedInject constructor(
                     // Clear and refresh READ token specifically, never append token!
                     authClient.clearToken(appContext, rToken)
                     checkAccountActive()
+                    if (isStopped) throw CancellationException("worker stopped")
                     rToken = try {
                         authClient.getToken(appContext, accountName, "oauth2:${PhotosUploader.PHOTOS_READ_SCOPE}")
                     } catch (ex: CancellationException) {
@@ -321,6 +339,8 @@ class PhotosUploadWorker @AssistedInject constructor(
                     } catch (ex: Exception) {
                         throw ReadAuthException("Could not refresh Google Photos read token", ex)
                     }
+                    checkAccountActive()
+                    if (isStopped) throw CancellationException("worker stopped")
                     try {
                         uploader.getMediaItem(rToken, checkNotNull(row.mediaItemId))
                     } catch (e2: PhotosUploader.HttpStatusException) {

@@ -1,0 +1,37 @@
+[
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-R7 - StagingViewModel prunes alreadyMissingUris without awarding reclaimed bytes",
+    "reason": "Offline unlocked execution applies to F-Droid; Play cleanup stays locked.",
+    "covered_by_variant": "fdroid"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-R7 - preparePurge partitions 100 missing items and plans 50 live items preventing starvation",
+    "reason": "Offline unlocked execution applies to F-Droid; Play cleanup stays locked.",
+    "covered_by_variant": "fdroid"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-V2-01 - 4-state resolution preserves UNKNOWN and reconciles only confirmed ABSENT and TRASHED",
+    "reason": "Offline unlocked execution applies to F-Droid; Play cleanup stays locked.",
+    "covered_by_variant": "fdroid"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-V2-04 - cancellation of actual non-empty batch preserves queue, clears pending, and launches no follow-on batches",
+    "reason": "Offline unlocked execution applies to F-Droid; Play cleanup stays locked.",
+    "covered_by_variant": "fdroid"
+  },
+  {
+    "variant": "fdroid",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-R5 - StagingViewModel purge is blocked in Play cloud builds",
+    "reason": "Cloud-product cleanup lock applies to Play, not the standalone offline build.",
+    "covered_by_variant": "play"
+  }
+]

@@ -166,4 +166,179 @@ class DriveCloudBackupAuthTest {
         assertFalse("No ledger entry when signOut cancels mid-upload", backupRepo.isBackedUp(file1.contentUri))
         assertFalse("No ledger entry for second file", backupRepo.isBackedUp(file2.contentUri))
     }
+
+    @Test
+    fun `M0-V3-02 - Auth callback signs out and returns token results in zero folder or upload operations`() = runTest {
+        val context = mock(Context::class.java)
+        var accountState: Pair<String?, Account?> = Pair("alice@example.com", Account("alice@example.com", "com.google"))
+        val keptDao = InMemoryKeptFileDao()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val uploadDao = InMemoryCloudUploadDao()
+        val backupRepo = BackupRepository(keptDao, backedUpDao, uploadDao)
+
+        val file1 = sampleKept("content://media/1", "photo1.jpg")
+        keptDao.upsert(file1)
+
+        val driveBackup = DriveCloudBackup(context, backupRepo)
+        driveBackup.getSignedInAccount = { accountState }
+        driveBackup.clientSignOutAction = { accountState = Pair(null, null) }
+
+        var folderResolverCalls = 0
+        driveBackup.folderResolver = {
+            folderResolverCalls++
+            "folder_123"
+        }
+
+        var fileUploaderCalls = 0
+        driveBackup.fileUploader = { _, _, _ ->
+            fileUploaderCalls++
+            "drive_file_id"
+        }
+
+        driveBackup.getAuthToken = {
+            // Callback triggers sign-out mid-flight then returns a token
+            driveBackup.signOut()
+            "stale_token_after_signout"
+        }
+
+        var thrown = false
+        try {
+            driveBackup.runBackup()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            thrown = true
+        }
+
+        assertTrue("CancellationException must be thrown when sign-out occurs during auth", thrown)
+        assertEquals("folderResolver must never be called after signout", 0, folderResolverCalls)
+        assertEquals("fileUploader must never be called after signout", 0, fileUploaderCalls)
+        assertFalse("File must never be marked backed up in ledger", backupRepo.isBackedUp(file1.contentUri))
+        val state = driveBackup.state.value
+        assertTrue("State must remain SignedOut, got: $state", state is BackupState.SignedOut)
+    }
+
+    @Test
+    fun `M0-V3-02 - Upload callback observes sign-out and throws 401 - no token refresh or reupload after disconnect`() = runTest {
+        val context = mock(Context::class.java)
+        var accountState: Pair<String?, Account?> = Pair("alice@example.com", Account("alice@example.com", "com.google"))
+        val keptDao = InMemoryKeptFileDao()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val uploadDao = InMemoryCloudUploadDao()
+        val backupRepo = BackupRepository(keptDao, backedUpDao, uploadDao)
+
+        val file1 = sampleKept("content://media/1", "photo1.jpg")
+        keptDao.upsert(file1)
+
+        val driveBackup = DriveCloudBackup(context, backupRepo)
+        driveBackup.getSignedInAccount = { accountState }
+        driveBackup.clientSignOutAction = { accountState = Pair(null, null) }
+        driveBackup.folderResolver = { "folder_123" }
+
+        var getAuthTokenCalls = 0
+        driveBackup.getAuthToken = {
+            getAuthTokenCalls++
+            "token_$getAuthTokenCalls"
+        }
+
+        var clearAuthTokenCalls = 0
+        driveBackup.clearAuthToken = {
+            clearAuthTokenCalls++
+        }
+
+        var fileUploaderCalls = 0
+        driveBackup.fileUploader = { _, _, _ ->
+            fileUploaderCalls++
+            // Disconnect account and throw 401 HTTP status
+            driveBackup.signOut()
+            throw DriveCloudBackup.HttpStatusException(401, "Unauthorized")
+        }
+
+        var thrown = false
+        try {
+            driveBackup.runBackup()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            thrown = true
+        }
+
+        assertTrue("CancellationException must be thrown on 401 after disconnect", thrown)
+        assertEquals("Initial token acquisition should be exactly 1 call", 1, getAuthTokenCalls)
+        assertEquals("clearAuthToken must NOT be called after disconnect", 0, clearAuthTokenCalls)
+        assertEquals("fileUploader must NOT be called for retry upload", 1, fileUploaderCalls)
+        assertFalse("File must never be marked backed up in ledger", backupRepo.isBackedUp(file1.contentUri))
+        val state = driveBackup.state.value
+        assertTrue("State must remain SignedOut, got: $state", state is BackupState.SignedOut)
+    }
+
+    @Test
+    fun `M0-V3-02 - Per-file CancellationException is rethrown and not counted as failed file`() = runTest {
+        val context = mock(Context::class.java)
+        val accountState: Pair<String?, Account?> = Pair("alice@example.com", Account("alice@example.com", "com.google"))
+        val keptDao = InMemoryKeptFileDao()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val uploadDao = InMemoryCloudUploadDao()
+        val backupRepo = BackupRepository(keptDao, backedUpDao, uploadDao)
+
+        val file1 = sampleKept("content://media/1", "photo1.jpg")
+        keptDao.upsert(file1)
+
+        val driveBackup = DriveCloudBackup(context, backupRepo)
+        driveBackup.getSignedInAccount = { accountState }
+        driveBackup.getAuthToken = { "valid_token" }
+        driveBackup.folderResolver = { "folder_123" }
+
+        driveBackup.fileUploader = { _, _, _ ->
+            throw kotlinx.coroutines.CancellationException("Upload stream aborted")
+        }
+
+        var thrown = false
+        try {
+            driveBackup.runBackup()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            thrown = true
+            assertEquals("Upload stream aborted", e.message)
+        }
+
+        assertTrue("CancellationException must be rethrown from runBackup", thrown)
+        assertFalse("File must not be marked backed up", backupRepo.isBackedUp(file1.contentUri))
+        val state = driveBackup.state.value
+        assertFalse("State must not be Ready with failed count", state is BackupState.Ready)
+        assertTrue("State must be SignedOut on cancellation, got: $state", state is BackupState.SignedOut)
+    }
+
+    @Test
+    fun `M0-V3-02 - Old job completion cannot clear new session guard or overwrite newer account state`() = runTest {
+        val context = mock(Context::class.java)
+        val keptDao = InMemoryKeptFileDao()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val uploadDao = InMemoryCloudUploadDao()
+        val backupRepo = BackupRepository(keptDao, backedUpDao, uploadDao)
+
+        val file1 = sampleKept("content://media/1", "photo1.jpg")
+        keptDao.upsert(file1)
+
+        val driveBackup = DriveCloudBackup(context, backupRepo)
+        var accountState: Pair<String?, Account?> = Pair("alice@example.com", Account("alice@example.com", "com.google"))
+        driveBackup.getSignedInAccount = { accountState }
+        driveBackup.getAuthToken = { "alice_token" }
+        driveBackup.folderResolver = { "alice_folder" }
+
+        // Session 1 begins
+        val session1Id = driveBackup.currentSessionId.incrementAndGet()
+
+        driveBackup.fileUploader = { _, _, _ ->
+            // While session 1 is in-flight, a new session (Bob) starts
+            driveBackup.currentSessionId.incrementAndGet() // Session 2
+            accountState = Pair("bob@example.com", Account("bob@example.com", "com.google"))
+            driveBackup.running.set(true)
+            "drive_alice_file"
+        }
+
+        // Run session 1 directly with session1Id
+        try {
+            driveBackup.runBackup(session1Id)
+        } catch (_: kotlinx.coroutines.CancellationException) {}
+
+        // Assert: Session 1 completion must NOT overwrite state or clear running guard
+        assertTrue("running guard must remain true for session 2", driveBackup.running.get())
+        assertFalse("Session 1 file must not be committed to ledger after session change", backupRepo.isBackedUp(file1.contentUri))
+    }
 }
