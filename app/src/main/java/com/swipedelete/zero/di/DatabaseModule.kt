@@ -67,6 +67,7 @@ object DatabaseModule {
         backed: BackedUpFileDao,
         uploads: CloudUploadDao,
         receipts: BackupReceiptDao,
-    ): BackupRepository = BackupRepository(kept, backed, uploads, receipts)
+        db: AppDatabase,
+    ): BackupRepository = BackupRepository(kept, backed, uploads, receipts, db)
     @Provides fun provideCloudUploadDao(db: AppDatabase): CloudUploadDao = db.cloudUploadDao()
 }

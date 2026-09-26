@@ -80,6 +80,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
+import com.swipedelete.zero.data.local.BackupReceiptEntity
 import com.swipedelete.zero.data.local.BackedUpFileEntity
 import com.swipedelete.zero.data.local.CloudUploadEntity
 import com.swipedelete.zero.domain.backup.BackupState
@@ -243,6 +244,9 @@ fun CloudManagerScreen(
             } else {
                 CloudLedgerTabContent(
                     files = uiState.filteredBackedUpFiles,
+                    receipts = uiState.verifiedReceipts.filter { receipt ->
+                        (uiState.backupState as? BackupState.Ready)?.accountEmail == receipt.accountId
+                    },
                     searchQuery = uiState.searchQuery,
                     onSearchChange = viewModel::updateSearchQuery,
                     onSelectFile = { viewModel.openBackedUpFile(context, it) },
@@ -536,11 +540,17 @@ private fun StateBadge(state: String) {
 @Composable
 private fun CloudLedgerTabContent(
     files: List<BackedUpFileEntity>,
+    receipts: List<BackupReceiptEntity>,
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     onSelectFile: (BackedUpFileEntity) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // One indexed lookup per visible row; a library can contain tens of thousands.
+    val driveReceipts = remember(receipts) {
+        receipts.filter { it.provider == "GOOGLE_DRIVE" }
+            .associateBy { it.contentUri to it.remoteId }
+    }
     Column(modifier = modifier) {
         OutlinedTextField(
             value = searchQuery,
@@ -567,7 +577,12 @@ private fun CloudLedgerTabContent(
                 verticalArrangement = Arrangement.spacedBy(SdzSpace.sm),
             ) {
                 items(files, key = { it.contentUri }) { file ->
-                    BackedUpFileRow(file = file, onClick = { onSelectFile(file) })
+                    BackedUpFileRow(
+                        file = file,
+                        receipt = driveReceipts[file.contentUri to file.remoteId]
+                            ?.takeIf { it.originalSizeBytes == file.sizeBytes },
+                        onClick = { onSelectFile(file) },
+                    )
                 }
             }
         }
@@ -577,9 +592,11 @@ private fun CloudLedgerTabContent(
 @Composable
 private fun BackedUpFileRow(
     file: BackedUpFileEntity,
+    receipt: BackupReceiptEntity?,
     onClick: () -> Unit,
 ) {
-    val displayName = file.contentUri.substringAfterLast("/").ifBlank { "Remote file" }
+    val isPhotos = file.remoteId.startsWith("photos:")
+    val displayName = receipt?.displayName ?: file.contentUri.substringAfterLast("/").ifBlank { "Remote file" }
     Card(
         shape = RoundedCornerShape(SdzRadius.sm),
         colors = CardDefaults.cardColors(containerColor = SdzColor.Surface2),
@@ -616,7 +633,11 @@ private fun BackedUpFileRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "Size: ${file.sizeBytes.toReadableSize()} · ID: ${file.remoteId.take(18)}…",
+                    text = when {
+                        receipt != null -> "Drive · original bytes checked · ${file.sizeBytes.toReadableSize()}"
+                        isPhotos -> "Google Photos · item found · original bytes unproven"
+                        else -> "Drive · legacy upload · original bytes unproven"
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = SdzColor.TextSecondary,
                 )
@@ -624,8 +645,8 @@ private fun BackedUpFileRow(
 
             Icon(
                 imageVector = Icons.Rounded.CloudDone,
-                contentDescription = "Open confirmed Google Photos item",
-                tint = SdzColor.Teal,
+                contentDescription = if (isPhotos) "Open Google Photos item" else "Open Google Drive file",
+                tint = if (receipt != null) SdzColor.Teal else SdzColor.TextSecondary,
                 modifier = Modifier.size(20.dp),
             )
         }

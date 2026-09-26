@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -522,10 +524,17 @@ private fun PrimaryCallToAction(
 ) {
     SdzSurface(level = SdzLevel.Card, contentPadding = SdzSpace.xl) {
         Text("START HERE", style = SdzType.Overline, color = SdzColor.TextTertiary)
+        AnimatedVisibility(visible = !loading && candidateCount == 0, enter = fadeIn(), exit = fadeOut()) {
+            Image(
+                painter = painterResource(com.swipedelete.zero.R.drawable.ic_empty_review),
+                contentDescription = null,
+                modifier = Modifier.size(72.dp),
+            )
+        }
         Text(
             text = when {
                 loading -> "Sorting your library…"
-                candidateCount == 0 -> "Nothing needs reviewing"
+                candidateCount == 0 -> "Ready when you are"
                 else -> "Review $candidateCount flagged files"
             },
             style = SdzType.Subtitle,
@@ -534,20 +543,22 @@ private fun PrimaryCallToAction(
         Text(
             text = when {
                 loading -> "This takes a moment on a large library."
-                candidateCount == 0 -> "Your library is already lean."
+                candidateCount == 0 -> "Scan all content above to look for matches, or add photos to review."
                 else -> "${candidateBytes.toReadableSize()} could come back, de-duplicated."
             },
             style = SdzType.BodySmall,
             color = SdzColor.TextSecondary,
         )
         Spacer(Modifier.height(SdzSpace.xs))
-        SdzButton(
-            label = if (candidateCount == 0) "Browse library" else "Start reviewing",
-            onClick = onStart,
-            style = SdzButtonStyle.Primary,
-            enabled = enabled && !loading,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (enabled) {
+            SdzButton(
+                label = "Start reviewing",
+                onClick = onStart,
+                style = SdzButtonStyle.Primary,
+                enabled = !loading,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 

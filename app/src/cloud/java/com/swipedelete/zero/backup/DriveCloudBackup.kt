@@ -284,9 +284,13 @@ class DriveCloudBackup @Inject constructor(
                     // Fake uploader tests intentionally have no byte proof. Real uploads
                     // publish an account-scoped receipt only after the remote download
                     // and the unchanged local original match.
-                    verifiedHash?.let { backupRepository.recordDriveReceipt(file, email, remoteId, it) }
-                    checkSessionActive()
-                    backupRepository.markBackedUp(file, remoteId)
+                    if (verifiedHash != null) {
+                        backupRepository.markVerifiedDriveBackup(file, email, remoteId, verifiedHash)
+                    } else {
+                        // Deterministic fake uploader seam for the existing
+                        // session tests; production always returns byte proof.
+                        backupRepository.markBackedUp(file, remoteId)
+                    }
                     done++
                 }
 

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.swipedelete.zero.data.local.BackupReceiptEntity
 import com.swipedelete.zero.data.local.BackedUpFileEntity
 import com.swipedelete.zero.data.local.CloudUploadEntity
 import com.swipedelete.zero.data.repository.BackupRepository
@@ -27,6 +28,7 @@ data class CloudManagerUiState(
     val uploadStats: CloudUploadStats = CloudUploadStats(),
     val uploads: List<CloudUploadEntity> = emptyList(),
     val backedUpFiles: List<BackedUpFileEntity> = emptyList(),
+    val verifiedReceipts: List<BackupReceiptEntity> = emptyList(),
     val selectedTab: Int = 0,
     val searchQuery: String = "",
     val connectionCheck: ConnectionCheck? = null,
@@ -62,6 +64,7 @@ class CloudManagerViewModel @Inject constructor(
         photosArchive.uploadStats,
         backupRepository.observeCloudUploads(),
         backupRepository.observeBackedUpFiles(),
+        backupRepository.observeVerifiedReceipts(),
         selectedTab,
         searchQuery,
         connectionCheck,
@@ -74,17 +77,20 @@ class CloudManagerViewModel @Inject constructor(
         val uploads = params[2] as List<CloudUploadEntity>
         @Suppress("UNCHECKED_CAST")
         val backedUp = params[3] as List<BackedUpFileEntity>
-        val tab = params[4] as Int
-        val query = params[5] as String
-        val check = params[6] as? ConnectionCheck
-        val isChecking = params[7] as Boolean
-        val msg = params[8] as? String
+        @Suppress("UNCHECKED_CAST")
+        val receipts = params[4] as List<BackupReceiptEntity>
+        val tab = params[5] as Int
+        val query = params[6] as String
+        val check = params[7] as? ConnectionCheck
+        val isChecking = params[8] as Boolean
+        val msg = params[9] as? String
 
         CloudManagerUiState(
             backupState = backupState,
             uploadStats = stats,
             uploads = uploads,
             backedUpFiles = backedUp,
+            verifiedReceipts = receipts,
             selectedTab = tab,
             searchQuery = query,
             connectionCheck = check,

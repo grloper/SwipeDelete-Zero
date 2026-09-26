@@ -1,5 +1,7 @@
 package com.swipedelete.zero.data.repository
 
+import androidx.room.withTransaction
+import com.swipedelete.zero.data.local.AppDatabase
 import com.swipedelete.zero.data.local.BackupReceiptDao
 import com.swipedelete.zero.data.local.BackupReceiptEntity
 import com.swipedelete.zero.data.local.BackedUpFileDao
@@ -24,6 +26,7 @@ class BackupRepository constructor(
     private val backedUpFileDao: BackedUpFileDao,
     private val cloudUploadDao: CloudUploadDao,
     private val receiptDao: BackupReceiptDao? = null,
+    private val database: AppDatabase? = null,
 ) {
 
     suspend fun recordKept(item: MediaItem, starred: Boolean) {
@@ -60,6 +63,9 @@ class BackupRepository constructor(
 
     fun observeBackedUpFiles(): Flow<List<BackedUpFileEntity>> = backedUpFileDao.observeAll()
 
+    fun observeVerifiedReceipts(): Flow<List<BackupReceiptEntity>> =
+        receiptDao?.observeAll() ?: kotlinx.coroutines.flow.flowOf(emptyList())
+
     fun observeCloudUploads(): Flow<List<CloudUploadEntity>> = cloudUploadDao.observeAll()
 
     suspend fun isBackedUp(uri: String): Boolean = backedUpFileDao.exists(uri)
@@ -88,11 +94,13 @@ class BackupRepository constructor(
         )
     }
 
-    /** Scoped, byte-proven receipt. Tests using the old in-memory repository do
-     * not fake this table; production injects the real Room DAO. */
-    suspend fun recordDriveReceipt(file: KeptFileEntity, accountId: String, remoteId: String, sha256: String) {
+    /** Commit both indexes together. A crash must never create a validated
+     * receipt without the row that backs the user's visible backup history. */
+    suspend fun markVerifiedDriveBackup(
+        file: KeptFileEntity, accountId: String, remoteId: String, sha256: String,
+    ) {
         require(accountId.isNotBlank() && sha256.matches(Regex("[0-9a-f]{64}")))
-        receiptDao?.upsert(BackupReceiptEntity(
+        val receipt = BackupReceiptEntity(
             contentUri = file.contentUri,
             provider = "GOOGLE_DRIVE",
             accountId = accountId,
@@ -102,7 +110,16 @@ class BackupRepository constructor(
             displayName = file.displayName,
             mimeType = file.mimeType,
             verifiedAtMillis = System.currentTimeMillis(),
-        ))
+        )
+        val db = requireNotNull(database) { "Backup receipt database unavailable" }
+        val dao = requireNotNull(receiptDao) { "Backup receipt DAO unavailable" }
+        db.withTransaction {
+            dao.upsert(receipt)
+            backedUpFileDao.insert(BackedUpFileEntity(
+                contentUri = file.contentUri, sizeBytes = file.sizeBytes,
+                remoteId = remoteId, uploadedAtMillis = receipt.verifiedAtMillis,
+            ))
+        }
     }
 
     /** Remove from ledger so the app forgets it was previously backed up. */

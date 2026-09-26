@@ -109,6 +109,9 @@ interface BackedUpFileDao {
 
 @Dao
 interface BackupReceiptDao {
+    @Query("SELECT * FROM backup_receipts ORDER BY verifiedAtMillis DESC")
+    fun observeAll(): Flow<List<BackupReceiptEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(receipt: BackupReceiptEntity)
 
