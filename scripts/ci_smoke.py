@@ -13,8 +13,12 @@ def nodes(): return list(capture('latest').iter('node'))
 def click(pattern, timeout=20):
  deadline=time.time()+timeout
  while time.time()<deadline:
-  for n in nodes():
-   if re.search(pattern,(n.get('text','')+' '+n.get('content-desc','')).strip()) and n.get('enabled')=='true':
+  tree=capture('latest')
+  parents={child:parent for parent in tree.iter() for child in parent}
+  for n in tree.iter('node'):
+   ancestors=[n]
+   while ancestors[-1] in parents: ancestors.append(parents[ancestors[-1]])
+   if re.search(pattern,(n.get('text','')+' '+n.get('content-desc','')).strip()) and n.get('enabled')=='true' and not any(a.get('enabled')=='false' for a in ancestors):
     x1,y1,x2,y2=map(int,re.findall(r'\d+',n.get('bounds')));adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2));time.sleep(1);return
   time.sleep(1)
  raise AssertionError('Missing enabled control: '+pattern)
@@ -32,7 +36,16 @@ try:
  for i,color in enumerate([(80,170,230),(170,90,220),(30,210,180)]):
   local=OUT/f'fixture-{i}.png';local.write_bytes(png(color));remote=f'/sdcard/Pictures/Screenshots/Screenshot_fixture_{i}.png'
   adb('push',str(local),remote);adb('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file://'+remote)
- start();capture('01-dashboard');steps.append('permissions and synthetic media visible')
+ # Media scanning is asynchronous: establish fixture visibility before opening the app.
+ deadline=time.time()+30
+ while True:
+  media=adb('shell','content','query','--uri','content://media/external/images/media','--projection','_id:_display_name:_size').decode()
+  (OUT/'media-fixtures.txt').write_text(media)
+  if all(f'Screenshot_fixture_{i}.png' in media for i in range(3)):break
+  if time.time()>deadline:raise AssertionError('Synthetic images were not indexed by MediaStore')
+  time.sleep(1)
+ steps.append('three synthetic images indexed in MediaStore')
+ start();capture('01-dashboard');steps.append('permissions and dashboard')
  click(r'Start reviewing|Browse library')
  if any('Got it' in n.get('text','') for n in nodes()):click(r'Got it')
  click(r'^Keep\b');click(r'^Undo\b');steps.append('keep and undo')
@@ -59,6 +72,6 @@ try:
  steps.append('all synthetic originals remain')
  status='PASS'
 except Exception as e:
- status='FAILED';steps.append(str(e));raise
+ status='FAILED';steps.append(str(e));(OUT/'failure-logcat.txt').write_bytes(adb('logcat','-d','-t','1200'));raise
 finally:
  (OUT/'smoke.json').write_text(json.dumps({'status':status,'apk_sha256':hashlib.sha256(APK.read_bytes()).hexdigest(),'steps':steps,'scope':'isolated emulator, synthetic local files; no cloud or deletion'},indent=2)+'\n')

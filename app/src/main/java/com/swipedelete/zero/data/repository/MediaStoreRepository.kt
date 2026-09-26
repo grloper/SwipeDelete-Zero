@@ -68,12 +68,13 @@ class MediaStoreRepository @Inject constructor(
             MediaStore.MediaColumns.MIME_TYPE,
             MediaStore.MediaColumns.SIZE,
             MediaStore.MediaColumns.DATE_ADDED,
-            MediaStore.MediaColumns.WIDTH,
-            MediaStore.MediaColumns.HEIGHT,
-            MediaStore.MediaColumns.DURATION,
             MediaStore.MediaColumns.RELATIVE_PATH,
             MediaStore.MediaColumns.IS_PENDING,
-        )
+        ) + when (type) {
+            MediaType.IMAGE -> arrayOf(MediaStore.MediaColumns.WIDTH, MediaStore.MediaColumns.HEIGHT)
+            MediaType.VIDEO -> arrayOf(MediaStore.MediaColumns.WIDTH, MediaStore.MediaColumns.HEIGHT, MediaStore.MediaColumns.DURATION)
+            else -> arrayOf(MediaStore.MediaColumns.DURATION)
+        }
         // Only fully-committed local rows. IS_PENDING guards half-written and
         // cloud-placeholder items that would crash thumbnail decode.
         val selection = "${MediaStore.MediaColumns.IS_PENDING} = 0"

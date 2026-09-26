@@ -198,5 +198,15 @@
     "variant": "play",
     "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
     "name": "production HTTP recovery stops after bounded server failures"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.MediaCollectionProjectionTest",
+    "name": "collection projections return images videos and audio without incompatible columns"
+  },
+  {
+    "variant": "fdroid",
+    "classname": "com.swipedelete.zero.MediaCollectionProjectionTest",
+    "name": "collection projections return images videos and audio without incompatible columns"
   }
 ]
