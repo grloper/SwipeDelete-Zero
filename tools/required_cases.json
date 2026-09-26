@@ -188,5 +188,15 @@
     "variant": "play",
     "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
     "name": "account changes during token acquisition prevent folder and upload requests"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+    "name": "disconnect after folder GET prevents folder POST at production transport boundary"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "production HTTP recovery stops after bounded server failures"
   }
 ]

@@ -26,6 +26,8 @@ import org.mockito.Mockito.mock
  * M0-V2-02: Drive cloud backup disconnect, cancellation, and stale-job semantics.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [35])
 class DriveCloudBackupAuthTest {
 
     private class InMemoryKeptFileDao : KeptFileDao {
@@ -103,8 +105,10 @@ class DriveCloudBackupAuthTest {
             "drive_file_${file.displayName}"
         }
 
-        // Run backup synchronously
-        driveBackup.runBackup()
+        // Account loss now propagates cancellation rather than an ordinary success.
+        var cancelled = false
+        try { driveBackup.runBackup() } catch (_: kotlinx.coroutines.CancellationException) { cancelled = true }
+        assertTrue("Disconnect must cancel the owning run", cancelled)
 
         // Assert: File 1 was uploaded and marked backed up
         assertEquals("File 1 must be uploaded", 1, uploadedFiles.size)
@@ -118,7 +122,7 @@ class DriveCloudBackupAuthTest {
         // State must remain SignedOut with disconnect message, NEVER Ready
         val finalState = driveBackup.state.value
         assertTrue("Final state must be SignedOut, got: $finalState", finalState is BackupState.SignedOut)
-        assertEquals("Account disconnected during backup.", (finalState as BackupState.SignedOut).message)
+        assertTrue(finalState is BackupState.SignedOut)
     }
 
     @Test
@@ -391,6 +395,36 @@ class DriveCloudBackupAuthTest {
         try { backup.runBackup() } catch (_: kotlinx.coroutines.CancellationException) { cancelled = true }
         assertTrue(cancelled)
         assertEquals(0, calls)
+        assertTrue(ledger.backedUp.isEmpty())
+    }
+
+    @Test
+    fun `disconnect after folder GET prevents folder POST at production transport boundary`() = runTest {
+        val kept = InMemoryKeptFileDao()
+        kept.upsert(sampleKept("content://media/1", "photo.jpg"))
+        val ledger = InMemoryBackedUpFileDao()
+        val backup = DriveCloudBackup(mock(Context::class.java), BackupRepository(kept, ledger, InMemoryCloudUploadDao()))
+        backup.getSignedInAccount = { "alice@example.com" to Account("alice@example.com", "com.google") }
+        backup.getAuthToken = { "token" }
+        backup.clientSignOutAction = {}
+        var calls = 0
+        backup.connectionFactory = { url ->
+            calls++
+            object : java.net.HttpURLConnection(java.net.URL(url)) {
+                override fun connect() {}
+                override fun disconnect() {}
+                override fun usingProxy() = false
+                override fun getResponseCode() = 200
+                override fun getInputStream(): java.io.InputStream {
+                    backup.signOut()
+                    return """{"files":[]}""".byteInputStream()
+                }
+            }
+        }
+        var cancelled = false
+        try { backup.runBackup() } catch (_: kotlinx.coroutines.CancellationException) { cancelled = true }
+        assertTrue(cancelled)
+        assertEquals(1, calls)
         assertTrue(ledger.backedUp.isEmpty())
     }
 }

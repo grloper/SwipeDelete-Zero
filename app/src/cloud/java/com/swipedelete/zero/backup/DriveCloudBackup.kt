@@ -84,6 +84,7 @@ class DriveCloudBackup @Inject constructor(
     private val sessionLock = Any()
 
     internal val currentSessionId = java.util.concurrent.atomic.AtomicLong(0)
+    internal var connectionFactory: (String) -> HttpURLConnection = { URL(it).openConnection() as HttpURLConnection }
     internal val activeConnection = java.util.concurrent.atomic.AtomicReference<HttpURLConnection?>(null)
 
     private val _state = kotlinx.coroutines.flow.MutableStateFlow<BackupState>(initialState())
@@ -162,13 +163,17 @@ class DriveCloudBackup @Inject constructor(
     internal suspend fun runBackup(sessionId: Long = currentSessionId.get()) {
         val (email, androidAccount) = getSignedInAccount()
         if (email == null || androidAccount == null) {
+            synchronized(sessionLock) {
             if (currentSessionId.get() == sessionId) {
                 _state.value = BackupState.SignedOut("Connect Google Drive first.")
             }
+            }
             return
         }
+        synchronized(sessionLock) {
         if (currentSessionId.get() == sessionId && _state.value is BackupState.SignedOut) {
             _state.value = BackupState.Ready(email)
+        }
         }
 
         val ownerJob = currentCoroutineContext()[kotlinx.coroutines.Job]
@@ -181,8 +186,10 @@ class DriveCloudBackup @Inject constructor(
 
         fun checkSessionActive() {
             if (!isSessionActive()) {
+                synchronized(sessionLock) {
                 if (currentSessionId.get() == sessionId) {
                     _state.value = BackupState.SignedOut()
+                }
                 }
                 throw kotlinx.coroutines.CancellationException("Drive backup cancelled or session invalidated")
             }
@@ -192,8 +199,10 @@ class DriveCloudBackup @Inject constructor(
 
         val pending = backupRepository.pendingBackup()
         if (pending.isEmpty()) {
+            synchronized(sessionLock) {
             if (currentSessionId.get() == sessionId && _state.value !is BackupState.SignedOut) {
                 _state.value = BackupState.Ready(email, "Everything is already backed up.")
+            }
             }
             return
         }
@@ -207,16 +216,20 @@ class DriveCloudBackup @Inject constructor(
 
             var done = 0
             var failed = 0
+            synchronized(sessionLock) {
             if (currentSessionId.get() == sessionId) {
                 _state.value = BackupState.Running(done, pending.size)
+            }
             }
 
             for (file in pending) {
                 checkSessionActive()
                 val (currentEmail, _) = getSignedInAccount()
                 if (currentEmail == null || currentEmail != email) {
+                    synchronized(sessionLock) {
                     if (currentSessionId.get() == sessionId) {
                         _state.value = BackupState.SignedOut("Account disconnected during backup.")
+                    }
                     }
                     return
                 }
@@ -231,8 +244,10 @@ class DriveCloudBackup @Inject constructor(
                         checkSessionActive()
                         val (recheckEmail, _) = getSignedInAccount()
                         if (recheckEmail == null || recheckEmail != email) {
+                            synchronized(sessionLock) {
                             if (currentSessionId.get() == sessionId) {
                                 _state.value = BackupState.SignedOut("Account disconnected during backup.")
+                            }
                             }
                             return
                         }
@@ -258,8 +273,10 @@ class DriveCloudBackup @Inject constructor(
                 if (remoteId != null) {
                     val (checkEmail, _) = getSignedInAccount()
                     if (checkEmail == null || checkEmail != email) {
+                        synchronized(sessionLock) {
                         if (currentSessionId.get() == sessionId) {
                             _state.value = BackupState.SignedOut("Account disconnected during backup.")
+                        }
                         }
                         return
                     }
@@ -268,20 +285,25 @@ class DriveCloudBackup @Inject constructor(
                 }
 
                 checkSessionActive()
+                synchronized(sessionLock) {
                 if (currentSessionId.get() == sessionId) {
                     _state.value = BackupState.Running(done, pending.size)
+                }
                 }
             }
 
             checkSessionActive()
             val (finalEmail, _) = getSignedInAccount()
             if (finalEmail == null || finalEmail != email) {
+                synchronized(sessionLock) {
                 if (currentSessionId.get() == sessionId) {
                     _state.value = BackupState.SignedOut("Account disconnected during backup.")
+                }
                 }
                 return
             }
 
+            synchronized(sessionLock) {
             if (currentSessionId.get() == sessionId) {
                 _state.value = BackupState.Ready(
                     email,
@@ -289,9 +311,12 @@ class DriveCloudBackup @Inject constructor(
                     else "Backed up $done, $failed failed — run again to retry.",
                 )
             }
+            }
         } catch (e: kotlinx.coroutines.CancellationException) {
+            synchronized(sessionLock) {
             if (currentSessionId.get() == sessionId) {
                 _state.value = BackupState.SignedOut()
+            }
             }
             throw e
         } catch (e: UserRecoverableAuthException) {
@@ -302,6 +327,7 @@ class DriveCloudBackup @Inject constructor(
                 }
             }
         } catch (e: Exception) {
+            synchronized(sessionLock) {
             if (currentSessionId.get() == sessionId) {
                 val (checkEmail, _) = getSignedInAccount()
                 if (checkEmail == null || checkEmail != email || _state.value is BackupState.SignedOut) {
@@ -309,6 +335,7 @@ class DriveCloudBackup @Inject constructor(
                 } else {
                     _state.value = BackupState.Ready(email, "Backup failed: ${e.message ?: e.javaClass.simpleName}")
                 }
+            }
             }
         }
     }
@@ -419,7 +446,7 @@ class DriveCloudBackup @Inject constructor(
             .toString()
 
         val url = URL("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id")
-        val connection = (url.openConnection() as HttpURLConnection).apply {
+        val connection = connectionFactory(url.toString()).apply {
             requestMethod = "POST"
             doOutput = true
             setChunkedStreamingMode(0)
@@ -478,7 +505,7 @@ class DriveCloudBackup @Inject constructor(
 
     private fun httpRequest(urlString: String, token: String, method: String, body: String?, guard: () -> Unit = {}): String {
         guard()
-        val connection = (URL(urlString).openConnection() as HttpURLConnection).apply {
+        val connection = connectionFactory(urlString).apply {
             requestMethod = method
             setRequestProperty("Authorization", "Bearer $token")
             connectTimeout = 30_000

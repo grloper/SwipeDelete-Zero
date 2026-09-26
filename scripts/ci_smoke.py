@@ -44,8 +44,13 @@ try:
  for mode in ['Permanent Delete','30-Day OS Trash']:
   click(mode)
   tree=capture('04-lock-'+('permanent' if mode.startswith('Permanent') else 'trash'))
-  controls=[n for n in tree.iter('node') if n.get('clickable')=='true' and ('Move to Android Trash' in n.get('text','') or 'Delete permanently' in n.get('text',''))]
-  assert all(n.get('enabled')!='true' for n in controls)
+  parents={child:parent for parent in tree.iter() for child in parent}
+  controls=[n for n in tree.iter('node') if ('Move to Android Trash' in n.get('text','') or 'Delete and Free Up' in n.get('text',''))]
+  assert controls, 'Cleanup control not found'
+  for control in controls:
+   ancestry=[control]
+   while ancestry[-1] in parents: ancestry.append(parents[ancestry[-1]])
+   assert any(n.get('enabled')=='false' for n in ancestry), 'Cleanup control enabled'
  steps.append('locked cleanup explanation and modes')
  adb('shell','am','force-stop',PKG);start();click(r'Review [1-9].*staged files');capture('05-persisted')
  click(r'Unstage all');steps.append('queue survives restart; unstage works')

@@ -841,4 +841,27 @@ class PhotosUploadWorkerAuthTest {
         assertTrue(ledger.ledger.isEmpty())
         assertTrue(staging.staged.isEmpty())
     }
+
+    @Test
+    fun `production HTTP recovery stops after bounded server failures`() = runTest {
+        val context = mock(Context::class.java)
+        `when`(context.contentResolver).thenReturn(mock(ContentResolver::class.java))
+        val queue = InMemoryCloudUploadDao()
+        val ledger = InMemoryBackedUpFileDao()
+        val staging = InMemoryStagedFileDao()
+        val auth = TestAuthClient()
+        val uri = "content://media/external/images/media/99"
+        queue.upsert(sampleEntity(uri, "alice@example.com", CloudUploadEntity.STATE_UPLOADING)
+            .copy(uploadUrl = "https://fixture.test/session", sizeBytes = 100))
+        var calls = 0
+        val uploader = PhotosUploader()
+        uploader.connectionFactory = { url -> calls++; FixtureConnection(url, status = 503) }
+        repeat(UploadReducer.MAX_ATTEMPTS + 1) {
+            createWorker(context, queue, auth, uploader, ledger, staging).doWork()
+        }
+        assertEquals(UploadReducer.MAX_ATTEMPTS, calls)
+        assertEquals(CloudUploadEntity.STATE_FAILED, queue.get(uri)!!.state)
+        assertTrue(ledger.ledger.isEmpty())
+        assertTrue(staging.staged.isEmpty())
+    }
 }
