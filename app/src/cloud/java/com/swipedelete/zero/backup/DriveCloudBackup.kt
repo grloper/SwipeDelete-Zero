@@ -73,17 +73,15 @@ class DriveCloudBackup @Inject constructor(
     internal var clearAuthToken: (String) -> Unit = { token ->
         GoogleAuthUtil.clearToken(context, token)
     }
-    internal var folderResolver: (String) -> String = { token ->
-        findOrCreateFolder(token)
-    }
-    internal var fileUploader: (String, String, KeptFileEntity) -> String = { token, folderId, file ->
-        uploadFile(token, folderId, file)
-    }
+    internal var folderResolver: ((String) -> String)? = null
+    internal var fileUploader: ((String, String, KeptFileEntity) -> String)? = null
     internal var clientSignOutAction: () -> Unit = {
         try {
             signInClient().signOut()
         } catch (_: Exception) {}
     }
+
+    private val sessionLock = Any()
 
     internal val currentSessionId = java.util.concurrent.atomic.AtomicLong(0)
     internal val activeConnection = java.util.concurrent.atomic.AtomicReference<HttpURLConnection?>(null)
@@ -131,7 +129,7 @@ class DriveCloudBackup @Inject constructor(
         }
     }
 
-    override fun signOut() {
+    override fun signOut() = synchronized(sessionLock) {
         currentSessionId.incrementAndGet()
         backupJob?.cancel()
         backupJob = null
@@ -142,20 +140,23 @@ class DriveCloudBackup @Inject constructor(
         try {
             androidx.work.WorkManager.getInstance(context).cancelUniqueWork(PhotosUploadWorker.WORK_NAME)
         } catch (_: Exception) {}
+        Unit
     }
 
-    override fun backupNow() {
+    override fun backupNow() = synchronized(sessionLock) {
         if (!running.compareAndSet(false, true)) return
         val sessionId = currentSessionId.incrementAndGet()
-        backupJob = scope.launch {
+        backupJob = scope.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
             try {
                 runBackup(sessionId)
             } finally {
-                if (currentSessionId.get() == sessionId) {
-                    running.set(false)
+                synchronized(sessionLock) {
+                    if (currentSessionId.get() == sessionId) running.set(false)
                 }
             }
         }
+        backupJob?.start()
+        Unit
     }
 
     internal suspend fun runBackup(sessionId: Long = currentSessionId.get()) {
@@ -170,14 +171,15 @@ class DriveCloudBackup @Inject constructor(
             _state.value = BackupState.Ready(email)
         }
 
-        suspend fun isSessionActive(): Boolean {
+        val ownerJob = currentCoroutineContext()[kotlinx.coroutines.Job]
+        fun isSessionActive(): Boolean {
             return currentSessionId.get() == sessionId &&
                 _state.value !is BackupState.SignedOut &&
-                currentCoroutineContext().isActive &&
-                backupJob?.isActive != false
+                ownerJob?.isActive != false &&
+                getSignedInAccount().first == email
         }
 
-        suspend fun checkSessionActive() {
+        fun checkSessionActive() {
             if (!isSessionActive()) {
                 if (currentSessionId.get() == sessionId) {
                     _state.value = BackupState.SignedOut()
@@ -200,7 +202,7 @@ class DriveCloudBackup @Inject constructor(
             checkSessionActive()
             var token = getAuthToken(androidAccount)
             checkSessionActive()
-            val folderId = folderResolver(token)
+            val folderId = folderResolver?.invoke(token) ?: findOrCreateFolder(token, ::checkSessionActive)
             checkSessionActive()
 
             var done = 0
@@ -221,7 +223,7 @@ class DriveCloudBackup @Inject constructor(
 
                 val remoteId = try {
                     checkSessionActive()
-                    fileUploader(token, folderId, file)
+                    fileUploader?.invoke(token, folderId, file) ?: uploadFile(token, folderId, file, ::checkSessionActive)
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (error: Exception) {
@@ -239,7 +241,7 @@ class DriveCloudBackup @Inject constructor(
                         token = getAuthToken(androidAccount)
                         checkSessionActive()
                         try {
-                            fileUploader(token, folderId, file)
+                            fileUploader?.invoke(token, folderId, file) ?: uploadFile(token, folderId, file, ::checkSessionActive)
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             throw e
                         } catch (retryError: Exception) {
@@ -293,10 +295,12 @@ class DriveCloudBackup @Inject constructor(
             }
             throw e
         } catch (e: UserRecoverableAuthException) {
-            if (currentSessionId.get() == sessionId) {
-                _state.value = BackupState.SignedOut("Google needs re-consent — connect again.")
+            synchronized(sessionLock) {
+                if (currentSessionId.get() == sessionId) {
+                    _state.value = BackupState.SignedOut("Google needs re-consent — connect again.")
+                    clientSignOutAction()
+                }
             }
-            clientSignOutAction()
         } catch (e: Exception) {
             if (currentSessionId.get() == sessionId) {
                 val (checkEmail, _) = getSignedInAccount()
@@ -368,7 +372,7 @@ class DriveCloudBackup @Inject constructor(
         val message = when {
             driveOk && photosOk ->
                 "Signed in as $email. Drive and Google Photos answered live requests. " +
-                    "A real upload must still finish before a file can be deleted."
+                    "Cleanup is unavailable in this test build. Your originals stay on this device."
             notes.isEmpty() -> "Connected as $email."
             else -> notes.joinToString(" ")
         }
@@ -384,13 +388,15 @@ class DriveCloudBackup @Inject constructor(
     }
 
     /** Returns the id of the backup folder, creating it on first run. */
-    private fun findOrCreateFolder(token: String): String {
+    private fun findOrCreateFolder(token: String, guard: () -> Unit): String {
+        guard()
         val query = URLEncoder.encode(
             "name = '$FOLDER_NAME' and mimeType = '$FOLDER_MIME' and trashed = false",
             "UTF-8",
         )
         val listUrl = "https://www.googleapis.com/drive/v3/files?q=$query&fields=files(id)&spaces=drive"
-        val listResponse = JSONObject(httpGet(listUrl, token))
+        val listResponse = JSONObject(httpRequest(listUrl, token, "GET", null, guard))
+        guard()
         val files = listResponse.optJSONArray("files") ?: JSONArray()
         if (files.length() > 0) return files.getJSONObject(0).getString("id")
 
@@ -399,13 +405,14 @@ class DriveCloudBackup @Inject constructor(
             .put("mimeType", FOLDER_MIME)
             .toString()
         val created = JSONObject(
-            httpPostJson("https://www.googleapis.com/drive/v3/files?fields=id", token, body)
+            httpRequest("https://www.googleapis.com/drive/v3/files?fields=id", token, "POST", body, guard)
         )
         return created.getString("id")
     }
 
     /** Multipart upload of one file; returns the created Drive file id. */
-    private fun uploadFile(token: String, folderId: String, file: KeptFileEntity): String {
+    private fun uploadFile(token: String, folderId: String, file: KeptFileEntity, guard: () -> Unit): String {
+        guard()
         val metadata = JSONObject()
             .put("name", file.displayName)
             .put("parents", JSONArray().put(folderId))
@@ -422,7 +429,10 @@ class DriveCloudBackup @Inject constructor(
             readTimeout = 120_000
         }
 
-        activeConnection.set(connection)
+        synchronized(sessionLock) {
+            guard()
+            activeConnection.set(connection)
+        }
         try {
             connection.outputStream.use { out ->
                 out.writeAscii("--$BOUNDARY\r\n")
@@ -433,7 +443,7 @@ class DriveCloudBackup @Inject constructor(
 
                 val input = context.contentResolver.openInputStream(Uri.parse(file.contentUri))
                     ?: throw IllegalStateException("File unreadable: ${file.displayName}")
-                input.use { copyStreamWithCancellation(it, out) }
+                input.use { copyStreamWithCancellation(it, out, guard) }
 
                 out.writeAscii("\r\n--$BOUNDARY--\r\n")
             }
@@ -451,13 +461,11 @@ class DriveCloudBackup @Inject constructor(
         }
     }
 
-    private fun copyStreamWithCancellation(input: java.io.InputStream, out: OutputStream) {
+    private fun copyStreamWithCancellation(input: java.io.InputStream, out: OutputStream, guard: () -> Unit) {
         val buffer = ByteArray(8192)
         var bytesRead: Int
         while (input.read(buffer).also { bytesRead = it } >= 0) {
-            if (_state.value is BackupState.SignedOut) {
-                throw kotlinx.coroutines.CancellationException("Upload stream aborted: signed out")
-            }
+            guard()
             out.write(buffer, 0, bytesRead)
         }
     }
@@ -468,7 +476,8 @@ class DriveCloudBackup @Inject constructor(
     private fun httpPostJson(urlString: String, token: String, body: String): String =
         httpRequest(urlString, token, method = "POST", body = body)
 
-    private fun httpRequest(urlString: String, token: String, method: String, body: String?): String {
+    private fun httpRequest(urlString: String, token: String, method: String, body: String?, guard: () -> Unit = {}): String {
+        guard()
         val connection = (URL(urlString).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             setRequestProperty("Authorization", "Bearer $token")
@@ -479,7 +488,10 @@ class DriveCloudBackup @Inject constructor(
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
             }
         }
-        activeConnection.set(connection)
+        synchronized(sessionLock) {
+            guard()
+            activeConnection.set(connection)
+        }
         try {
             if (body != null) {
                 connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }

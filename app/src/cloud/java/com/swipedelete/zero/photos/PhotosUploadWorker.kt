@@ -25,6 +25,8 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.io.InputStream
@@ -134,6 +136,10 @@ class PhotosUploadWorker @AssistedInject constructor(
                         RowOutcome.DONE
                     } else {
                         // Append token expired mid-run: clear, refresh, let the loop retry the row.
+                        currentCoroutineContext().ensureActive()
+                        if (isStopped || authClient.getSignedInAccountName(appContext) != boundAccountName) {
+                            throw CancellationException("Account disconnected before credential refresh")
+                        }
                         authClient.clearToken(appContext, authToken)
                         authToken = try {
                             authClient.getToken(
@@ -177,7 +183,10 @@ class PhotosUploadWorker @AssistedInject constructor(
     }
 
     private suspend fun processRow(start: CloudUploadEntity, authToken: String, accountName: String) {
+        val ownerContext = currentCoroutineContext()
         fun checkAccountActive() {
+            ownerContext.ensureActive()
+            if (isStopped) throw CancellationException("worker stopped")
             val activeName = authClient.getSignedInAccountName(appContext)
             if (activeName == null || activeName != accountName) {
                 throw CancellationException("Account disconnected or changed during upload (expected $accountName)")
@@ -329,6 +338,7 @@ class PhotosUploadWorker @AssistedInject constructor(
             } catch (e: PhotosUploader.HttpStatusException) {
                 if (e.code == 401) {
                     // Clear and refresh READ token specifically, never append token!
+                    checkAccountActive()
                     authClient.clearToken(appContext, rToken)
                     checkAccountActive()
                     if (isStopped) throw CancellationException("worker stopped")
@@ -360,8 +370,8 @@ class PhotosUploadWorker @AssistedInject constructor(
         }
 
         // M0-V2-02: Atomically guard RemoteVerified state transition together with ledger and staging writes.
-        // checkAccountActive() is verified before AND inside the transaction to prevent any disconnect leaving
-        // a stranded VERIFIED row or partial ledger entry.
+        // The transaction keeps database writes atomic. Account/job checks reject observed
+        // disconnects; this does not make Google sign-out atomic with Room or undo in-flight bytes.
         checkAccountActive()
         val now = System.currentTimeMillis()
         transactionRunner {

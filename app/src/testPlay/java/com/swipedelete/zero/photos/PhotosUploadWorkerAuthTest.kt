@@ -35,6 +35,8 @@ import java.io.ByteArrayInputStream
  * 4. Scoped 401 isolation: Read 401 clears and refreshes READ token only; append token is never invalidated for read errors.
  * 5. Bounded read retry: Read 401 twice fails the row with 401 without consuming append retries.
  */
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [35])
 class PhotosUploadWorkerAuthTest {
 
     private class TestAuthClient(
@@ -743,5 +745,100 @@ class PhotosUploadWorkerAuthTest {
         assertEquals(1, uploader.querySessionCalls.size)
         assertEquals("startSession must be called after 404 expired session", 1, uploader.startSessionCalls.size)
         assertEquals("Upload chunk must restart from byte 0", 0L, uploader.uploadChunkCalls[0])
+    }
+
+    private class FixtureConnection(
+        url: String, private val status: Int = 200,
+        private val headers: Map<String, String> = emptyMap(), private val body: String = "",
+        private val beforeResponse: () -> Unit = {},
+    ) : java.net.HttpURLConnection(java.net.URL(url)) {
+        val sent = java.io.ByteArrayOutputStream()
+        var closed = false
+        override fun connect() {}
+        override fun disconnect() { closed = true }
+        override fun usingProxy() = false
+        override fun getOutputStream(): java.io.OutputStream = sent
+        override fun getInputStream(): java.io.InputStream = body.byteInputStream()
+        override fun getErrorStream(): java.io.InputStream = body.byteInputStream()
+        override fun getResponseCode(): Int { beforeResponse(); return status }
+        override fun getHeaderField(name: String): String? = headers[name]
+    }
+
+    @Test
+    fun `production HTTP recovery parses raw responses and bounds requests`() = runTest {
+        val scenarios = listOf(
+            Triple("active", "40", 200), Triple("active", "100", 200),
+            Triple("active", "101", 200), Triple("final", "100", 200),
+            Triple("terminated", "20", 200), Triple("active", "bad", 200),
+            Triple("active", "-1", 200), Triple("", "", 200),
+            Triple("expired", "0", 404), Triple("expired", "0", 410),
+        )
+        for ((status, offset, http) in scenarios) {
+            val context = mock(Context::class.java)
+            val resolver = mock(ContentResolver::class.java)
+            `when`(context.contentResolver).thenReturn(resolver)
+            `when`(resolver.openInputStream(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer { ByteArrayInputStream(ByteArray(100)) }
+            val queue = InMemoryCloudUploadDao()
+            val ledger = InMemoryBackedUpFileDao()
+            val staging = InMemoryStagedFileDao()
+            val auth = TestAuthClient()
+            queue.upsert(sampleEntity("content://media/external/images/media/99", "alice@example.com",
+                CloudUploadEntity.STATE_UPLOADING).copy(uploadUrl = "https://fixture.test/session", sizeBytes = 100))
+            val calls = mutableListOf<FixtureConnection>()
+            val uploader = PhotosUploader()
+            val resumes = status == "active" && offset == "40" && http == 200
+            uploader.connectionFactory = { url ->
+                val connection = when (calls.size) {
+                    0 -> FixtureConnection(url, http, mapOf("X-Goog-Upload-Status" to status,
+                        "X-Goog-Upload-Size-Received" to offset), "untrusted-query-body")
+                    else -> when {
+                        url.endsWith("/v1/uploads") -> FixtureConnection(url, headers = mapOf(
+                            "X-Goog-Upload-URL" to "https://fixture.test/fresh", "X-Goog-Upload-Chunk-Granularity" to "1"))
+                        url.contains("batchCreate") -> FixtureConnection(url, body = """{"newMediaItemResults":[{"mediaItem":{"id":"test_media_id"}}]}""")
+                        url.contains("/mediaItems/") -> FixtureConnection(url, body = """{"id":"test_media_id","filename":"photo.jpg","mimeType":"image/jpeg","baseUrl":"https://fixture.test/image","productUrl":"https://photos.google.com/test"}""")
+                        else -> FixtureConnection(url, body = "fixture-finalize-receipt")
+                    }
+                }
+                calls.add(connection); connection
+            }
+            assertEquals(androidx.work.ListenableWorker.Result.success(), createWorker(context, queue, auth, uploader, ledger, staging).doWork())
+            assertEquals("$status/$offset/$http", if (resumes) 4 else 5, calls.size)
+            assertEquals("query", calls.first().getRequestProperty("X-Goog-Upload-Command"))
+            val chunk = calls.single { it.getRequestProperty("X-Goog-Upload-Command") == "upload, finalize" }
+            assertEquals(if (resumes) "40" else "0", chunk.getRequestProperty("X-Goog-Upload-Offset"))
+            assertEquals(if (resumes) 60 else 100, chunk.sent.size())
+            assertTrue(calls.all { it.closed })
+            assertEquals(1, ledger.ledger.size)
+            assertEquals(1, staging.staged.size)
+            assertTrue(calls.single { it.url.toString().contains("batchCreate") }.sent.toString().contains("fixture-finalize-receipt"))
+        }
+    }
+
+    @Test
+    fun `production HTTP recovery cancellation prevents subsequent request and success writes`() = runTest {
+        val context = mock(Context::class.java)
+        val resolver = mock(ContentResolver::class.java)
+        `when`(context.contentResolver).thenReturn(resolver)
+        val queue = InMemoryCloudUploadDao()
+        val ledger = InMemoryBackedUpFileDao()
+        val staging = InMemoryStagedFileDao()
+        val auth = TestAuthClient()
+        queue.upsert(sampleEntity("content://media/external/images/media/99", "alice@example.com",
+            CloudUploadEntity.STATE_UPLOADING).copy(uploadUrl = "https://fixture.test/session", sizeBytes = 100))
+        var calls = 0
+        val uploader = PhotosUploader()
+        uploader.connectionFactory = { url ->
+            calls++
+            FixtureConnection(url, headers = mapOf("X-Goog-Upload-Status" to "terminated"),
+                beforeResponse = { auth.activeAccountName = null })
+        }
+        var cancelled = false
+        try { createWorker(context, queue, auth, uploader, ledger, staging).doWork() }
+        catch (_: CancellationException) { cancelled = true }
+        assertTrue(cancelled)
+        assertEquals(1, calls)
+        assertTrue(ledger.ledger.isEmpty())
+        assertTrue(staging.staged.isEmpty())
     }
 }

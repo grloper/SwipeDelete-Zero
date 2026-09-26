@@ -232,7 +232,7 @@ private fun SheetHeader(state: StagingUiState, onClear: () -> Unit) {
                 style = MaterialTheme.typography.titleLarge,
             )
             Text(
-                "${state.count} files • ${state.totalBytes.toReadableSize()} ready to purge",
+                "${state.count} files • ${state.totalBytes.toReadableSize()} staged for review",
                 color = SdzColor.TextSecondary,
                 style = MaterialTheme.typography.labelMedium,
             )

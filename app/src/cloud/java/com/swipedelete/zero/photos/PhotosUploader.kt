@@ -62,7 +62,7 @@ open class PhotosUploader @Inject constructor() {
      * Parses the resumable session query response according to the Google Photos Library
      * API resumable upload specification:
      * - "active": Session is live. Size-Received header must be a valid non-negative Long.
-     * - "final": Session is complete. Response body may contain the upload token.
+     * - "final": Session ended; a lost finalize receipt requires a fresh session.
      * - Any other status (cancelled, terminated, unknown) or invalid offset cannot be resumed.
      */
     fun parseSessionQuery(
@@ -94,11 +94,11 @@ open class PhotosUploader @Inject constructor() {
                 }
             }
             "final" -> {
-                val token = responseBody?.trim()?.ifEmpty { null }
+                // A query body is not a documented finalize receipt.
                 SessionQueryResult(
                     offset = parsedSize ?: 0L,
                     status = "final",
-                    uploadToken = token,
+                    uploadToken = null,
                     isResumable = false,
                     isFinal = true,
                 )
@@ -117,8 +117,7 @@ open class PhotosUploader @Inject constructor() {
 
     /**
      * Query session state from the server.
-     * Evaluates X-Goog-Upload-Status, received byte count, and recovers the finalized
-     * upload token from the response body when status is "final".
+     * Evaluates X-Goog-Upload-Status, received byte count, and does not trust a query body as a finalize receipt.
      */
     open fun querySession(authToken: String, uploadUrl: String): SessionQueryResult {
         val connection = open(uploadUrl, authToken).apply {
@@ -127,17 +126,17 @@ open class PhotosUploader @Inject constructor() {
             setRequestProperty("X-Goog-Upload-Command", "query")
             doOutput = true
         }
-        connection.outputStream.use { }
-        checkSuccess(connection)
-        val sizeReceivedHeader = connection.getHeaderField("X-Goog-Upload-Size-Received")
-        val statusHeader = connection.getHeaderField("X-Goog-Upload-Status")
-        val bodyText = try {
-            connection.inputStream.bufferedReader().use { it.readText() }
-        } catch (_: Exception) {
-            null
+        try {
+            connection.outputStream.use { }
+            checkSuccess(connection)
+            return parseSessionQuery(
+                connection.getHeaderField("X-Goog-Upload-Status"),
+                connection.getHeaderField("X-Goog-Upload-Size-Received"),
+                null,
+            )
+        } finally {
+            connection.disconnect()
         }
-        connection.disconnect()
-        return parseSessionQuery(statusHeader, sizeReceivedHeader, bodyText)
     }
 
     /** How many bytes the server has already received (resume after death). */
@@ -247,8 +246,10 @@ open class PhotosUploader @Inject constructor() {
 
     data class RemoteItem(val id: String, val filename: String, val mimeType: String, val productUrl: String)
 
+    internal var connectionFactory: (String) -> HttpURLConnection = { URL(it).openConnection() as HttpURLConnection }
+
     private fun open(urlString: String, authToken: String): HttpURLConnection =
-        (URL(urlString).openConnection() as HttpURLConnection).apply {
+        connectionFactory(urlString).apply {
             setRequestProperty("Authorization", "Bearer $authToken")
             connectTimeout = 30_000
             readTimeout = 60_000

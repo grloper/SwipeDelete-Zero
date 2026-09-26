@@ -341,4 +341,56 @@ class DriveCloudBackupAuthTest {
         assertTrue("running guard must remain true for session 2", driveBackup.running.get())
         assertFalse("Session 1 file must not be committed to ledger after session change", backupRepo.isBackedUp(file1.contentUri))
     }
+
+    @Test
+    fun `late auth failure from old launched run cannot sign out reconnected account`() = runTest {
+        val kept = InMemoryKeptFileDao()
+        kept.upsert(sampleKept("content://media/1", "photo.jpg"))
+        val ledger = InMemoryBackedUpFileDao()
+        val repo = BackupRepository(kept, ledger, InMemoryCloudUploadDao())
+        val backup = DriveCloudBackup(mock(Context::class.java), repo)
+        backup.scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Unconfined)
+        var account = "alice@example.com"
+        backup.getSignedInAccount = { account to Account(account, "com.google") }
+        var signOuts = 0
+        backup.clientSignOutAction = { signOuts++ }
+        backup.folderResolver = { "folder" }
+        backup.fileUploader = { _, _, _ -> "bob-file" }
+        var tokens = 0
+        backup.getAuthToken = {
+            tokens++
+            if (tokens == 1) {
+                backup.signOut()
+                account = "bob@example.com"
+                backup.backupNow()
+                throw com.google.android.gms.auth.UserRecoverableAuthException("old consent", android.content.Intent())
+            }
+            "bob-token"
+        }
+        backup.backupNow()
+        assertEquals(2, tokens)
+        assertEquals(1, signOuts)
+        assertEquals("bob@example.com", (backup.state.value as BackupState.Ready).accountEmail)
+        assertEquals(listOf("bob-file"), ledger.backedUp.map { it.remoteId })
+        assertFalse(backup.running.get())
+    }
+
+    @Test
+    fun `account changes during token acquisition prevent folder and upload requests`() = runTest {
+        val kept = InMemoryKeptFileDao()
+        kept.upsert(sampleKept("content://media/1", "photo.jpg"))
+        val ledger = InMemoryBackedUpFileDao()
+        val backup = DriveCloudBackup(mock(Context::class.java), BackupRepository(kept, ledger, InMemoryCloudUploadDao()))
+        var account = "alice@example.com"
+        backup.getSignedInAccount = { account to Account(account, "com.google") }
+        backup.getAuthToken = { account = "bob@example.com"; "old-token" }
+        var calls = 0
+        backup.folderResolver = { calls++; "folder" }
+        backup.fileUploader = { _, _, _ -> calls++; "file" }
+        var cancelled = false
+        try { backup.runBackup() } catch (_: kotlinx.coroutines.CancellationException) { cancelled = true }
+        assertTrue(cancelled)
+        assertEquals(0, calls)
+        assertTrue(ledger.backedUp.isEmpty())
+    }
 }

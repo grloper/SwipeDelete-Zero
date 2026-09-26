@@ -73,7 +73,7 @@ class PhotosUploaderQueryParserTest {
     }
 
     @Test
-    fun `parseSessionQuery - final status with response body recovers valid upload token`() {
+    fun `parseSessionQuery - final query body is never promoted to an upload token`() {
         val token = "CAIShQEKZXlKaGJHY2lPaUpTVXpVeE1q..."
         val result = uploader.parseSessionQuery(
             statusHeader = "final",
@@ -82,7 +82,7 @@ class PhotosUploaderQueryParserTest {
         )
         assertTrue("Final status must be marked final", result.isFinal)
         assertFalse("Final status is not resumable for more chunks", result.isResumable)
-        assertEquals(token, result.uploadToken)
+        assertNull(result.uploadToken)
         assertEquals(52428800L, result.offset)
         assertEquals("final", result.status)
     }
