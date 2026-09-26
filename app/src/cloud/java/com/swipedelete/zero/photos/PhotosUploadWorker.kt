@@ -64,6 +64,8 @@ class PhotosUploadWorker @AssistedInject constructor(
             ?: return@withContext Result.failure()
         var authToken = try {
             authClient.getToken(appContext, boundAccountName, "oauth2:${PhotosUploader.PHOTOS_APPEND_SCOPE}")
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             return@withContext Result.retry()
         }
@@ -71,6 +73,10 @@ class PhotosUploadWorker @AssistedInject constructor(
         // Recover verified-without-ledger rows only if authorized under active account.
         // Legacy rows or mismatched account rows are quarantined.
         uploadDao.verifiedWithoutLedger().forEach { row ->
+            val currentActive = authClient.getSignedInAccountName(appContext)
+            if (currentActive == null || currentActive != boundAccountName) {
+                return@withContext Result.retry()
+            }
             if (row.accountName == null) {
                 applyFailure(row, 403, "Quarantined: item has unknown account owner")
             } else if (row.accountName != boundAccountName) {
@@ -133,6 +139,8 @@ class PhotosUploadWorker @AssistedInject constructor(
                             authClient.getToken(
                                 appContext, currentAccountName, "oauth2:${PhotosUploader.PHOTOS_APPEND_SCOPE}"
                             )
+                        } catch (ex: CancellationException) {
+                            throw ex
                         } catch (_: Exception) {
                             return@withContext Result.retry()
                         }
@@ -330,10 +338,36 @@ class PhotosUploadWorker @AssistedInject constructor(
             remote.filename != row.displayName || !remote.productUrl.startsWith("https://")) {
             throw IOException("Google Photos did not confirm matching media and link")
         }
-        row = reduceAndSave(row, UploadEvent.RemoteVerified)
-        if (row.state == CloudUploadEntity.STATE_VERIFIED) {
+
+        // M0-V2-02: Atomically guard RemoteVerified state transition together with ledger and staging writes.
+        // checkAccountActive() is verified before AND inside the transaction to prevent any disconnect leaving
+        // a stranded VERIFIED row or partial ledger entry.
+        checkAccountActive()
+        val now = System.currentTimeMillis()
+        transactionRunner {
             checkAccountActive()
-            onVerified(row)
+            val verifiedRow = UploadReducer.reduce(row, UploadEvent.RemoteVerified, now)
+            uploadDao.upsert(verifiedRow)
+            backedUpFileDao.insert(
+                BackedUpFileEntity(
+                    contentUri = verifiedRow.contentUri,
+                    sizeBytes = verifiedRow.sizeBytes,
+                    remoteId = "photos:${verifiedRow.mediaItemId}",
+                    uploadedAtMillis = now,
+                )
+            )
+            stagedFileDao.stage(
+                StagedFileEntity(
+                    contentUri = verifiedRow.contentUri,
+                    displayName = verifiedRow.displayName,
+                    mimeType = verifiedRow.mimeType,
+                    mediaType = if (verifiedRow.mimeType.startsWith("video/")) MediaType.VIDEO.name else MediaType.IMAGE.name,
+                    sizeBytes = verifiedRow.sizeBytes,
+                    relativePath = null,
+                    stagedAtMillis = now,
+                    sourceDeckId = VERIFIED_SOURCE_DECK,
+                )
+            )
         }
     }
 
@@ -353,6 +387,10 @@ class PhotosUploadWorker @AssistedInject constructor(
     private suspend fun onVerified(row: CloudUploadEntity) {
         val now = System.currentTimeMillis()
         transactionRunner {
+            val active = authClient.getSignedInAccountName(appContext)
+            if (active == null || active != row.accountName) {
+                throw CancellationException("Account disconnected or changed before ledger write")
+            }
             backedUpFileDao.insert(
                 BackedUpFileEntity(
                     contentUri = row.contentUri,

@@ -131,7 +131,7 @@ class MediaStoreRepository @Inject constructor(
      * Crucial safety rule: query failure or permission revocation yields UNKNOWN, never ABSENT.
      */
     fun inspectMediaState(uri: Uri): MediaItemState = try {
-        if (!permissionManager.hasMediaAccess()) {
+        if (!permissionManager.hasAccessFor(uri)) {
             MediaItemState.UNKNOWN
         } else if (sdkInt >= Build.VERSION_CODES.R) {
             val bundle = android.os.Bundle().apply {
@@ -148,7 +148,7 @@ class MediaStoreRepository @Inject constructor(
             } else {
                 cursor.use { c ->
                     if (!c.moveToFirst()) {
-                        if (permissionManager.hasLimitedMediaAccessOnly()) {
+                        if (permissionManager.hasLimitedAccessOnlyFor(uri)) {
                             // Android 14+ selected-media access: empty cursor cannot distinguish
                             // absence from lack of visibility. Fail closed to UNKNOWN.
                             MediaItemState.UNKNOWN
@@ -178,7 +178,7 @@ class MediaStoreRepository @Inject constructor(
             } else {
                 cursor.use { c ->
                     if (!c.moveToFirst()) {
-                        if (permissionManager.hasLimitedMediaAccessOnly()) {
+                        if (permissionManager.hasLimitedAccessOnlyFor(uri)) {
                             MediaItemState.UNKNOWN
                         } else {
                             MediaItemState.ABSENT

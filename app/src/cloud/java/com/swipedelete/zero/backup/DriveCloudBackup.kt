@@ -21,6 +21,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -53,14 +55,45 @@ class DriveCloudBackup @Inject constructor(
     private val backupRepository: BackupRepository,
 ) : CloudBackup {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    internal var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val running = AtomicBoolean(false)
+    internal var backupJob: kotlinx.coroutines.Job? = null
+
+    internal var getSignedInAccount: () -> Pair<String?, android.accounts.Account?> = {
+        try {
+            val account = GoogleSignIn.getLastSignedInAccount(context)
+            Pair(account?.email, account?.account)
+        } catch (_: Throwable) {
+            Pair(null, null)
+        }
+    }
+    internal var getAuthToken: (android.accounts.Account) -> String = { androidAccount ->
+        GoogleAuthUtil.getToken(context, androidAccount, "oauth2:$DRIVE_FILE_SCOPE")
+    }
+    internal var clearAuthToken: (String) -> Unit = { token ->
+        GoogleAuthUtil.clearToken(context, token)
+    }
+    internal var folderResolver: (String) -> String = { token ->
+        findOrCreateFolder(token)
+    }
+    internal var fileUploader: (String, String, KeptFileEntity) -> String = { token, folderId, file ->
+        uploadFile(token, folderId, file)
+    }
+    internal var clientSignOutAction: () -> Unit = {
+        try {
+            signInClient().signOut()
+        } catch (_: Exception) {}
+    }
 
     private val _state = kotlinx.coroutines.flow.MutableStateFlow<BackupState>(initialState())
     override val state = _state
 
     private fun initialState(): BackupState {
-        val email = GoogleSignIn.getLastSignedInAccount(context)?.email
+        val (email, _) = try {
+            getSignedInAccount()
+        } catch (_: Throwable) {
+            Pair(null, null)
+        }
         return if (email != null) BackupState.Ready(email) else BackupState.SignedOut()
     }
 
@@ -96,7 +129,10 @@ class DriveCloudBackup @Inject constructor(
     }
 
     override fun signOut() {
-        signInClient().signOut()
+        backupJob?.cancel()
+        backupJob = null
+        running.set(false)
+        clientSignOutAction()
         _state.value = BackupState.SignedOut()
         try {
             androidx.work.WorkManager.getInstance(context).cancelUniqueWork(PhotosUploadWorker.WORK_NAME)
@@ -105,7 +141,7 @@ class DriveCloudBackup @Inject constructor(
 
     override fun backupNow() {
         if (!running.compareAndSet(false, true)) return
-        scope.launch {
+        backupJob = scope.launch {
             try {
                 runBackup()
             } finally {
@@ -114,64 +150,100 @@ class DriveCloudBackup @Inject constructor(
         }
     }
 
-    private suspend fun runBackup() {
-        val account = GoogleSignIn.getLastSignedInAccount(context)
-        val androidAccount = account?.account
-        if (account == null || androidAccount == null) {
+    internal suspend fun runBackup() {
+        val (email, androidAccount) = getSignedInAccount()
+        if (email == null || androidAccount == null) {
             _state.value = BackupState.SignedOut("Connect Google Drive first.")
             return
         }
-        val email = account.email ?: "Google account"
 
         val pending = backupRepository.pendingBackup()
         if (pending.isEmpty()) {
-            _state.value = BackupState.Ready(email, "Everything is already backed up.")
+            if (_state.value !is BackupState.SignedOut) {
+                _state.value = BackupState.Ready(email, "Everything is already backed up.")
+            }
             return
         }
 
         try {
-            var token = GoogleAuthUtil.getToken(context, androidAccount, "oauth2:$DRIVE_FILE_SCOPE")
-            val folderId = findOrCreateFolder(token)
+            var token = getAuthToken(androidAccount)
+            val folderId = folderResolver(token)
 
             var done = 0
             var failed = 0
             _state.value = BackupState.Running(done, pending.size)
 
             for (file in pending) {
-                val result = runCatching { uploadFile(token, folderId, file) }
+                if (_state.value is BackupState.SignedOut || !currentCoroutineContext().isActive || backupJob?.isActive == false) {
+                    _state.value = BackupState.SignedOut()
+                    throw kotlinx.coroutines.CancellationException("Drive backup job cancelled")
+                }
+                val (currentEmail, _) = getSignedInAccount()
+                if (currentEmail == null || currentEmail != email) {
+                    _state.value = BackupState.SignedOut("Account disconnected during backup.")
+                    return
+                }
+
+                val result = runCatching { fileUploader(token, folderId, file) }
                     .recoverCatching { error ->
                         if (error is HttpStatusException && error.code == 401) {
                             // Token expired mid-run: clear, refresh, retry once.
-                            GoogleAuthUtil.clearToken(context, token)
-                            token = GoogleAuthUtil.getToken(
-                                context, androidAccount, "oauth2:$DRIVE_FILE_SCOPE"
-                            )
-                            uploadFile(token, folderId, file)
+                            clearAuthToken(token)
+                            token = getAuthToken(androidAccount)
+                            fileUploader(token, folderId, file)
                         } else {
                             throw error
                         }
                     }
 
+                if (_state.value is BackupState.SignedOut || !currentCoroutineContext().isActive || backupJob?.isActive == false) {
+                    _state.value = BackupState.SignedOut()
+                    return
+                }
+
                 result.fold(
                     onSuccess = { remoteId ->
+                        if (_state.value is BackupState.SignedOut) return
+                        val (checkEmail, _) = getSignedInAccount()
+                        if (checkEmail == null || checkEmail != email) {
+                            _state.value = BackupState.SignedOut("Account disconnected during backup.")
+                            return
+                        }
                         backupRepository.markBackedUp(file, remoteId)
                         done++
                     },
                     onFailure = { failed++ },
                 )
+                if (_state.value is BackupState.SignedOut) return
                 _state.value = BackupState.Running(done, pending.size)
             }
+
+            val (finalEmail, _) = getSignedInAccount()
+            if (finalEmail == null || finalEmail != email || _state.value is BackupState.SignedOut) {
+                _state.value = BackupState.SignedOut("Account disconnected during backup.")
+                return
+            }
+
+            if (_state.value is BackupState.SignedOut) return
 
             _state.value = BackupState.Ready(
                 email,
                 if (failed == 0) "Backed up $done file${if (done == 1) "" else "s"}."
                 else "Backed up $done, $failed failed — run again to retry.",
             )
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            _state.value = BackupState.SignedOut()
+            throw e
         } catch (e: UserRecoverableAuthException) {
             _state.value = BackupState.SignedOut("Google needs re-consent — connect again.")
-            signInClient().signOut()
+            clientSignOutAction()
         } catch (e: Exception) {
-            _state.value = BackupState.Ready(email, "Backup failed: ${e.message ?: e.javaClass.simpleName}")
+            val (checkEmail, _) = getSignedInAccount()
+            if (checkEmail == null || checkEmail != email || _state.value is BackupState.SignedOut) {
+                _state.value = BackupState.SignedOut("Account disconnected during backup.")
+            } else {
+                _state.value = BackupState.Ready(email, "Backup failed: ${e.message ?: e.javaClass.simpleName}")
+            }
         }
     }
 

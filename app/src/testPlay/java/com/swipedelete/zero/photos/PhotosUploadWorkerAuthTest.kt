@@ -108,7 +108,8 @@ class PhotosUploadWorkerAuthTest {
         override suspend fun get(uri: String): CloudUploadEntity? = map[uri]
         override suspend fun nextPending(): CloudUploadEntity? =
             map.values.firstOrNull { it.state in listOf(CloudUploadEntity.STATE_QUEUED, CloudUploadEntity.STATE_UPLOADING, CloudUploadEntity.STATE_VERIFYING) }
-        override suspend fun verifiedWithoutLedger(): List<CloudUploadEntity> = emptyList()
+        override suspend fun verifiedWithoutLedger(): List<CloudUploadEntity> =
+            map.values.filter { it.state == CloudUploadEntity.STATE_VERIFIED }
         override suspend fun upsert(entity: CloudUploadEntity) { map[entity.contentUri] = entity }
         override suspend fun deleteIfQueued(uri: String): Int = 0
         override suspend fun delete(uri: String) { map.remove(uri) }
@@ -148,6 +149,8 @@ class PhotosUploadWorkerAuthTest {
         uploadDao: CloudUploadDao,
         authClient: PhotosAuthClient,
         uploader: PhotosUploader,
+        backedUpFileDao: BackedUpFileDao = InMemoryBackedUpFileDao(),
+        stagedFileDao: StagedFileDao = InMemoryStagedFileDao(),
     ): PhotosUploadWorker {
         val params = mock(WorkerParameters::class.java)
         val database = mock(AppDatabase::class.java)
@@ -156,8 +159,8 @@ class PhotosUploadWorkerAuthTest {
             appContext = context,
             params = params,
             uploadDao = uploadDao,
-            backedUpFileDao = InMemoryBackedUpFileDao(),
-            stagedFileDao = InMemoryStagedFileDao(),
+            backedUpFileDao = backedUpFileDao,
+            stagedFileDao = stagedFileDao,
             uploader = uploader,
             database = database,
             authClient = authClient,
@@ -351,5 +354,136 @@ class PhotosUploadWorkerAuthTest {
         assertNotNull(result)
         assertEquals(CloudUploadEntity.STATE_FAILED, result!!.state)
         assertTrue(result.lastError!!.contains("read authentication rejected (HTTP 401)"))
+    }
+
+    // =========================================================================
+    // M0-V2-02: Disconnect and Cancellation Semantics
+    // =========================================================================
+
+    @Test
+    fun `M0-V2-02 - disconnect during final readback prevents RemoteVerified save and ledger write`() = runTest {
+        val context = mock(Context::class.java)
+        val uploadDao = InMemoryCloudUploadDao()
+        val authClient = TestAuthClient(activeAccountName = "alice@example.com")
+        val uploader = TestPhotosUploader()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val stagedDao = InMemoryStagedFileDao()
+
+        val item = sampleEntity("content://media/external/images/media/30", accountName = "alice@example.com")
+        uploadDao.upsert(item)
+
+        val resolver = mock(ContentResolver::class.java)
+        `when`(context.contentResolver).thenReturn(resolver)
+        `when`(resolver.openInputStream(org.mockito.ArgumentMatchers.any())).thenReturn(ByteArrayInputStream(ByteArray(100)))
+
+        // Readback succeeds at network level, but account disconnects immediately before returning
+        uploader.onGetMediaItem = {
+            authClient.activeAccountName = null
+            PhotosUploader.RemoteItem("test_media_id", "photo.jpg", "image/jpeg", "https://photos.google.com/test")
+        }
+
+        val worker = createWorker(context, uploadDao, authClient, uploader, backedUpDao, stagedDao)
+        var thrown = false
+        try {
+            worker.doWork()
+        } catch (e: CancellationException) {
+            thrown = true
+        }
+        assertTrue("CancellationException must be thrown when account disconnects before verification commit", thrown)
+
+        // Queue state: must NOT be STATE_VERIFIED
+        val rowResult = uploadDao.get(item.contentUri)
+        assertNotNull(rowResult)
+        assertTrue("State must not reach STATE_VERIFIED after disconnect", rowResult!!.state != CloudUploadEntity.STATE_VERIFIED)
+
+        // Success ledger and staging: must be completely empty!
+        assertTrue("Ledger must have no entries written after disconnect", backedUpDao.getAll().isEmpty())
+        assertTrue("Staged files must have no entries staged after disconnect", stagedDao.getAll().isEmpty())
+    }
+
+    @Test
+    fun `M0-V2-02 - cancellation during token acquisition is rethrown`() = runTest {
+        val context = mock(Context::class.java)
+        val uploadDao = InMemoryCloudUploadDao()
+        val authClient = object : PhotosAuthClient {
+            override fun getSignedInAccountName(context: Context): String? = "alice@example.com"
+            override fun getSignedInAccount(context: Context): Account? = null
+            override fun getToken(context: Context, accountName: String, scope: String): String {
+                throw CancellationException("Token acquisition cancelled")
+            }
+            override fun clearToken(context: Context, token: String) {}
+        }
+        val uploader = TestPhotosUploader()
+        val item = sampleEntity("content://media/external/images/media/31", accountName = "alice@example.com")
+        uploadDao.upsert(item)
+
+        val worker = createWorker(context, uploadDao, authClient, uploader)
+        var thrown = false
+        try {
+            worker.doWork()
+        } catch (e: CancellationException) {
+            thrown = true
+            assertEquals("Token acquisition cancelled", e.message)
+        }
+        assertTrue("CancellationException during token acquisition must be rethrown", thrown)
+    }
+
+    @Test
+    fun `M0-V2-02 - startup verifiedWithoutLedger recovery quarantines null or mismatched rows`() = runTest {
+        val context = mock(Context::class.java)
+        val uploadDao = InMemoryCloudUploadDao()
+        val authClient = TestAuthClient(activeAccountName = "alice@example.com")
+        val uploader = TestPhotosUploader()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val stagedDao = InMemoryStagedFileDao()
+
+        // 1. Legacy null-owner row in STATE_VERIFIED
+        val legacyRow = sampleEntity("content://media/external/images/media/50", accountName = null, state = CloudUploadEntity.STATE_VERIFIED)
+        uploadDao.upsert(legacyRow)
+
+        // 2. Mismatched account row in STATE_VERIFIED
+        val bobRow = sampleEntity("content://media/external/images/media/51", accountName = "bob@example.com", state = CloudUploadEntity.STATE_VERIFIED)
+        uploadDao.upsert(bobRow)
+
+        val worker = createWorker(context, uploadDao, authClient, uploader, backedUpDao, stagedDao)
+        worker.doWork()
+
+        // Both rows must be quarantined as FAILED
+        val legacyResult = uploadDao.get(legacyRow.contentUri)
+        assertNotNull(legacyResult)
+        assertEquals(CloudUploadEntity.STATE_FAILED, legacyResult!!.state)
+        assertTrue(legacyResult.lastError!!.contains("Quarantined: item has unknown account owner"))
+
+        val bobResult = uploadDao.get(bobRow.contentUri)
+        assertNotNull(bobResult)
+        assertEquals(CloudUploadEntity.STATE_FAILED, bobResult!!.state)
+        assertTrue(bobResult.lastError!!.contains("Quarantined: item was authorized under bob@example.com"))
+
+        // Ledger and staging must remain empty
+        assertTrue("No ledger writes for quarantined legacy/mismatched rows", backedUpDao.getAll().isEmpty())
+        assertTrue("No staging writes for quarantined legacy/mismatched rows", stagedDao.getAll().isEmpty())
+    }
+
+    @Test
+    fun `M0-V2-02 - startup verifiedWithoutLedger recovery aborts on account disconnect`() = runTest {
+        val context = mock(Context::class.java)
+        val uploadDao = InMemoryCloudUploadDao()
+        val authClient = TestAuthClient(activeAccountName = "alice@example.com")
+        val uploader = TestPhotosUploader()
+        val backedUpDao = InMemoryBackedUpFileDao()
+        val stagedDao = InMemoryStagedFileDao()
+
+        val verifiedRow = sampleEntity("content://media/external/images/media/60", accountName = "alice@example.com", state = CloudUploadEntity.STATE_VERIFIED)
+        uploadDao.upsert(verifiedRow)
+
+        // Disconnect account right when startup recovery checks it
+        authClient.activeAccountName = null
+
+        val worker = createWorker(context, uploadDao, authClient, uploader, backedUpDao, stagedDao)
+        worker.doWork()
+
+        // Worker returns without modifying ledger
+        assertTrue("Ledger must NOT receive entries when account is disconnected", backedUpDao.getAll().isEmpty())
+        assertTrue("Staged files must NOT receive entries when account is disconnected", stagedDao.getAll().isEmpty())
     }
 }

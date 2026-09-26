@@ -27,17 +27,22 @@ import org.mockito.Mockito.`when`
  */
 class MediaStoreReconciliationTest {
 
-    private fun mockUri(): Uri {
-        val uri = mock(Uri::class.java)
-        `when`(uri.toString()).thenReturn("content://media/external/images/media/42")
-        return uri
+    private val testUri: Uri = mock(Uri::class.java).apply {
+        `when`(toString()).thenReturn("content://media/external/images/media/42")
+    }
+
+    private fun mockUri(): Uri = testUri
+
+    private fun anyUri(): Uri {
+        org.mockito.ArgumentMatchers.any(Uri::class.java)
+        return testUri
     }
 
     @Test
     fun `M0-R6 - permission denial returns UNKNOWN, never ABSENT`() {
         val context = mock(Context::class.java)
         val permissions = mock(StoragePermissionManager::class.java)
-        `when`(permissions.hasMediaAccess()).thenReturn(false)
+        `when`(permissions.hasAccessFor(anyUri())).thenReturn(false)
 
         val repo = MediaStoreRepository(context, permissions)
         repo.sdkInt = 30
@@ -54,9 +59,9 @@ class MediaStoreReconciliationTest {
         val cursor = mock(Cursor::class.java)
 
         `when`(context.contentResolver).thenReturn(resolver)
-        `when`(permissions.hasMediaAccess()).thenReturn(true)
-        `when`(permissions.hasLimitedMediaAccessOnly()).thenReturn(true) // Partial access only!
-        `when`(resolver.query(any(), any(), any(), any())).thenReturn(cursor)
+        `when`(permissions.hasAccessFor(anyUri())).thenReturn(true)
+        `when`(permissions.hasLimitedAccessOnlyFor(anyUri())).thenReturn(true) // Partial access only!
+        `when`(resolver.query(anyUri(), any(), any(), any())).thenReturn(cursor)
         `when`(cursor.moveToFirst()).thenReturn(false) // Not visible in current selection
 
         val repo = MediaStoreRepository(context, permissions)
@@ -78,9 +83,9 @@ class MediaStoreReconciliationTest {
         val cursor = mock(Cursor::class.java)
 
         `when`(context.contentResolver).thenReturn(resolver)
-        `when`(permissions.hasMediaAccess()).thenReturn(true)
-        `when`(permissions.hasLimitedMediaAccessOnly()).thenReturn(false) // Full media access!
-        `when`(resolver.query(any(), any(), any(), any())).thenReturn(cursor)
+        `when`(permissions.hasAccessFor(anyUri())).thenReturn(true)
+        `when`(permissions.hasLimitedAccessOnlyFor(anyUri())).thenReturn(false) // Full media access!
+        `when`(resolver.query(anyUri(), any(), any(), any())).thenReturn(cursor)
         `when`(cursor.moveToFirst()).thenReturn(false)
 
         val repo = MediaStoreRepository(context, permissions)
@@ -98,9 +103,9 @@ class MediaStoreReconciliationTest {
         val cursor = mock(Cursor::class.java)
 
         `when`(context.contentResolver).thenReturn(resolver)
-        `when`(permissions.hasMediaAccess()).thenReturn(true)
-        `when`(permissions.hasLimitedMediaAccessOnly()).thenReturn(false)
-        `when`(resolver.query(any(), any(), any(), any())).thenReturn(cursor)
+        `when`(permissions.hasAccessFor(anyUri())).thenReturn(true)
+        `when`(permissions.hasLimitedAccessOnlyFor(anyUri())).thenReturn(false)
+        `when`(resolver.query(anyUri(), any(), any(), any())).thenReturn(cursor)
         `when`(cursor.moveToFirst()).thenReturn(true)
         `when`(cursor.getColumnIndex(MediaStore.MediaColumns.IS_TRASHED)).thenReturn(1)
         `when`(cursor.getInt(1)).thenReturn(1)
@@ -120,9 +125,9 @@ class MediaStoreReconciliationTest {
         val cursor = mock(Cursor::class.java)
 
         `when`(context.contentResolver).thenReturn(resolver)
-        `when`(permissions.hasMediaAccess()).thenReturn(true)
-        `when`(permissions.hasLimitedMediaAccessOnly()).thenReturn(false)
-        `when`(resolver.query(any(), any(), any(), any())).thenReturn(cursor)
+        `when`(permissions.hasAccessFor(anyUri())).thenReturn(true)
+        `when`(permissions.hasLimitedAccessOnlyFor(anyUri())).thenReturn(false)
+        `when`(resolver.query(anyUri(), any(), any(), any())).thenReturn(cursor)
         `when`(cursor.moveToFirst()).thenReturn(true)
         `when`(cursor.getColumnIndex(MediaStore.MediaColumns.IS_TRASHED)).thenReturn(1)
         `when`(cursor.getInt(1)).thenReturn(0)
@@ -141,14 +146,69 @@ class MediaStoreReconciliationTest {
         val permissions = mock(StoragePermissionManager::class.java)
 
         `when`(context.contentResolver).thenReturn(resolver)
-        `when`(permissions.hasMediaAccess()).thenReturn(true)
-        `when`(resolver.query(any(), any(), any(), any())).thenReturn(null)
+        `when`(permissions.hasAccessFor(anyUri())).thenReturn(true)
+        `when`(resolver.query(anyUri(), any(), any(), any())).thenReturn(null)
 
         val repo = MediaStoreRepository(context, permissions)
         repo.sdkInt = 30
         assertEquals(MediaItemState.UNKNOWN, repo.inspectMediaState(mockUri()))
 
-        `when`(resolver.query(any(), any(), any(), any())).thenThrow(SecurityException("Permission revoked"))
+        `when`(resolver.query(anyUri(), any(), any(), any())).thenThrow(SecurityException("Permission revoked"))
         assertEquals(MediaItemState.UNKNOWN, repo.inspectMediaState(mockUri()))
+    }
+
+    @Test
+    fun `M0-V2-01 - audio-only permission never grants visibility for image or video URI`() {
+        val context = mock(Context::class.java)
+        val permManager = StoragePermissionManager(context).apply {
+            sdkInt = 34
+            permissionChecker = { it == android.Manifest.permission.READ_MEDIA_AUDIO }
+        }
+
+        val imageUri = mock(Uri::class.java).apply {
+            `when`(toString()).thenReturn("content://media/external/images/media/42")
+        }
+        val videoUri = mock(Uri::class.java).apply {
+            `when`(toString()).thenReturn("content://media/external/video/media/84")
+        }
+        val audioUri = mock(Uri::class.java).apply {
+            `when`(toString()).thenReturn("content://media/external/audio/media/126")
+        }
+
+        org.junit.Assert.assertFalse("Audio grant must NOT give access to image URI", permManager.hasAccessFor(imageUri))
+        org.junit.Assert.assertFalse("Audio grant must NOT give access to video URI", permManager.hasAccessFor(videoUri))
+        org.junit.Assert.assertTrue("Audio grant must give access to audio URI", permManager.hasAccessFor(audioUri))
+
+        val repo = MediaStoreRepository(context, permManager)
+        repo.sdkInt = 34
+        assertEquals("Image URI under audio-only permission must fail closed to UNKNOWN", MediaItemState.UNKNOWN, repo.inspectMediaState(imageUri))
+        assertEquals("Video URI under audio-only permission must fail closed to UNKNOWN", MediaItemState.UNKNOWN, repo.inspectMediaState(videoUri))
+    }
+
+    @Test
+    fun `M0-V2-01 - image-only permission does not grant visibility for video URI and vice versa`() {
+        val context = mock(Context::class.java)
+        val imageOnlyPerms = StoragePermissionManager(context).apply {
+            sdkInt = 34
+            permissionChecker = { it == android.Manifest.permission.READ_MEDIA_IMAGES }
+        }
+
+        val imageUri = mock(Uri::class.java).apply {
+            `when`(toString()).thenReturn("content://media/external/images/media/42")
+        }
+        val videoUri = mock(Uri::class.java).apply {
+            `when`(toString()).thenReturn("content://media/external/video/media/84")
+        }
+
+        org.junit.Assert.assertTrue(imageOnlyPerms.hasAccessFor(imageUri))
+        org.junit.Assert.assertFalse("Image permission must not grant access to video URI", imageOnlyPerms.hasAccessFor(videoUri))
+
+        val videoOnlyPerms = StoragePermissionManager(context).apply {
+            sdkInt = 34
+            permissionChecker = { it == android.Manifest.permission.READ_MEDIA_VIDEO }
+        }
+
+        org.junit.Assert.assertFalse("Video permission must not grant access to image URI", videoOnlyPerms.hasAccessFor(imageUri))
+        org.junit.Assert.assertTrue(videoOnlyPerms.hasAccessFor(videoUri))
     }
 }

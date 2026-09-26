@@ -54,6 +54,10 @@ class PurgeEngine @Inject constructor(
             val nonMediaResult: NonMediaResult,
             /** Files that vanished externally prior to purge; unstage without claiming reclaimed bytes. */
             val alreadyMissingUris: List<String> = emptyList(),
+            /** Files already in OS trash; handled separately without claiming reclaimed bytes. */
+            val alreadyTrashedUris: List<String> = emptyList(),
+            /** Files with unknown/unreadable visibility; must remain staged. */
+            val blockedUris: List<String> = emptyList(),
             /** Live items exceeding MAX_PURGE_BATCH_SIZE deferred to subsequent user action. */
             val deferredUris: List<String> = emptyList(),
         ) : PurgePlan
@@ -62,6 +66,8 @@ class PurgeEngine @Inject constructor(
         data class NoConfirmationNeeded(
             val nonMediaResult: NonMediaResult,
             val alreadyMissingUris: List<String> = emptyList(),
+            val alreadyTrashedUris: List<String> = emptyList(),
+            val blockedUris: List<String> = emptyList(),
             val deferredUris: List<String> = emptyList(),
         ) : PurgePlan
 
@@ -103,6 +109,10 @@ class PurgeEngine @Inject constructor(
 
     internal var uriParser: (String) -> Uri = { Uri.parse(it) }
     internal var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    internal var sdkInt: Int = Build.VERSION.SDK_INT
+    internal var requestBuilder: (List<Uri>, ExecutionMode) -> IntentSender = { uris, mode ->
+        buildMediaRequest(uris, mode)
+    }
 
     /**
      * Build a batched purge plan. Splits [staged] into media (MediaStore) and
@@ -120,7 +130,7 @@ class PurgeEngine @Inject constructor(
             DeletionEligibility.Permitted -> Unit
         }
 
-        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && mode == ExecutionMode.OS_TRASH_30_DAY) {
+        if (sdkInt == Build.VERSION_CODES.Q && mode == ExecutionMode.OS_TRASH_30_DAY) {
             return@withContext PurgePlan.Failed(
                 "Android 10 cannot move this batch to Trash. Choose Permanent delete, or keep it staged."
             )
@@ -131,12 +141,33 @@ class PurgeEngine @Inject constructor(
                 .getOrDefault(MediaType.DOCUMENT).isMediaStoreTrashable
         }
 
-        // Data-drift guard & starvation prevention:
-        // Partition media items into live items and externally missing items across the staged set.
-        val (liveMedia, missingMedia) = media.partition {
-            mediaStore.stillExists(uriParser(it.contentUri))
+        // M0-V2-01: Explicit 4-way classification across the staged set:
+        // - PRESENT: active media confirmed existing -> liveMedia
+        // - ABSENT: confirmed deleted externally -> alreadyMissing (unstage without crediting bytes)
+        // - TRASHED: already in OS trash -> alreadyTrashed in trash mode (unstage with 0 bytes credited),
+        //            or if permanent purge, candidate for permanent delete
+        // - UNKNOWN: query error / restricted / partial access -> blocked (MUST REMAIN STAGED)
+        val liveMedia = mutableListOf<StagedFileEntity>()
+        val alreadyMissing = mutableListOf<String>()
+        val alreadyTrashed = mutableListOf<String>()
+        val blocked = mutableListOf<String>()
+
+        for (item in media) {
+            val uri = uriParser(item.contentUri)
+            when (mediaStore.inspectMediaState(uri)) {
+                MediaStoreRepository.MediaItemState.PRESENT -> liveMedia += item
+                MediaStoreRepository.MediaItemState.ABSENT -> alreadyMissing += item.contentUri
+                MediaStoreRepository.MediaItemState.TRASHED -> {
+                    if (mode == ExecutionMode.PERMANENT_PURGE) {
+                        // Trashed media can be permanently purged via OS delete request
+                        liveMedia += item
+                    } else {
+                        alreadyTrashed += item.contentUri
+                    }
+                }
+                MediaStoreRepository.MediaItemState.UNKNOWN -> blocked += item.contentUri
+            }
         }
-        val alreadyMissingUris = missingMedia.map { it.contentUri }
 
         // Bound batch size for live items to avoid OS Binder transaction and provider request limits.
         val batchLiveMedia = liveMedia.take(MAX_PURGE_BATCH_SIZE)
@@ -148,22 +179,26 @@ class PurgeEngine @Inject constructor(
         if (liveMediaUris.isEmpty()) {
             return@withContext PurgePlan.NoConfirmationNeeded(
                 nonMediaResult = nonMediaResult,
-                alreadyMissingUris = alreadyMissingUris,
+                alreadyMissingUris = alreadyMissing,
+                alreadyTrashedUris = alreadyTrashed,
+                blockedUris = blocked,
                 deferredUris = deferredUris,
             )
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val sender = buildMediaRequest(liveMediaUris, mode)
+        if (sdkInt >= Build.VERSION_CODES.R) {
+            val sender = requestBuilder(liveMediaUris, mode)
             PurgePlan.NeedsConfirmation(
                 request = sender,
                 mediaUris = liveMediaUris,
                 nonMediaResult = nonMediaResult,
-                alreadyMissingUris = alreadyMissingUris,
+                alreadyMissingUris = alreadyMissing,
+                alreadyTrashedUris = alreadyTrashed,
+                blockedUris = blocked,
                 deferredUris = deferredUris,
             )
         } else {
-            legacyDeleteQ(liveMediaUris, nonMediaResult, alreadyMissingUris, deferredUris)
+            legacyDeleteQ(liveMediaUris, nonMediaResult, alreadyMissing, alreadyTrashed, blocked, deferredUris)
         }
     }
 
@@ -182,6 +217,8 @@ class PurgeEngine @Inject constructor(
         uris: List<Uri>,
         nonMedia: NonMediaResult,
         alreadyMissingUris: List<String>,
+        alreadyTrashedUris: List<String>,
+        blockedUris: List<String>,
         deferredUris: List<String>,
     ): PurgePlan {
         val purged = mutableListOf<Uri>()
@@ -194,6 +231,8 @@ class PurgeEngine @Inject constructor(
         return PurgePlan.NoConfirmationNeeded(
             nonMediaResult = nonMedia.copy(purgedUris = nonMedia.purgedUris + purged.map { it.toString() }),
             alreadyMissingUris = alreadyMissingUris,
+            alreadyTrashedUris = alreadyTrashedUris,
+            blockedUris = blockedUris,
             deferredUris = deferredUris,
         )
     }

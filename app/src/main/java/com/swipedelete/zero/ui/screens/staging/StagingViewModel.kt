@@ -146,9 +146,20 @@ class StagingViewModel @Inject constructor(
             try {
             when (val plan = purgeEngine.preparePurge(staged, selectedMode)) {
                 is PurgeEngine.PurgePlan.NeedsConfirmation -> {
-                    // M0-R7: Immediately unstage externally missing files without claiming reclaimed bytes.
+                    // M0-V2-01: Immediately unstage confirmed absent items without claiming reclaimed bytes.
                     if (plan.alreadyMissingUris.isNotEmpty()) {
                         stagingRepository.removePurged(plan.alreadyMissingUris)
+                    }
+                    // M0-V2-01: In 30-day trash mode, already-trashed items are removed from queue without claiming reclaimed bytes.
+                    if (plan.alreadyTrashedUris.isNotEmpty()) {
+                        stagingRepository.removePurged(plan.alreadyTrashedUris)
+                    }
+                    // M0-V2-01: UNKNOWN items (plan.blockedUris) MUST REMAIN STAGED! They are never unstaged.
+                    if (plan.blockedUris.isNotEmpty()) {
+                        effects.send(PurgeEffect.Message("${plan.blockedUris.size} item(s) could not be verified and remain in the queue."))
+                    }
+                    if (plan.deferredUris.isNotEmpty()) {
+                        effects.send(PurgeEffect.Message("${plan.deferredUris.size} item(s) deferred to subsequent batch (max ${PurgeEngine.MAX_PURGE_BATCH_SIZE} per batch)."))
                     }
                     // Non-media already handled; remove its winners now.
                     recordPurged(plan.nonMediaResult.purgedUris, permanentlyDeleted = true)
@@ -161,9 +172,18 @@ class StagingViewModel @Inject constructor(
                     }
                 }
                 is PurgeEngine.PurgePlan.NoConfirmationNeeded -> {
-                    // M0-R7: Immediately unstage externally missing files without claiming reclaimed bytes.
+                    // M0-V2-01: Immediately unstage confirmed absent items without claiming reclaimed bytes.
                     if (plan.alreadyMissingUris.isNotEmpty()) {
                         stagingRepository.removePurged(plan.alreadyMissingUris)
+                    }
+                    if (plan.alreadyTrashedUris.isNotEmpty()) {
+                        stagingRepository.removePurged(plan.alreadyTrashedUris)
+                    }
+                    if (plan.blockedUris.isNotEmpty()) {
+                        effects.send(PurgeEffect.Message("${plan.blockedUris.size} item(s) could not be verified and remain in the queue."))
+                    }
+                    if (plan.deferredUris.isNotEmpty()) {
+                        effects.send(PurgeEffect.Message("${plan.deferredUris.size} item(s) deferred to subsequent batch (max ${PurgeEngine.MAX_PURGE_BATCH_SIZE} per batch)."))
                     }
                     val freed = recordPurged(plan.nonMediaResult.purgedUris, permanentlyDeleted = true)
                     purgingState.value = false
