@@ -11,6 +11,7 @@ import com.swipedelete.zero.domain.backup.PhotosArchive
 import com.swipedelete.zero.domain.model.ExecutionMode
 import com.swipedelete.zero.domain.model.MediaType
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -51,10 +52,24 @@ class PurgeEngine @Inject constructor(
             val mediaUris: List<Uri>,
             /** Non-media handled out-of-band (already purged or needs SAF). */
             val nonMediaResult: NonMediaResult,
+            /** Files that vanished externally prior to purge; unstage without claiming reclaimed bytes. */
+            val alreadyMissingUris: List<String> = emptyList(),
+            /** Files already in OS trash; handled separately without claiming reclaimed bytes. */
+            val alreadyTrashedUris: List<String> = emptyList(),
+            /** Files with unknown/unreadable visibility; must remain staged. */
+            val blockedUris: List<String> = emptyList(),
+            /** Live items exceeding MAX_PURGE_BATCH_SIZE deferred to subsequent user action. */
+            val deferredUris: List<String> = emptyList(),
         ) : PurgePlan
 
-        /** Nothing needed a dialog (e.g. only non-media, or empty). */
-        data class NoConfirmationNeeded(val nonMediaResult: NonMediaResult) : PurgePlan
+        /** Nothing needed a dialog (e.g. only non-media, already-missing, or empty). */
+        data class NoConfirmationNeeded(
+            val nonMediaResult: NonMediaResult,
+            val alreadyMissingUris: List<String> = emptyList(),
+            val alreadyTrashedUris: List<String> = emptyList(),
+            val blockedUris: List<String> = emptyList(),
+            val deferredUris: List<String> = emptyList(),
+        ) : PurgePlan
 
         data class Failed(val reason: String) : PurgePlan
     }
@@ -66,6 +81,40 @@ class PurgeEngine @Inject constructor(
     )
 
     /**
+     * Typed domain safety check.
+     */
+    sealed interface DeletionEligibility {
+        data object Permitted : DeletionEligibility
+        data class Blocked(val reason: String) : DeletionEligibility
+    }
+
+    /**
+     * Typed domain safety check.
+     * Enforces default-deny:
+     * - In Play/cloud, local deletion of originals is unconditionally locked in this test build.
+     *   Returns immediately without making network calls or touching the backup provider fake.
+     * - In F-Droid (offline edition), deletion is permitted.
+     */
+    suspend fun checkDeletionEligibility(staged: List<StagedFileEntity>): DeletionEligibility {
+        if (staged.isEmpty()) return DeletionEligibility.Permitted
+
+        // In Play/cloud, local deletion of originals is unconditionally locked in this test build.
+        // Return immediately without calling verifyRemote, ensuring throwing provider fakes are never touched.
+        if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE) {
+            return DeletionEligibility.Blocked(M0_SAFETY_LOCK_MESSAGE)
+        }
+
+        return DeletionEligibility.Permitted
+    }
+
+    internal var uriParser: (String) -> Uri = { Uri.parse(it) }
+    internal var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    internal var sdkInt: Int = Build.VERSION.SDK_INT
+    internal var requestBuilder: (List<Uri>, ExecutionMode) -> IntentSender = { uris, mode ->
+        buildMediaRequest(uris, mode)
+    }
+
+    /**
      * Build a batched purge plan. Splits [staged] into media (MediaStore) and
      * non-media (SAF/direct), applies the existence recheck, and prepares one
      * grouped MediaStore request for all trashable media.
@@ -73,19 +122,15 @@ class PurgeEngine @Inject constructor(
     suspend fun preparePurge(
         staged: List<StagedFileEntity>,
         mode: ExecutionMode,
-    ): PurgePlan = withContext(Dispatchers.IO) {
+    ): PurgePlan = withContext(ioDispatcher) {
         if (staged.isEmpty()) return@withContext PurgePlan.NoConfirmationNeeded(NonMediaResult())
-        if (photosArchive.isAvailable) {
-            // Check every file before executing any deletion. A partial batch
-            // must never silently delete the backed-up subset while leaving
-            // unprotected items in the queue.
-            val unverified = staged.firstOrNull { !photosArchive.verifyRemote(it) }
-            if (unverified != null) return@withContext PurgePlan.Failed(
-                "${unverified.displayName} is not confirmed in Google Photos. " +
-                    "Back up the staged files and wait for verification before deleting."
-            )
+
+        when (val eligibility = checkDeletionEligibility(staged)) {
+            is DeletionEligibility.Blocked -> return@withContext PurgePlan.Failed(eligibility.reason)
+            DeletionEligibility.Permitted -> Unit
         }
-        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && mode == ExecutionMode.OS_TRASH_30_DAY) {
+
+        if (sdkInt == Build.VERSION_CODES.Q && mode == ExecutionMode.OS_TRASH_30_DAY) {
             return@withContext PurgePlan.Failed(
                 "Android 10 cannot move this batch to Trash. Choose Permanent delete, or keep it staged."
             )
@@ -96,24 +141,64 @@ class PurgeEngine @Inject constructor(
                 .getOrDefault(MediaType.DOCUMENT).isMediaStoreTrashable
         }
 
-        // Data-drift guard: drop rows whose files vanished/changed externally.
-        val liveMediaUris = media
-            .map { Uri.parse(it.contentUri) }
-            .filter { mediaStore.stillExists(it) }
+        // M0-V2-01: Explicit 4-way classification across the staged set:
+        // - PRESENT: active media confirmed existing -> liveMedia
+        // - ABSENT: confirmed deleted externally -> alreadyMissing (unstage without crediting bytes)
+        // - TRASHED: already in OS trash -> alreadyTrashed in trash mode (unstage with 0 bytes credited),
+        //            or if permanent purge, candidate for permanent delete
+        // - UNKNOWN: query error / restricted / partial access -> blocked (MUST REMAIN STAGED)
+        val liveMedia = mutableListOf<StagedFileEntity>()
+        val alreadyMissing = mutableListOf<String>()
+        val alreadyTrashed = mutableListOf<String>()
+        val blocked = mutableListOf<String>()
+
+        for (item in media) {
+            val uri = uriParser(item.contentUri)
+            when (mediaStore.inspectMediaState(uri)) {
+                MediaStoreRepository.MediaItemState.PRESENT -> liveMedia += item
+                MediaStoreRepository.MediaItemState.ABSENT -> alreadyMissing += item.contentUri
+                MediaStoreRepository.MediaItemState.TRASHED -> {
+                    if (mode == ExecutionMode.PERMANENT_PURGE) {
+                        // Trashed media can be permanently purged via OS delete request
+                        liveMedia += item
+                    } else {
+                        alreadyTrashed += item.contentUri
+                    }
+                }
+                MediaStoreRepository.MediaItemState.UNKNOWN -> blocked += item.contentUri
+            }
+        }
+
+        // Bound batch size for live items to avoid OS Binder transaction and provider request limits.
+        val batchLiveMedia = liveMedia.take(MAX_PURGE_BATCH_SIZE)
+        val deferredUris = liveMedia.drop(MAX_PURGE_BATCH_SIZE).map { it.contentUri }
+        val liveMediaUris = batchLiveMedia.map { uriParser(it.contentUri) }
 
         val nonMediaResult = purgeNonMedia(nonMedia)
 
         if (liveMediaUris.isEmpty()) {
-            return@withContext PurgePlan.NoConfirmationNeeded(nonMediaResult)
+            return@withContext PurgePlan.NoConfirmationNeeded(
+                nonMediaResult = nonMediaResult,
+                alreadyMissingUris = alreadyMissing,
+                alreadyTrashedUris = alreadyTrashed,
+                blockedUris = blocked,
+                deferredUris = deferredUris,
+            )
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val sender = buildMediaRequest(liveMediaUris, mode)
-            PurgePlan.NeedsConfirmation(sender, liveMediaUris, nonMediaResult)
+        if (sdkInt >= Build.VERSION_CODES.R) {
+            val sender = requestBuilder(liveMediaUris, mode)
+            PurgePlan.NeedsConfirmation(
+                request = sender,
+                mediaUris = liveMediaUris,
+                nonMediaResult = nonMediaResult,
+                alreadyMissingUris = alreadyMissing,
+                alreadyTrashedUris = alreadyTrashed,
+                blockedUris = blocked,
+                deferredUris = deferredUris,
+            )
         } else {
-            // API 29: no batch request API. Attempt direct delete; a
-            // RecoverableSecurityException surfaces a per-item consent intent.
-            legacyDeleteQ(liveMediaUris, nonMediaResult)
+            legacyDeleteQ(liveMediaUris, nonMediaResult, alreadyMissing, alreadyTrashed, blocked, deferredUris)
         }
     }
 
@@ -128,20 +213,27 @@ class PurgeEngine @Inject constructor(
                     .intentSender
         }
 
-    private fun legacyDeleteQ(uris: List<Uri>, nonMedia: NonMediaResult): PurgePlan {
-        // On Q we can only try; recoverable exceptions must be caught per-uri by
-        // the caller. Here we best-effort delete and report what succeeded.
+    private fun legacyDeleteQ(
+        uris: List<Uri>,
+        nonMedia: NonMediaResult,
+        alreadyMissingUris: List<String>,
+        alreadyTrashedUris: List<String>,
+        blockedUris: List<String>,
+        deferredUris: List<String>,
+    ): PurgePlan {
         val purged = mutableListOf<Uri>()
         for (uri in uris) {
             try {
                 if (context.contentResolver.delete(uri, null, null) > 0) purged += uri
             } catch (_: Exception) {
-                // Left in queue; user can retry. Avoid crashing the batch.
             }
         }
-        // No IntentSender path on Q here; treat as immediate.
         return PurgePlan.NoConfirmationNeeded(
-            nonMedia.copy(purgedUris = nonMedia.purgedUris + purged.map { it.toString() }),
+            nonMediaResult = nonMedia.copy(purgedUris = nonMedia.purgedUris + purged.map { it.toString() }),
+            alreadyMissingUris = alreadyMissingUris,
+            alreadyTrashedUris = alreadyTrashedUris,
+            blockedUris = blockedUris,
+            deferredUris = deferredUris,
         )
     }
 
@@ -171,19 +263,28 @@ class PurgeEngine @Inject constructor(
      * After the OS dialog returns RESULT_OK, verify each media uri is really
      * gone (permanent) or trashed, and report which succeeded. Only the winners
      * are removed from the staging queue by the caller — partial-success safe.
+     *
+     * Safety rules:
+     * - Unreadable != deleted: query errors and permission losses result in UNKNOWN, never success.
+     * - Mode OS_TRASH_30_DAY verifies MediaItemState.TRASHED (IS_TRASHED == 1 on API 30+).
+     * - Mode PERMANENT_PURGE verifies MediaItemState.ABSENT.
      */
     suspend fun confirmMediaPurged(
         uris: List<Uri>,
         mode: ExecutionMode,
-    ): List<String> = withContext(Dispatchers.IO) {
+    ): List<String> = withContext(ioDispatcher) {
         uris.filter { uri ->
+            val state = mediaStore.inspectMediaState(uri)
             when (mode) {
-                // Permanent: success == no longer present.
-                ExecutionMode.PERMANENT_PURGE -> !mediaStore.stillExists(uri)
-                // Trash: the row still exists (IS_TRASHED=1) but the user
-                // confirmed; treat confirmation as success.
-                ExecutionMode.OS_TRASH_30_DAY -> true
+                ExecutionMode.PERMANENT_PURGE -> state == MediaStoreRepository.MediaItemState.ABSENT
+                ExecutionMode.OS_TRASH_30_DAY -> state == MediaStoreRepository.MediaItemState.TRASHED
             }
         }.map { it.toString() }
+    }
+
+    companion object {
+        const val MAX_PURGE_BATCH_SIZE = 100
+        const val M0_SAFETY_LOCK_MESSAGE =
+            "Cleanup is unavailable in this test build. Your originals stay on this device."
     }
 }

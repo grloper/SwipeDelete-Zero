@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.swipedelete.zero.ComparisonBadgeTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-26T13:03:39.810Z" hostname="OFEKVPC" time="0.041">
+  <properties/>
+  <testcase name="unmeasured sharpness produces no claim" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.038"/>
+  <testcase name="trivial resolution differences are ignored" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.001"/>
+  <testcase name="badges never contradict each other" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.001"/>
+  <testcase name="trivial size differences are ignored" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.0"/>
+  <testcase name="a genuinely smaller file wins" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.0"/>
+  <testcase name="a genuinely larger resolution wins" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.001"/>
+  <testcase name="sharpness needs a meaningful gap" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.0"/>
+  <testcase name="byte-identical files claim nothing" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

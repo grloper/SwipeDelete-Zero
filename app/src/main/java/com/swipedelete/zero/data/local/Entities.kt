@@ -155,6 +155,8 @@ data class CloudUploadEntity(
     val lastError: String? = null,
     val enqueuedAtMillis: Long,
     val updatedAtMillis: Long,
+    /** Google Account email/name that authorized this upload. Null for legacy/unbound rows. */
+    val accountName: String? = null,
 ) {
     companion object {
         const val STATE_QUEUED = "QUEUED"

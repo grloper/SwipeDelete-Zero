@@ -28,7 +28,9 @@ import javax.inject.Singleton
 @Singleton
 class MediaStoreRepository @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val permissionManager: StoragePermissionManager = StoragePermissionManager(context),
 ) {
+    internal var sdkInt: Int = Build.VERSION.SDK_INT
 
     private val resolver get() = context.contentResolver
 
@@ -112,16 +114,90 @@ class MediaStoreRepository @Inject constructor(
         } ?: emptyList()
     }
 
+    /** Explicit reconciliation states for media deletion verification. */
+    enum class MediaItemState {
+        /** Row is confirmed absent from MediaStore (permanently deleted). */
+        ABSENT,
+        /** Row exists and is active (not trashed, not deleted). */
+        PRESENT,
+        /** Row exists in MediaStore with IS_TRASHED = 1. */
+        TRASHED,
+        /** Query failed or permission lost; unreadable != deleted. */
+        UNKNOWN,
+    }
+
+    /**
+     * Reconciles the exact state of a media item in MediaStore.
+     * Crucial safety rule: query failure or permission revocation yields UNKNOWN, never ABSENT.
+     */
+    fun inspectMediaState(uri: Uri): MediaItemState = try {
+        if (!permissionManager.hasAccessFor(uri)) {
+            MediaItemState.UNKNOWN
+        } else if (sdkInt >= Build.VERSION_CODES.R) {
+            val bundle = android.os.Bundle().apply {
+                putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
+            }
+            val cursor = resolver.query(
+                uri,
+                arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.IS_TRASHED),
+                bundle,
+                null
+            )
+            if (cursor == null) {
+                MediaItemState.UNKNOWN
+            } else {
+                cursor.use { c ->
+                    if (!c.moveToFirst()) {
+                        if (permissionManager.hasLimitedAccessOnlyFor(uri)) {
+                            // Android 14+ selected-media access: empty cursor cannot distinguish
+                            // absence from lack of visibility. Fail closed to UNKNOWN.
+                            MediaItemState.UNKNOWN
+                        } else {
+                            MediaItemState.ABSENT
+                        }
+                    } else {
+                        val trashedIdx = c.getColumnIndex(MediaStore.MediaColumns.IS_TRASHED)
+                        if (trashedIdx >= 0 && c.getInt(trashedIdx) == 1) {
+                            MediaItemState.TRASHED
+                        } else {
+                            MediaItemState.PRESENT
+                        }
+                    }
+                }
+            }
+        } else {
+            val cursor = resolver.query(
+                uri,
+                arrayOf(MediaStore.MediaColumns._ID),
+                null,
+                null,
+                null
+            )
+            if (cursor == null) {
+                MediaItemState.UNKNOWN
+            } else {
+                cursor.use { c ->
+                    if (!c.moveToFirst()) {
+                        if (permissionManager.hasLimitedAccessOnlyFor(uri)) {
+                            MediaItemState.UNKNOWN
+                        } else {
+                            MediaItemState.ABSENT
+                        }
+                    } else {
+                        MediaItemState.PRESENT
+                    }
+                }
+            }
+        }
+    } catch (_: Exception) {
+        MediaItemState.UNKNOWN
+    }
+
     /**
      * Strict existence re-check used right before a purge to survive data drift
      * (file edited/deleted externally in Google Photos between staging & purge).
      */
-    fun stillExists(uri: Uri): Boolean = try {
-        resolver.query(uri, arrayOf(MediaStore.MediaColumns._ID), null, null, null)
-            ?.use { it.moveToFirst() } ?: false
-    } catch (_: Exception) {
-        false
-    }
+    fun stillExists(uri: Uri): Boolean = inspectMediaState(uri) == MediaItemState.PRESENT
 
     private inline fun <T> safeQuery(
         uri: Uri,

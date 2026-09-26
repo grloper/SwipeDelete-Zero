@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.swipedelete.zero.photos.PhotosUploaderQueryParserTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-26T13:03:43.516Z" hostname="OFEKVPC" time="0.001">
+  <properties/>
+  <testcase name="parseSessionQuery - active status with missing or malformed size fails closed as not resumable" classname="com.swipedelete.zero.photos.PhotosUploaderQueryParserTest" time="0.0"/>
+  <testcase name="parseSessionQuery - final status with empty or missing body indicates lost receipt" classname="com.swipedelete.zero.photos.PhotosUploaderQueryParserTest" time="0.0"/>
+  <testcase name="parseSessionQuery - terminated status fails closed as not resumable and not final" classname="com.swipedelete.zero.photos.PhotosUploaderQueryParserTest" time="0.0"/>
+  <testcase name="parseSessionQuery - final status with response body recovers valid upload token" classname="com.swipedelete.zero.photos.PhotosUploaderQueryParserTest" time="0.0"/>
+  <testcase name="parseSessionQuery - cancelled or unknown status fails closed as not resumable" classname="com.swipedelete.zero.photos.PhotosUploaderQueryParserTest" time="0.0"/>
+  <testcase name="parseSessionQuery - active status with negative offset fails closed as not resumable" classname="com.swipedelete.zero.photos.PhotosUploaderQueryParserTest" time="0.0"/>
+  <testcase name="parseSessionQuery - active status with valid positive offset is resumable" classname="com.swipedelete.zero.photos.PhotosUploaderQueryParserTest" time="0.001"/>
+  <testcase name="parseSessionQuery - active status with zero offset is resumable from byte zero" classname="com.swipedelete.zero.photos.PhotosUploaderQueryParserTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -104,6 +104,9 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -170,6 +173,9 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     // Stubs android.net.Uri so pure-JVM tests can build MediaItem fixtures.
     testImplementation(libs.mockito.core)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.room.testing)

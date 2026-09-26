@@ -1,0 +1,2364 @@
+{
+  "status": "XML_COUNTS_VALID",
+  "limitations": "Count audit only; not proof of execution, adequate tests, build identity, or release readiness.",
+  "by_variant": {
+    "fdroid": {
+      "total": 131,
+      "passed": 130,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "play": {
+      "total": 160,
+      "passed": 156,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 4
+    }
+  },
+  "totals": {
+    "total": 291,
+    "passed": 286,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 5
+  },
+  "cases": [
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.AuthDiagnosticTest",
+      "name": "code 10 blames the app registration step",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.AuthDiagnosticTest",
+      "name": "invalid account points at the test-user list",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.AuthDiagnosticTest",
+      "name": "api not connected points at enabling the APIs",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.AuthDiagnosticTest",
+      "name": "unknown codes still produce actionable guidance",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.AuthDiagnosticTest",
+      "name": "cancelling is not reported as a misconfiguration",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.AuthDiagnosticTest",
+      "name": "every decoded diagnostic carries a cause and a fix",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.BlurDetectorTest",
+      "name": "checkerboard is sharp",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.BlurDetectorTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.BlurDetectorTest",
+      "name": "flat field is flagged blurry",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.BlurDetectorTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.BlurDetectorTest",
+      "name": "dark textured frame uses conservative threshold",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.BlurDetectorTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.CloudManagerTest",
+      "name": "UploadReducer verifies successful chunk progress and finalization",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.CloudManagerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.CloudManagerTest",
+      "name": "CloudUploadStats computes overall progress accurately",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.CloudManagerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.CloudManagerTest",
+      "name": "CloudUploadStats handles zero bytes gracefully without division by zero",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.CloudManagerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.CloudManagerTest",
+      "name": "Rebackup flow transitions entity from verified or failed to fresh queued",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.CloudManagerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "unmeasured sharpness produces no claim",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "trivial resolution differences are ignored",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "badges never contradict each other",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "trivial size differences are ignored",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "a genuinely smaller file wins",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "a genuinely larger resolution wins",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "sharpness needs a meaningful gap",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "byte-identical files claim nothing",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DatabaseMigrationTest",
+      "name": "M0-MIG - Migration versions connect v4 baseline to v5",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DatabaseMigrationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DatabaseMigrationTest",
+      "name": "testRealRoomV4ToV5Migration",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DatabaseMigrationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DeckAggregateTest",
+      "name": "remaining bytes shrink alongside remaining count",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DeckAggregateTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DeckContinuationAndSortingTest",
+      "name": "Deck re-ordering by largest first sorts remaining cards descending by size",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DeckContinuationAndSortingTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DeckContinuationAndSortingTest",
+      "name": "isCameraVideo recognizes DCIM and camera video prefixes",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DeckContinuationAndSortingTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DeckContinuationAndSortingTest",
+      "name": "Session cursor reconciliation resets completedCount when deck shrunk from purge",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DeckContinuationAndSortingTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DeckGroupTest",
+      "name": "parts of one month collapse into a single group",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DeckGroupTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DeckGroupTest",
+      "name": "progress aggregates across parts",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DeckGroupTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DeckGroupTest",
+      "name": "nextDeck resumes at the first unfinished part",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DeckGroupTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DeckGroupTest",
+      "name": "empty input yields no groups",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DeckGroupTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DeckGroupTest",
+      "name": "fully finished group still offers a deck to reopen",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DeckGroupTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DeleteActionDesignSystemTest",
+      "name": "DeleteRed is distinct from Amber and Azure",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DeleteActionDesignSystemTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.DeleteActionDesignSystemTest",
+      "name": "DeleteRed has strong red component",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.DeleteActionDesignSystemTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.FilmstripTest",
+      "name": "zero duration yields no slots",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.FilmstripTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.FilmstripTest",
+      "name": "ten midpoint timestamps span the timeline",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.FilmstripTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.FilmstripTest",
+      "name": "fraction maps and clamps to the timeline",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.FilmstripTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.FilmstripTest",
+      "name": "slot index clamps at both edges",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.FilmstripTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.FormatTest",
+      "name": "resolution class is orientation agnostic",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.FormatTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.FormatTest",
+      "name": "codec mime mapping",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.FormatTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.FormatTest",
+      "name": "bitrate label picks sensible units",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.FormatTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.FormatTest",
+      "name": "fps label rounds",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.FormatTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0CleanupResultSemanticsTest",
+      "name": "DELETE-01 - permanent purge confirms only ABSENT items, rejecting PRESENT, TRASHED, and UNKNOWN",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0CleanupResultSemanticsTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0CleanupResultSemanticsTest",
+      "name": "DELETE-01 - OS Trash confirms only verified TRASHED items, rejecting UNKNOWN, ABSENT, and PRESENT",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0CleanupResultSemanticsTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-03 - retryable error transitions to failed when MAX_ATTEMPTS is reached",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-03 - transport errors, timeouts, rate-limits and server errors are retryable",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-03 - retryable error re-queues entity when attempts are below MAX_ATTEMPTS",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-01 - SessionReset clears uploadUrl and uploadToken cleanly",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-03 - terminal error transitions immediately to STATE_FAILED regardless of attempts",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-01 - Finalized event transitions entity to VERIFYING and sets uploadToken",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-03 - client errors such as quota exhaustion and bad requests are terminal",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0PrivacyFlavorSecurityTest",
+      "name": "SEC-01 - valid secure HTTPS URL with valid host passes readiness check",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0PrivacyFlavorSecurityTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0PrivacyFlavorSecurityTest",
+      "name": "SEC-01 - non-HTTPS or plaintext URLs are strictly rejected by media readiness policy",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0PrivacyFlavorSecurityTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0PrivacyFlavorSecurityTest",
+      "name": "SEC-01 - F-Droid flavor binds NoOpPhotosArchive with isAvailable false",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0PrivacyFlavorSecurityTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0SafetyContainmentTest",
+      "name": "SAFE-01 - throwing provider fake is never touched by an M0 delete request",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0SafetyContainmentTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.M0SafetyContainmentTest",
+      "name": "SAFE-03 - StagingUiState enforces disabled cleanup and product explanation in Play test builds",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.M0SafetyContainmentTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "a text-heavy screenshot becomes a document",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "video always wins",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "ordinary photos stay photos",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "only non-photos carry a badge",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "a pictorial screenshot stays a screenshot",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "an unanalysed screenshot is not guessed at",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "receipts are documents by name alone",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-V2-01 - image-only permission does not grant visibility for video URI and vice versa",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-R6 - null cursor or exception returns UNKNOWN",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-R6 - full media access confirms ABSENT on empty cursor",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-R6 - Android 14 limited media access fails closed to UNKNOWN on empty cursor",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-R6 - active untrashed row confirms PRESENT",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-V2-01 - audio-only permission never grants visibility for image or video URI",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-R6 - permission denial returns UNKNOWN, never ABSENT",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-R6 - trashed row confirms TRASHED",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PerceptualHasherTest",
+      "name": "identical matrices hash identically",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PerceptualHasherTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PerceptualHasherTest",
+      "name": "structurally opposite images differ substantially",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PerceptualHasherTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PerceptualHasherTest",
+      "name": "hamming distance of identical hashes is zero",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PerceptualHasherTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PerceptualHasherTest",
+      "name": "near-duplicate shift stays within threshold",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PerceptualHasherTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "failed video is rejected even when it has a URL",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "unsupported media does not qualify",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "ready video without downloadable content is blocked",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "image requires a download URL but no video state",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "processing video is blocked even when it has a URL",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "unknown video state fails closed",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "malformed insecure or credential-bearing URL fails closed",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "ready video with download URL is available",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "missing or unspecified video state never qualifies",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "scrub round trip returns to playing",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "show video then first frame plays",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "scrubbing while still loading is allowed",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "show nothing resets to idle from anywhere",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "scrub move updates position",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "error recovers by showing a new video",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "toggle pause round trip",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "failure while idle stays idle",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "card swap mid scrub retargets the machine",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "player failure carries the media id",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+      "name": "M0-R7 - StagingViewModel prunes alreadyMissingUris without awarding reclaimed bytes",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PurgeBatchReconciliationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+      "name": "M0-R7 - preparePurge partitions 100 missing items and plans 50 live items preventing starvation",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PurgeBatchReconciliationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+      "name": "M0-V2-01 - 4-state resolution preserves UNKNOWN and reconciles only confirmed ABSENT and TRASHED",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PurgeBatchReconciliationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+      "name": "M0-R5 - StagingViewModel purge is blocked in Play cloud builds",
+      "outcome": "skipped",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PurgeBatchReconciliationTest.xml",
+      "skip_reason": "Cloud-product cleanup lock applies to Play, not the standalone offline build.",
+      "covered_by_variant": "play"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+      "name": "M0-V2-04 - cancellation of actual non-empty batch preserves queue, clears pending, and launches no follow-on batches",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.PurgeBatchReconciliationTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.ScreenshotHeuristicTest",
+      "name": "screenshot folders match",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.ScreenshotHeuristicTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.ScreenshotHeuristicTest",
+      "name": "receipts and scans match by name",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.ScreenshotHeuristicTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.ScreenshotHeuristicTest",
+      "name": "screenshot filenames match anywhere",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.ScreenshotHeuristicTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.ScreenshotHeuristicTest",
+      "name": "camera photos do not match",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.ScreenshotHeuristicTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.StorageUrgencyTest",
+      "name": "the reported device reads as critical",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.StorageUrgencyTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.StorageUrgencyTest",
+      "name": "bands map to the right tone",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.StorageUrgencyTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.StorageUrgencyTest",
+      "name": "unknown capacity never cries wolf",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.StorageUrgencyTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.StorageUrgencyTest",
+      "name": "every level has a human label",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.StorageUrgencyTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "positional commit up requires dominant vertical offset",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "downward fling never commits",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "fast fling commits early",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "dominant axis of velocity picks the gesture",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "positional commit left",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "velocity sign must match offset sign",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "positional commit right",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "fling below minimum travel is rejected",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "slow release short of the line springs back",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.TextDetectorTest",
+      "name": "empty input is safe",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.TextDetectorTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.TextDetectorTest",
+      "name": "a flat frame is not called text",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.TextDetectorTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.TextDetectorTest",
+      "name": "a photograph fills the midtones",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.TextDetectorTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.TextDetectorTest",
+      "name": "scoring is invariant to overall brightness",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.TextDetectorTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.TextDetectorTest",
+      "name": "a page of text is strongly bimodal",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.TextDetectorTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "remote verification without creation cannot unlock deletion",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "happy path reaches verified",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "terminal http error fails immediately",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "chunk size rounds to granularity",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "retryable classification",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "blank mediaItemId can never verify",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "attempt cap turns retryable into terminal",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "retryable failure re-queues and keeps resume state",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.VerifiedDeletionGateTest",
+      "name": "an unverified item blocks the entire batch before any local mutation",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.VerifiedDeletionGateTest.xml"
+    },
+    {
+      "variant": "fdroid",
+      "classname": "com.swipedelete.zero.VerifiedDeletionGateTest",
+      "name": "offline or revoked remote proof blocks even Android Trash",
+      "outcome": "passed",
+      "xml": "fdroid/TEST-com.swipedelete.zero.VerifiedDeletionGateTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.AuthDiagnosticTest",
+      "name": "code 10 blames the app registration step",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.AuthDiagnosticTest",
+      "name": "invalid account points at the test-user list",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.AuthDiagnosticTest",
+      "name": "api not connected points at enabling the APIs",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.AuthDiagnosticTest",
+      "name": "unknown codes still produce actionable guidance",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.AuthDiagnosticTest",
+      "name": "cancelling is not reported as a misconfiguration",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.AuthDiagnosticTest",
+      "name": "every decoded diagnostic carries a cause and a fix",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+      "name": "M0-V3-02 - Old job completion cannot clear new session guard or overwrite newer account state",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.backup.DriveCloudBackupAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+      "name": "M0-V2-02 - Drive signOut cancels backupJob and retains SignedOut",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.backup.DriveCloudBackupAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+      "name": "M0-V3-02 - Per-file CancellationException is rethrown and not counted as failed file",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.backup.DriveCloudBackupAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+      "name": "M0-V2-02 - Drive disconnect between two uploads halts processing and retains SignedOut",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.backup.DriveCloudBackupAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+      "name": "M0-V3-02 - Auth callback signs out and returns token results in zero folder or upload operations",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.backup.DriveCloudBackupAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+      "name": "M0-V3-02 - Upload callback observes sign-out and throws 401 - no token refresh or reupload after disconnect",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.backup.DriveCloudBackupAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.BlurDetectorTest",
+      "name": "checkerboard is sharp",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.BlurDetectorTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.BlurDetectorTest",
+      "name": "flat field is flagged blurry",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.BlurDetectorTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.BlurDetectorTest",
+      "name": "dark textured frame uses conservative threshold",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.BlurDetectorTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.CloudManagerTest",
+      "name": "UploadReducer verifies successful chunk progress and finalization",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.CloudManagerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.CloudManagerTest",
+      "name": "CloudUploadStats computes overall progress accurately",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.CloudManagerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.CloudManagerTest",
+      "name": "CloudUploadStats handles zero bytes gracefully without division by zero",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.CloudManagerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.CloudManagerTest",
+      "name": "Rebackup flow transitions entity from verified or failed to fresh queued",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.CloudManagerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "unmeasured sharpness produces no claim",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "trivial resolution differences are ignored",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "badges never contradict each other",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "trivial size differences are ignored",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "a genuinely smaller file wins",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "a genuinely larger resolution wins",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "sharpness needs a meaningful gap",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.ComparisonBadgeTest",
+      "name": "byte-identical files claim nothing",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DatabaseMigrationTest",
+      "name": "M0-MIG - Migration versions connect v4 baseline to v5",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DatabaseMigrationTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DatabaseMigrationTest",
+      "name": "testRealRoomV4ToV5Migration",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DatabaseMigrationTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DeckAggregateTest",
+      "name": "remaining bytes shrink alongside remaining count",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DeckAggregateTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DeckContinuationAndSortingTest",
+      "name": "Deck re-ordering by largest first sorts remaining cards descending by size",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DeckContinuationAndSortingTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DeckContinuationAndSortingTest",
+      "name": "isCameraVideo recognizes DCIM and camera video prefixes",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DeckContinuationAndSortingTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DeckContinuationAndSortingTest",
+      "name": "Session cursor reconciliation resets completedCount when deck shrunk from purge",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DeckContinuationAndSortingTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DeckGroupTest",
+      "name": "parts of one month collapse into a single group",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DeckGroupTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DeckGroupTest",
+      "name": "progress aggregates across parts",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DeckGroupTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DeckGroupTest",
+      "name": "nextDeck resumes at the first unfinished part",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DeckGroupTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DeckGroupTest",
+      "name": "empty input yields no groups",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DeckGroupTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DeckGroupTest",
+      "name": "fully finished group still offers a deck to reopen",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DeckGroupTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DeleteActionDesignSystemTest",
+      "name": "DeleteRed is distinct from Amber and Azure",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DeleteActionDesignSystemTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.DeleteActionDesignSystemTest",
+      "name": "DeleteRed has strong red component",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.DeleteActionDesignSystemTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.FilmstripTest",
+      "name": "zero duration yields no slots",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.FilmstripTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.FilmstripTest",
+      "name": "ten midpoint timestamps span the timeline",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.FilmstripTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.FilmstripTest",
+      "name": "fraction maps and clamps to the timeline",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.FilmstripTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.FilmstripTest",
+      "name": "slot index clamps at both edges",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.FilmstripTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.FormatTest",
+      "name": "resolution class is orientation agnostic",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.FormatTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.FormatTest",
+      "name": "codec mime mapping",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.FormatTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.FormatTest",
+      "name": "bitrate label picks sensible units",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.FormatTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.FormatTest",
+      "name": "fps label rounds",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.FormatTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0CleanupResultSemanticsTest",
+      "name": "DELETE-01 - permanent purge confirms only ABSENT items, rejecting PRESENT, TRASHED, and UNKNOWN",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0CleanupResultSemanticsTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0CleanupResultSemanticsTest",
+      "name": "DELETE-01 - OS Trash confirms only verified TRASHED items, rejecting UNKNOWN, ABSENT, and PRESENT",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0CleanupResultSemanticsTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-03 - retryable error transitions to failed when MAX_ATTEMPTS is reached",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-03 - transport errors, timeouts, rate-limits and server errors are retryable",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-03 - retryable error re-queues entity when attempts are below MAX_ATTEMPTS",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-01 - SessionReset clears uploadUrl and uploadToken cleanly",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-03 - terminal error transitions immediately to STATE_FAILED regardless of attempts",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-01 - Finalized event transitions entity to VERIFYING and sets uploadToken",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0NetworkAuthFailureTest",
+      "name": "NET-03 - client errors such as quota exhaustion and bad requests are terminal",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0PrivacyFlavorSecurityTest",
+      "name": "SEC-01 - valid secure HTTPS URL with valid host passes readiness check",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0PrivacyFlavorSecurityTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0PrivacyFlavorSecurityTest",
+      "name": "SEC-01 - non-HTTPS or plaintext URLs are strictly rejected by media readiness policy",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0PrivacyFlavorSecurityTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0PrivacyFlavorSecurityTest",
+      "name": "SEC-01 - F-Droid flavor binds NoOpPhotosArchive with isAvailable false",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0PrivacyFlavorSecurityTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0SafetyContainmentTest",
+      "name": "SAFE-01 - throwing provider fake is never touched by an M0 delete request",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0SafetyContainmentTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.M0SafetyContainmentTest",
+      "name": "SAFE-03 - StagingUiState enforces disabled cleanup and product explanation in Play test builds",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.M0SafetyContainmentTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "a text-heavy screenshot becomes a document",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "video always wins",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "ordinary photos stay photos",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "only non-photos carry a badge",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "a pictorial screenshot stays a screenshot",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "an unanalysed screenshot is not guessed at",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaClassTest",
+      "name": "receipts are documents by name alone",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaClassTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-V2-01 - image-only permission does not grant visibility for video URI and vice versa",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-R6 - null cursor or exception returns UNKNOWN",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-R6 - full media access confirms ABSENT on empty cursor",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-R6 - Android 14 limited media access fails closed to UNKNOWN on empty cursor",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-R6 - active untrashed row confirms PRESENT",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-V2-01 - audio-only permission never grants visibility for image or video URI",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-R6 - permission denial returns UNKNOWN, never ABSENT",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.MediaStoreReconciliationTest",
+      "name": "M0-R6 - trashed row confirms TRASHED",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PerceptualHasherTest",
+      "name": "identical matrices hash identically",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PerceptualHasherTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PerceptualHasherTest",
+      "name": "structurally opposite images differ substantially",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PerceptualHasherTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PerceptualHasherTest",
+      "name": "hamming distance of identical hashes is zero",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PerceptualHasherTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PerceptualHasherTest",
+      "name": "near-duplicate shift stays within threshold",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PerceptualHasherTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploaderQueryParserTest",
+      "name": "parseSessionQuery - active status with missing or malformed size fails closed as not resumable",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploaderQueryParserTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploaderQueryParserTest",
+      "name": "parseSessionQuery - final status with empty or missing body indicates lost receipt",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploaderQueryParserTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploaderQueryParserTest",
+      "name": "parseSessionQuery - terminated status fails closed as not resumable and not final",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploaderQueryParserTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploaderQueryParserTest",
+      "name": "parseSessionQuery - final status with response body recovers valid upload token",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploaderQueryParserTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploaderQueryParserTest",
+      "name": "parseSessionQuery - cancelled or unknown status fails closed as not resumable",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploaderQueryParserTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploaderQueryParserTest",
+      "name": "parseSessionQuery - active status with negative offset fails closed as not resumable",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploaderQueryParserTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploaderQueryParserTest",
+      "name": "parseSessionQuery - active status with valid positive offset is resumable",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploaderQueryParserTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploaderQueryParserTest",
+      "name": "parseSessionQuery - active status with zero offset is resumable from byte zero",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploaderQueryParserTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-V3-03 - session recovery with active partial offset resumes upload from reported offset",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-V3-03 - session recovery with full or out-of-range offset resets session and restarts from byte 0",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-V3-03 - session recovery encountering HTTP 404 or 410 expired session resets session and restarts from byte 0",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-R2 - two consecutive read 401s fail the row without touching append token or consuming retries",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-V3-03 - session recovery with lost completion receipt recovers finalized upload token",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-R1 - disconnect during upload throws CancellationException and prevents new operations",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-R1 - worker restarted under Account B quarantines pending item authorized under Account A",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-V2-02 - disconnect during final readback prevents RemoteVerified save and ledger write",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-V2-02 - startup verifiedWithoutLedger recovery aborts on account disconnect",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-V2-02 - cancellation during token acquisition is rethrown",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-V3-02 - Photos token acquisition observes disconnect before readback - no following media request or success persistence",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-R2 - read 401 invalidates read token only, never clearing append token",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-V2-02 - startup verifiedWithoutLedger recovery quarantines null or mismatched rows",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-V3-03 - session recovery with final status but lost token resets session and restarts from byte 0",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+      "name": "M0-R1 - legacy queue item with null account owner is quarantined and never sent",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "failed video is rejected even when it has a URL",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "unsupported media does not qualify",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "ready video without downloadable content is blocked",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "image requires a download URL but no video state",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "processing video is blocked even when it has a URL",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "unknown video state fails closed",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "malformed insecure or credential-bearing URL fails closed",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "ready video with download URL is available",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PhotosMediaReadinessTest",
+      "name": "missing or unspecified video state never qualifies",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "scrub round trip returns to playing",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "show video then first frame plays",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "scrubbing while still loading is allowed",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "show nothing resets to idle from anywhere",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "scrub move updates position",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "error recovers by showing a new video",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "toggle pause round trip",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "failure while idle stays idle",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "card swap mid scrub retargets the machine",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PlaybackReducerTest",
+      "name": "player failure carries the media id",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PlaybackReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+      "name": "M0-R7 - StagingViewModel prunes alreadyMissingUris without awarding reclaimed bytes",
+      "outcome": "skipped",
+      "xml": "play/TEST-com.swipedelete.zero.PurgeBatchReconciliationTest.xml",
+      "skip_reason": "Offline unlocked execution applies to F-Droid; Play cleanup stays locked.",
+      "covered_by_variant": "fdroid"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+      "name": "M0-R7 - preparePurge partitions 100 missing items and plans 50 live items preventing starvation",
+      "outcome": "skipped",
+      "xml": "play/TEST-com.swipedelete.zero.PurgeBatchReconciliationTest.xml",
+      "skip_reason": "Offline unlocked execution applies to F-Droid; Play cleanup stays locked.",
+      "covered_by_variant": "fdroid"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+      "name": "M0-V2-01 - 4-state resolution preserves UNKNOWN and reconciles only confirmed ABSENT and TRASHED",
+      "outcome": "skipped",
+      "xml": "play/TEST-com.swipedelete.zero.PurgeBatchReconciliationTest.xml",
+      "skip_reason": "Offline unlocked execution applies to F-Droid; Play cleanup stays locked.",
+      "covered_by_variant": "fdroid"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+      "name": "M0-R5 - StagingViewModel purge is blocked in Play cloud builds",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.PurgeBatchReconciliationTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+      "name": "M0-V2-04 - cancellation of actual non-empty batch preserves queue, clears pending, and launches no follow-on batches",
+      "outcome": "skipped",
+      "xml": "play/TEST-com.swipedelete.zero.PurgeBatchReconciliationTest.xml",
+      "skip_reason": "Offline unlocked execution applies to F-Droid; Play cleanup stays locked.",
+      "covered_by_variant": "fdroid"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.ScreenshotHeuristicTest",
+      "name": "screenshot folders match",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.ScreenshotHeuristicTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.ScreenshotHeuristicTest",
+      "name": "receipts and scans match by name",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.ScreenshotHeuristicTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.ScreenshotHeuristicTest",
+      "name": "screenshot filenames match anywhere",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.ScreenshotHeuristicTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.ScreenshotHeuristicTest",
+      "name": "camera photos do not match",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.ScreenshotHeuristicTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.StorageUrgencyTest",
+      "name": "the reported device reads as critical",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.StorageUrgencyTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.StorageUrgencyTest",
+      "name": "bands map to the right tone",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.StorageUrgencyTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.StorageUrgencyTest",
+      "name": "unknown capacity never cries wolf",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.StorageUrgencyTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.StorageUrgencyTest",
+      "name": "every level has a human label",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.StorageUrgencyTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "positional commit up requires dominant vertical offset",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "downward fling never commits",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "fast fling commits early",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "dominant axis of velocity picks the gesture",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "positional commit left",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "velocity sign must match offset sign",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "positional commit right",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "fling below minimum travel is rejected",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.SwipeCommitDeciderTest",
+      "name": "slow release short of the line springs back",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.TextDetectorTest",
+      "name": "empty input is safe",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.TextDetectorTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.TextDetectorTest",
+      "name": "a flat frame is not called text",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.TextDetectorTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.TextDetectorTest",
+      "name": "a photograph fills the midtones",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.TextDetectorTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.TextDetectorTest",
+      "name": "scoring is invariant to overall brightness",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.TextDetectorTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.TextDetectorTest",
+      "name": "a page of text is strongly bimodal",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.TextDetectorTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "remote verification without creation cannot unlock deletion",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "happy path reaches verified",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "terminal http error fails immediately",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "chunk size rounds to granularity",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "retryable classification",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "blank mediaItemId can never verify",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "attempt cap turns retryable into terminal",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.UploadReducerTest",
+      "name": "retryable failure re-queues and keeps resume state",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.UploadReducerTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.VerifiedDeletionGateTest",
+      "name": "an unverified item blocks the entire batch before any local mutation",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.VerifiedDeletionGateTest.xml"
+    },
+    {
+      "variant": "play",
+      "classname": "com.swipedelete.zero.VerifiedDeletionGateTest",
+      "name": "offline or revoked remote proof blocks even Android Trash",
+      "outcome": "passed",
+      "xml": "play/TEST-com.swipedelete.zero.VerifiedDeletionGateTest.xml"
+    }
+  ],
+  "input_files": [
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml",
+      "sha256": "54f9cff07133f73ada76c7e7706ef6eb781e234ef9b5ce1434cc54fd3ab97803",
+      "xml_timestamp": "2026-09-26T13:01:21.905Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.BlurDetectorTest.xml",
+      "sha256": "7f0cfcbe7cb98ddba86f0636789b1543d7c1d8202831bd9e7749f6c8a5d1ae45",
+      "xml_timestamp": "2026-09-26T13:01:21.910Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.CloudManagerTest.xml",
+      "sha256": "f1e5b9a2bc0e3c879842144f8a00ed06b428c8981e09c948faec2f504d041d40",
+      "xml_timestamp": "2026-09-26T13:01:21.913Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml",
+      "sha256": "caa9be6720b7978d6473fe7fcae4d0d53ae9c11de52f7ba7e719e60c41655c7b",
+      "xml_timestamp": "2026-09-26T13:01:21.917Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.DatabaseMigrationTest.xml",
+      "sha256": "4db15a0d8881d4d7205febe040ad9a15686ff930ed8c5db1b6c6f06a7558f574",
+      "xml_timestamp": "2026-09-26T13:01:22.066Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.DeckAggregateTest.xml",
+      "sha256": "f8d2ea35f620ea759b7ab5dff6ca5b84a788063030959071f37c707b86edbe59",
+      "xml_timestamp": "2026-09-26T13:01:26.042Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.DeckContinuationAndSortingTest.xml",
+      "sha256": "907b724c0c0069084568749d84ddf9c5926eb889f652b8ff38c64ebaab1a773b",
+      "xml_timestamp": "2026-09-26T13:01:26.044Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.DeckGroupTest.xml",
+      "sha256": "f8cbc824bd50f1b57d6d6d82a68f8ea93d01a4417a5e7ae3f433ca15a8aa5394",
+      "xml_timestamp": "2026-09-26T13:01:26.047Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.DeleteActionDesignSystemTest.xml",
+      "sha256": "cf2e5d9cf2e4c8dde76cca257c06c4d52351a0c50f91bfe8330b6ba5e5146803",
+      "xml_timestamp": "2026-09-26T13:01:26.053Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.FilmstripTest.xml",
+      "sha256": "26dcd0d80b200fc5d76f4b1a16d22a3f412a2e46fc635ae78cd45c6d6a6600d6",
+      "xml_timestamp": "2026-09-26T13:01:26.065Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.FormatTest.xml",
+      "sha256": "ed15ed428d30b2b4e12cfa30bec480f7c67c9eb248b13feba1d5098c00255af2",
+      "xml_timestamp": "2026-09-26T13:01:26.067Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.M0CleanupResultSemanticsTest.xml",
+      "sha256": "a4aa850bf9141766501ce125e5c770908bcc31014228436c29151661d4998027",
+      "xml_timestamp": "2026-09-26T13:01:26.069Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml",
+      "sha256": "6f1e44dc2417fc84c76b081ebfc8826a7699f8136a1eae68bc7e988ce8e7c930",
+      "xml_timestamp": "2026-09-26T13:01:26.077Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.M0PrivacyFlavorSecurityTest.xml",
+      "sha256": "f9e9f97efc8be4803833725f0a1ea8bc996169b7e3c17ad602f14bdf2f9cd89c",
+      "xml_timestamp": "2026-09-26T13:01:26.079Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.M0SafetyContainmentTest.xml",
+      "sha256": "576b05266f57b5c824986da2bd0a0264aaec31763aefb364c01cd58cfa90d94a",
+      "xml_timestamp": "2026-09-26T13:01:26.081Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.MediaClassTest.xml",
+      "sha256": "1f5c1ee8bcfcb26f6b3dfaf5c08ddcdd5014854be077adc9602b223423364e19",
+      "xml_timestamp": "2026-09-26T13:01:26.084Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml",
+      "sha256": "f01797966f3e2a646a3419c8d5e643ba129f940a46f930ac192aeaf9c058ba3d",
+      "xml_timestamp": "2026-09-26T13:01:26.087Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.PerceptualHasherTest.xml",
+      "sha256": "508797a1bfbaf45184e617275a939d598d2e283a145ecd8e7ecd379581893085",
+      "xml_timestamp": "2026-09-26T13:01:26.200Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml",
+      "sha256": "982ea8e0d85df300053222ae4fcb1b15af467831401d201314f9cf3bcf74a24c",
+      "xml_timestamp": "2026-09-26T13:01:26.204Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.PlaybackReducerTest.xml",
+      "sha256": "8db29e7e7e2cac9a31ff4a5a9dd8e9ff2578aec14c703374643ef49d67f9e6fd",
+      "xml_timestamp": "2026-09-26T13:01:26.206Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.PurgeBatchReconciliationTest.xml",
+      "sha256": "b0fefdbd44d8197afc90cd8838c1250cb4d96f5ab0bfb5958ddefa0b82342f57",
+      "xml_timestamp": "2026-09-26T13:01:20.382Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.ScreenshotHeuristicTest.xml",
+      "sha256": "0a0999a635f3d0a3d382d013c9cc54741c95b6eb4845a6cdaf7e2a28bfe8567d",
+      "xml_timestamp": "2026-09-26T13:01:26.211Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.StorageUrgencyTest.xml",
+      "sha256": "0c2e11726b060019e989590c3063bf6335b5dc3c77856b8ec9abf53d0e899993",
+      "xml_timestamp": "2026-09-26T13:01:26.212Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml",
+      "sha256": "5060422049546af38477f2335621ef15eda0fe9f21619998689fe8d711e2a0e0",
+      "xml_timestamp": "2026-09-26T13:01:26.215Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.TextDetectorTest.xml",
+      "sha256": "b3b4a105abcdbc68825cdf0c3e34c58f334a5ac726a350dd6151aed623b594af",
+      "xml_timestamp": "2026-09-26T13:01:26.217Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.UploadReducerTest.xml",
+      "sha256": "0816a59fb213c58b17074d2b6075d50595f64e03d3c5eb003798db5e66536671",
+      "xml_timestamp": "2026-09-26T13:01:26.220Z"
+    },
+    {
+      "path": "fdroid/TEST-com.swipedelete.zero.VerifiedDeletionGateTest.xml",
+      "sha256": "228b07bcf2f8a01a2168f20d16807bc06e075599de7ae68b1a8aa0841d629454",
+      "xml_timestamp": "2026-09-26T13:01:26.223Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.AuthDiagnosticTest.xml",
+      "sha256": "7f5aa1d256f7a446b9409243373ffacf594088e75c0e7a63014644c2231aea72",
+      "xml_timestamp": "2026-09-26T13:03:39.800Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.backup.DriveCloudBackupAuthTest.xml",
+      "sha256": "6ef960d6653afdd23a6bc1aebe5f361568086b91f9b52fcb44db2a2b429f5d86",
+      "xml_timestamp": "2026-09-26T13:03:38.837Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.BlurDetectorTest.xml",
+      "sha256": "176c9bdec7cfd3a45f0e1b22d396009e8e13e80d303a112bfe1496e808ad2770",
+      "xml_timestamp": "2026-09-26T13:03:39.804Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.CloudManagerTest.xml",
+      "sha256": "9da1731095cde41107e0e82145bf5d17d4437557419ee8d700a9118a96feac14",
+      "xml_timestamp": "2026-09-26T13:03:39.806Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.ComparisonBadgeTest.xml",
+      "sha256": "6105e902e108ac4db1b35638222b94ed5ccd109819907c18f730425818171a7a",
+      "xml_timestamp": "2026-09-26T13:03:39.810Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.DatabaseMigrationTest.xml",
+      "sha256": "79a5a7d80c11915e58f57396308ed19e4eca2c019ec41232693ae2bab0942cb1",
+      "xml_timestamp": "2026-09-26T13:03:39.940Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.DeckAggregateTest.xml",
+      "sha256": "4b2265038c627ad237e692221f536c2a8e5910645bfe45e3f3505ac7d91d231b",
+      "xml_timestamp": "2026-09-26T13:03:43.023Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.DeckContinuationAndSortingTest.xml",
+      "sha256": "3f5aef89667e6235ef6bc6c9bb0f01a69d43ef73e2df0f96a0473180d8ca5db3",
+      "xml_timestamp": "2026-09-26T13:03:43.027Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.DeckGroupTest.xml",
+      "sha256": "d5704e41d4eb35f9c04371d0d74c4e5a6e2c05c39ac58416542527fb49ddb3bd",
+      "xml_timestamp": "2026-09-26T13:03:43.031Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.DeleteActionDesignSystemTest.xml",
+      "sha256": "8ac5a66bfe9ab3b20540551212d26ca5b7322e7670a75df866047003cd9f42ac",
+      "xml_timestamp": "2026-09-26T13:03:43.040Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.FilmstripTest.xml",
+      "sha256": "03a0e169ddcb5958616e03064568b2ef60f0e268fc75d189e3e3116d9b6dad32",
+      "xml_timestamp": "2026-09-26T13:03:43.051Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.FormatTest.xml",
+      "sha256": "e7d9b7d4f9ac5495b36cdba9984770b1cb8ffb39bb17d0f81a909779bd9bb6b7",
+      "xml_timestamp": "2026-09-26T13:03:43.052Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.M0CleanupResultSemanticsTest.xml",
+      "sha256": "4497bd40fc5c3fb357fa8720cbe6c2fcca4d71ab4403821124052fb92c0ef4d9",
+      "xml_timestamp": "2026-09-26T13:03:43.056Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.M0NetworkAuthFailureTest.xml",
+      "sha256": "47132996b8b51df6b3002854597ddad1880f6a48209da49e013caee8785101b5",
+      "xml_timestamp": "2026-09-26T13:03:43.150Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.M0PrivacyFlavorSecurityTest.xml",
+      "sha256": "092787f00f59b436306c152ba642c6961f0d0de761ff09722f9eb1c46d620229",
+      "xml_timestamp": "2026-09-26T13:03:43.152Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.M0SafetyContainmentTest.xml",
+      "sha256": "ba0107fe9591f6b19634f063f167ef5a34779ce3485d16551bc81bcb4ebf4c4a",
+      "xml_timestamp": "2026-09-26T13:03:43.154Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.MediaClassTest.xml",
+      "sha256": "5ca7bc174900073ade6ae5a2db2122b77cadd73512745d2d2509315f9d450ebb",
+      "xml_timestamp": "2026-09-26T13:03:43.160Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.MediaStoreReconciliationTest.xml",
+      "sha256": "05bfdcdec7e2945365bb9e86c0c904a2d70303d1a6f66e491e1710eaad94f94e",
+      "xml_timestamp": "2026-09-26T13:03:43.162Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.PerceptualHasherTest.xml",
+      "sha256": "382514fa41a36d9a181bfc8f420dab729a40154fd85e9ec8f9cb83ec8720bcc5",
+      "xml_timestamp": "2026-09-26T13:03:43.264Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.photos.PhotosUploaderQueryParserTest.xml",
+      "sha256": "acb55e2bda3bf3e3e9694c24dc924b801e75be816e019a179be24d34e44a3d4e",
+      "xml_timestamp": "2026-09-26T13:03:43.516Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest.xml",
+      "sha256": "14033c0ddf4b1339cb7e5c688ea5f8705d8833a16a1e4b97f1f6a9b590a42409",
+      "xml_timestamp": "2026-09-26T13:03:43.380Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.PhotosMediaReadinessTest.xml",
+      "sha256": "81068da625786e6c1b0f2c29d8474a2876f4111971cec9844aa09167ba21b83b",
+      "xml_timestamp": "2026-09-26T13:03:43.268Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.PlaybackReducerTest.xml",
+      "sha256": "81d8d21b31d1e0eafecbfd527d017525bcf56de2a544fbc9a01751a65c3b1244",
+      "xml_timestamp": "2026-09-26T13:03:43.270Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.PurgeBatchReconciliationTest.xml",
+      "sha256": "a235f76eebc9352319983838cba87123316fd2112762a6db09c0c6a67991e1ad",
+      "xml_timestamp": "2026-09-26T13:03:43.276Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.ScreenshotHeuristicTest.xml",
+      "sha256": "3a7247ebf19feb32be69f1d9e675ab6015c5b4d063a836b2afa3801189913297",
+      "xml_timestamp": "2026-09-26T13:03:43.364Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.StorageUrgencyTest.xml",
+      "sha256": "7d5e30383a653b3c0346e14ef7eabcac8d90c40bd6bf03555e3f1c94dfc117e8",
+      "xml_timestamp": "2026-09-26T13:03:43.365Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.SwipeCommitDeciderTest.xml",
+      "sha256": "cfdde55e28af015d3e19f6cfc2751af87a3c8a1f51264da178ef789917664f08",
+      "xml_timestamp": "2026-09-26T13:03:43.367Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.TextDetectorTest.xml",
+      "sha256": "c09ed83d700fdb13e2aa46beccd9e53191741b063dd29e7b212f7b25e9665951",
+      "xml_timestamp": "2026-09-26T13:03:43.369Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.UploadReducerTest.xml",
+      "sha256": "d9942516caa0cd05c703f008a128dc6b2cb4e2fa0c85a495401ca0e1cbdae380",
+      "xml_timestamp": "2026-09-26T13:03:43.372Z"
+    },
+    {
+      "path": "play/TEST-com.swipedelete.zero.VerifiedDeletionGateTest.xml",
+      "sha256": "b82a0ca8489ebd4388aa46d32f2f495ea0fb7ba4a71c5e04fc9fd20f067eebbf",
+      "xml_timestamp": "2026-09-26T13:03:43.374Z"
+    }
+  ],
+  "issues": []
+}

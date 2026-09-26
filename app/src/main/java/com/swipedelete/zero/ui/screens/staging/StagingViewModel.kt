@@ -45,9 +45,12 @@ data class StagingUiState(
     val verifiedCount: Int = 0,
     val pendingBackupCount: Int = 0,
     val failedBackupCount: Int = 0,
+    val cleanupAvailable: Boolean = !com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE,
+    val cleanupLockExplanation: String? = if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
+        "Cleanup is unavailable in this test build. Your originals stay on this device." else null,
 ) {
     val count: Int get() = items.size
-    val canDelete: Boolean get() = !backupRequired || (backupConnected && pendingBackupCount == 0)
+    val canDelete: Boolean get() = cleanupAvailable && (!backupRequired || (backupConnected && pendingBackupCount == 0))
 }
 
 /** One-shot effects the screen must react to (launch OS dialog / SAF picker). */
@@ -143,6 +146,21 @@ class StagingViewModel @Inject constructor(
             try {
             when (val plan = purgeEngine.preparePurge(staged, selectedMode)) {
                 is PurgeEngine.PurgePlan.NeedsConfirmation -> {
+                    // M0-V2-01: Immediately unstage confirmed absent items without claiming reclaimed bytes.
+                    if (plan.alreadyMissingUris.isNotEmpty()) {
+                        stagingRepository.removePurged(plan.alreadyMissingUris)
+                    }
+                    // M0-V2-01: In 30-day trash mode, already-trashed items are removed from queue without claiming reclaimed bytes.
+                    if (plan.alreadyTrashedUris.isNotEmpty()) {
+                        stagingRepository.removePurged(plan.alreadyTrashedUris)
+                    }
+                    // M0-V2-01: UNKNOWN items (plan.blockedUris) MUST REMAIN STAGED! They are never unstaged.
+                    if (plan.blockedUris.isNotEmpty()) {
+                        effects.send(PurgeEffect.Message("${plan.blockedUris.size} item(s) could not be verified and remain in the queue."))
+                    }
+                    if (plan.deferredUris.isNotEmpty()) {
+                        effects.send(PurgeEffect.Message("${plan.deferredUris.size} item(s) deferred to subsequent batch (max ${PurgeEngine.MAX_PURGE_BATCH_SIZE} per batch)."))
+                    }
                     // Non-media already handled; remove its winners now.
                     recordPurged(plan.nonMediaResult.purgedUris, permanentlyDeleted = true)
                     pendingMediaUris = plan.mediaUris
@@ -154,11 +172,24 @@ class StagingViewModel @Inject constructor(
                     }
                 }
                 is PurgeEngine.PurgePlan.NoConfirmationNeeded -> {
+                    // M0-V2-01: Immediately unstage confirmed absent items without claiming reclaimed bytes.
+                    if (plan.alreadyMissingUris.isNotEmpty()) {
+                        stagingRepository.removePurged(plan.alreadyMissingUris)
+                    }
+                    if (plan.alreadyTrashedUris.isNotEmpty()) {
+                        stagingRepository.removePurged(plan.alreadyTrashedUris)
+                    }
+                    if (plan.blockedUris.isNotEmpty()) {
+                        effects.send(PurgeEffect.Message("${plan.blockedUris.size} item(s) could not be verified and remain in the queue."))
+                    }
+                    if (plan.deferredUris.isNotEmpty()) {
+                        effects.send(PurgeEffect.Message("${plan.deferredUris.size} item(s) deferred to subsequent batch (max ${PurgeEngine.MAX_PURGE_BATCH_SIZE} per batch)."))
+                    }
                     val freed = recordPurged(plan.nonMediaResult.purgedUris, permanentlyDeleted = true)
                     purgingState.value = false
                     if (plan.nonMediaResult.needsSafFor.isNotEmpty()) {
                         effects.send(PurgeEffect.NeedsSafAccess(plan.nonMediaResult.needsSafFor.size))
-                    } else {
+                    } else if (plan.nonMediaResult.purgedUris.isNotEmpty()) {
                         effects.send(
                             PurgeEffect.Completed(freed, plan.nonMediaResult.purgedUris.size, ExecutionMode.PERMANENT_PURGE)
                         )
@@ -176,7 +207,7 @@ class StagingViewModel @Inject constructor(
         }
     }
 
-    /** Called by the screen after the OS confirmation dialog returns OK. */
+    /** Called by the screen after the OS confirmation dialog returns OK or was dismissed/cancelled. */
     fun onConfirmationResult(confirmed: Boolean) {
         viewModelScope.launch {
             if (confirmed && pendingMediaUris.isNotEmpty()) {
@@ -184,6 +215,7 @@ class StagingViewModel @Inject constructor(
                 val freed = recordPurged(purged, permanentlyDeleted = pendingMode == ExecutionMode.PERMANENT_PURGE)
                 effects.send(PurgeEffect.Completed(freed, purged.size, pendingMode))
             }
+            // M0-R7: Cancellation resets pending URIs and flags, launching no follow-on batches.
             pendingMediaUris = emptyList()
             purgingState.value = false
         }

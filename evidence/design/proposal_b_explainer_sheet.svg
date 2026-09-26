@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 412 892" width="412" height="892">
+  <title>SwipeRise — Proposal B: Explainer Bottom Sheet</title>
+  <desc>PROPOSED DESIGN INPUT — NOT RUNNING UI. Shows dedicated Explainer Modal detailing M0 Safety Policy, originals preservation, and future M1 vault proof.</desc>
+
+  <!-- Background Scrim -->
+  <rect width="412" height="892" fill="#05070B" opacity="0.85" />
+
+  <!-- Top Status Bar & Review Watermark -->
+  <rect x="0" y="0" width="412" height="32" fill="#161B26" />
+  <text x="206" y="21" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700" fill="#00F2FE" text-anchor="middle">
+    PROPOSAL B — DEDICATED EXPLAINER SHEET (DESIGN ONLY)
+  </text>
+
+  <!-- Bottom Sheet Container (rx top = 28dp) -->
+  <path d="M0 240 C0 224 16 212 32 212 H380 C396 212 412 224 412 240 V892 H0 Z" fill="#111622" stroke="#2B3245" stroke-width="1.5" />
+
+  <!-- Drag Handle -->
+  <rect x="188" y="226" width="36" height="4" rx="2" fill="#4B556D" />
+
+  <!-- Sheet Header -->
+  <circle cx="52" cy="276" r="22" fill="#1C1810" stroke="#F4CE78" stroke-width="1.5" />
+  <path d="M47 274 V269 C47 266.2 49.2 264 52 264 C54.8 264 57 266.2 57 269 V274 H59 C60.1 274 61 274.9 61 276 V284 C61 285.1 60.1 286 59 286 H45 C43.9 286 43 285.1 43 284 V276 C43 274.9 43.9 274 45 274 Z" fill="#F4CE78" />
+
+  <text x="86" y="272" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" fill="#FFFFFF">Why is Cleanup Locked?</text>
+  <text x="86" y="292" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="500" fill="#00F2FE">SwipeRise Zero-Data-Loss Invariant</text>
+
+  <!-- Explanation Section 1: Core Policy -->
+  <rect x="24" y="324" width="364" height="100" rx="14" fill="#161B26" stroke="#2B3245" stroke-width="1" />
+  <text x="44" y="352" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" fill="#F4CE78">1. Test Build Protection</text>
+  <text x="44" y="374" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#E1E6EB">
+    Cleanup is unavailable in this test build. Your originals
+  </text>
+  <text x="44" y="394" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#E1E6EB">
+    stay permanently on this device. Deletion calls are blocked.
+  </text>
+
+  <!-- Explanation Section 2: Photos Verification vs Original Restoration -->
+  <rect x="24" y="438" width="364" height="128" rx="14" fill="#161B26" stroke="#2B3245" stroke-width="1" />
+  <text x="44" y="466" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" fill="#00F2FE">2. Cloud Backup vs Vault Proof</text>
+  <text x="44" y="488" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#E1E6EB">
+    Google Photos API media confirmation verifies upload receipt,
+  </text>
+  <text x="44" y="508" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#E1E6EB">
+    but does not provide bit-for-bit restore verification.
+  </text>
+  <text x="44" y="528" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#E1E6EB">
+    Local files are NEVER deleted without proven recovery (M1).
+  </text>
+
+  <!-- Explanation Section 3: Safe Operations in M0 -->
+  <rect x="24" y="580" width="364" height="114" rx="14" fill="#161B26" stroke="#2B3245" stroke-width="1" />
+  <text x="44" y="608" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" fill="#4EEDA6">3. What You Can Do in M0</text>
+  <text x="44" y="630" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#E1E6EB">
+    • Review, keep, and stage media safely.
+  </text>
+  <text x="44" y="650" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#E1E6EB">
+    • Back up originals non-destructively to Google Photos.
+  </text>
+  <text x="44" y="670" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#E1E6EB">
+    • Unstage files at any time with zero risk.
+  </text>
+
+  <!-- Primary Dismiss CTA Button -->
+  <rect x="24" y="730" width="364" height="54" rx="14" fill="#00F2FE" />
+  <text x="206" y="763" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="700" fill="#0B0F17" text-anchor="middle">
+    I Understand — Keep Originals Safe
+  </text>
+
+  <!-- Secondary Learn More Link -->
+  <text x="206" y="816" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#8B949E" text-anchor="middle">
+    Read SwipeRise Safety Documentation
+  </text>
+</svg>

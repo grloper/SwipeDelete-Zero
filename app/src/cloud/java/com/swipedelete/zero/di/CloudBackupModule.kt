@@ -4,6 +4,8 @@ import com.swipedelete.zero.backup.DriveCloudBackup
 import com.swipedelete.zero.domain.backup.CloudBackup
 import com.swipedelete.zero.domain.backup.PhotosArchive
 import com.swipedelete.zero.photos.GooglePhotosArchive
+import com.swipedelete.zero.photos.DefaultPhotosAuthClient
+import com.swipedelete.zero.photos.PhotosAuthClient
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -18,4 +20,8 @@ abstract class CloudBackupModule {
 
     @Binds
     abstract fun bindPhotosArchive(impl: GooglePhotosArchive): PhotosArchive
+
+    @Binds
+    abstract fun bindPhotosAuthClient(impl: DefaultPhotosAuthClient): PhotosAuthClient
 }
+

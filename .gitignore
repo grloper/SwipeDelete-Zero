@@ -15,3 +15,5 @@ local.properties
 *.aab
 *.keystore
 !debug.keystore
+__pycache__/
+*.pyc

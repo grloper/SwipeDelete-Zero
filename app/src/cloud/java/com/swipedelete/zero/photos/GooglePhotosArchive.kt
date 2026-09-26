@@ -96,6 +96,7 @@ class GooglePhotosArchive @Inject constructor(
         // re-armed from scratch.
         if (existing != null && existing.state != CloudUploadEntity.STATE_FAILED) return
         val now = System.currentTimeMillis()
+        val accountName = com.google.android.gms.auth.api.signin.GoogleSignIn.getLastSignedInAccount(context)?.account?.name
         uploadDao.upsert(
             CloudUploadEntity(
                 contentUri = uri,
@@ -105,6 +106,7 @@ class GooglePhotosArchive @Inject constructor(
                 state = CloudUploadEntity.STATE_QUEUED,
                 enqueuedAtMillis = existing?.enqueuedAtMillis ?: now,
                 updatedAtMillis = now,
+                accountName = accountName,
             )
         )
         kickWorker()
@@ -120,6 +122,7 @@ class GooglePhotosArchive @Inject constructor(
             backedUpFileDao.delete(item.contentUri)
         } else if (existing != null && existing.state != CloudUploadEntity.STATE_FAILED) return
         val now = System.currentTimeMillis()
+        val accountName = com.google.android.gms.auth.api.signin.GoogleSignIn.getLastSignedInAccount(context)?.account?.name
         uploadDao.upsert(CloudUploadEntity(
             contentUri = item.contentUri,
             displayName = item.displayName,
@@ -128,6 +131,7 @@ class GooglePhotosArchive @Inject constructor(
             state = CloudUploadEntity.STATE_QUEUED,
             enqueuedAtMillis = now,
             updatedAtMillis = now,
+            accountName = accountName,
         ))
         kickWorker()
     }
@@ -207,6 +211,7 @@ class GooglePhotosArchive @Inject constructor(
         val uri = item.contentUri.toString()
         backedUpFileDao.delete(uri)
         val now = System.currentTimeMillis()
+        val accountName = com.google.android.gms.auth.api.signin.GoogleSignIn.getLastSignedInAccount(context)?.account?.name
         uploadDao.upsert(
             CloudUploadEntity(
                 contentUri = uri,
@@ -222,6 +227,7 @@ class GooglePhotosArchive @Inject constructor(
                 lastError = null,
                 enqueuedAtMillis = now,
                 updatedAtMillis = now,
+                accountName = accountName,
             )
         )
         kickWorker()
