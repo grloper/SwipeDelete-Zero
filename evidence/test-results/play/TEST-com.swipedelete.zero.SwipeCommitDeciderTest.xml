@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.swipedelete.zero.SwipeCommitDeciderTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-09-26T00:37:52.750Z" hostname="OFEKVPC" time="0.001">
+<testsuite name="com.swipedelete.zero.SwipeCommitDeciderTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-09-26T13:03:43.367Z" hostname="OFEKVPC" time="0.002">
   <properties/>
   <testcase name="positional commit up requires dominant vertical offset" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.001"/>
   <testcase name="downward fling never commits" classname="com.swipedelete.zero.SwipeCommitDeciderTest" time="0.0"/>

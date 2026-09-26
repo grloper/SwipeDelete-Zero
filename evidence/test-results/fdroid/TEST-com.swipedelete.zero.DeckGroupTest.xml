@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.swipedelete.zero.DeckGroupTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-26T00:37:52.195Z" hostname="OFEKVPC" time="0.006">
+<testsuite name="com.swipedelete.zero.DeckGroupTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-09-26T13:01:26.047Z" hostname="OFEKVPC" time="0.006">
   <properties/>
   <testcase name="parts of one month collapse into a single group" classname="com.swipedelete.zero.DeckGroupTest" time="0.001"/>
   <testcase name="progress aggregates across parts" classname="com.swipedelete.zero.DeckGroupTest" time="0.004"/>
-  <testcase name="nextDeck resumes at the first unfinished part" classname="com.swipedelete.zero.DeckGroupTest" time="0.001"/>
+  <testcase name="nextDeck resumes at the first unfinished part" classname="com.swipedelete.zero.DeckGroupTest" time="0.0"/>
   <testcase name="empty input yields no groups" classname="com.swipedelete.zero.DeckGroupTest" time="0.0"/>
   <testcase name="fully finished group still offers a deck to reopen" classname="com.swipedelete.zero.DeckGroupTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>

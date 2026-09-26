@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.swipedelete.zero.UploadReducerTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-26T00:37:52.753Z" hostname="OFEKVPC" time="0.001">
+<testsuite name="com.swipedelete.zero.UploadReducerTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-26T13:03:43.372Z" hostname="OFEKVPC" time="0.001">
   <properties/>
   <testcase name="remote verification without creation cannot unlock deletion" classname="com.swipedelete.zero.UploadReducerTest" time="0.0"/>
   <testcase name="happy path reaches verified" classname="com.swipedelete.zero.UploadReducerTest" time="0.0"/>

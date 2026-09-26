@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.swipedelete.zero.AuthDiagnosticTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-26T00:37:48.760Z" hostname="OFEKVPC" time="0.02">
+<testsuite name="com.swipedelete.zero.AuthDiagnosticTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-09-26T13:03:39.800Z" hostname="OFEKVPC" time="0.003">
   <properties/>
-  <testcase name="code 10 blames the app registration step" classname="com.swipedelete.zero.AuthDiagnosticTest" time="0.008"/>
+  <testcase name="code 10 blames the app registration step" classname="com.swipedelete.zero.AuthDiagnosticTest" time="0.001"/>
   <testcase name="invalid account points at the test-user list" classname="com.swipedelete.zero.AuthDiagnosticTest" time="0.0"/>
   <testcase name="api not connected points at enabling the APIs" classname="com.swipedelete.zero.AuthDiagnosticTest" time="0.0"/>
-  <testcase name="unknown codes still produce actionable guidance" classname="com.swipedelete.zero.AuthDiagnosticTest" time="0.002"/>
+  <testcase name="unknown codes still produce actionable guidance" classname="com.swipedelete.zero.AuthDiagnosticTest" time="0.0"/>
   <testcase name="cancelling is not reported as a misconfiguration" classname="com.swipedelete.zero.AuthDiagnosticTest" time="0.0"/>
-  <testcase name="every decoded diagnostic carries a cause and a fix" classname="com.swipedelete.zero.AuthDiagnosticTest" time="0.008"/>
+  <testcase name="every decoded diagnostic carries a cause and a fix" classname="com.swipedelete.zero.AuthDiagnosticTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

@@ -1,15 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-09-26T00:37:52.777Z" hostname="OFEKVPC" time="0.092">
+<testsuite name="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-09-26T13:03:43.380Z" hostname="OFEKVPC" time="0.135">
   <properties/>
-  <testcase name="M0-R2 - two consecutive read 401s fail the row without touching append token or consuming retries" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.074"/>
-  <testcase name="M0-R1 - disconnect during upload throws CancellationException and prevents new operations" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.003"/>
-  <testcase name="M0-R1 - worker restarted under Account B quarantines pending item authorized under Account A" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.003"/>
-  <testcase name="M0-V2-02 - disconnect during final readback prevents RemoteVerified save and ledger write" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.003"/>
-  <testcase name="M0-V2-02 - startup verifiedWithoutLedger recovery aborts on account disconnect" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.001"/>
+  <testcase name="M0-V3-03 - session recovery with active partial offset resumes upload from reported offset" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.086"/>
+  <testcase name="M0-V3-03 - session recovery with full or out-of-range offset resets session and restarts from byte 0" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.005"/>
+  <testcase name="M0-V3-03 - session recovery encountering HTTP 404 or 410 expired session resets session and restarts from byte 0" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.004"/>
+  <testcase name="M0-R2 - two consecutive read 401s fail the row without touching append token or consuming retries" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.004"/>
+  <testcase name="M0-V3-03 - session recovery with lost completion receipt recovers finalized upload token" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.003"/>
+  <testcase name="M0-R1 - disconnect during upload throws CancellationException and prevents new operations" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.004"/>
+  <testcase name="M0-R1 - worker restarted under Account B quarantines pending item authorized under Account A" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.004"/>
+  <testcase name="M0-V2-02 - disconnect during final readback prevents RemoteVerified save and ledger write" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.004"/>
+  <testcase name="M0-V2-02 - startup verifiedWithoutLedger recovery aborts on account disconnect" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.002"/>
   <testcase name="M0-V2-02 - cancellation during token acquisition is rethrown" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.002"/>
-  <testcase name="M0-R2 - read 401 invalidates read token only, never clearing append token" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.003"/>
-  <testcase name="M0-V2-02 - startup verifiedWithoutLedger recovery quarantines null or mismatched rows" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.001"/>
-  <testcase name="M0-R1 - legacy queue item with null account owner is quarantined and never sent" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.002"/>
+  <testcase name="M0-V3-02 - Photos token acquisition observes disconnect before readback - no following media request or success persistence" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.005"/>
+  <testcase name="M0-R2 - read 401 invalidates read token only, never clearing append token" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.004"/>
+  <testcase name="M0-V2-02 - startup verifiedWithoutLedger recovery quarantines null or mismatched rows" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.002"/>
+  <testcase name="M0-V3-03 - session recovery with final status but lost token resets session and restarts from byte 0" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.005"/>
+  <testcase name="M0-R1 - legacy queue item with null account owner is quarantined and never sent" classname="com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

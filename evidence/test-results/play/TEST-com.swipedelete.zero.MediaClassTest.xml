@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.swipedelete.zero.MediaClassTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-26T00:37:52.585Z" hostname="OFEKVPC" time="0.001">
+<testsuite name="com.swipedelete.zero.MediaClassTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-09-26T13:03:43.160Z" hostname="OFEKVPC" time="0.001">
   <properties/>
   <testcase name="a text-heavy screenshot becomes a document" classname="com.swipedelete.zero.MediaClassTest" time="0.001"/>
   <testcase name="video always wins" classname="com.swipedelete.zero.MediaClassTest" time="0.0"/>

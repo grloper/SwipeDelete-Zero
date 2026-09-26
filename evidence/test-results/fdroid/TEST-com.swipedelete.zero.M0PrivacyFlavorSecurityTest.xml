@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.swipedelete.zero.M0PrivacyFlavorSecurityTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-26T00:37:52.327Z" hostname="OFEKVPC" time="0.001">
+<testsuite name="com.swipedelete.zero.M0PrivacyFlavorSecurityTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-09-26T13:01:26.079Z" hostname="OFEKVPC" time="0.001">
   <properties/>
-  <testcase name="SEC-01 - valid secure HTTPS URL with valid host passes readiness check" classname="com.swipedelete.zero.M0PrivacyFlavorSecurityTest" time="0.001"/>
-  <testcase name="SEC-01 - non-HTTPS or plaintext URLs are strictly rejected by media readiness policy" classname="com.swipedelete.zero.M0PrivacyFlavorSecurityTest" time="0.0"/>
+  <testcase name="SEC-01 - valid secure HTTPS URL with valid host passes readiness check" classname="com.swipedelete.zero.M0PrivacyFlavorSecurityTest" time="0.0"/>
+  <testcase name="SEC-01 - non-HTTPS or plaintext URLs are strictly rejected by media readiness policy" classname="com.swipedelete.zero.M0PrivacyFlavorSecurityTest" time="0.001"/>
   <testcase name="SEC-01 - F-Droid flavor binds NoOpPhotosArchive with isAvailable false" classname="com.swipedelete.zero.M0PrivacyFlavorSecurityTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
