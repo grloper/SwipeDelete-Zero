@@ -17,3 +17,6 @@ local.properties
 !debug.keystore
 __pycache__/
 *.pyc
+
+/ci-evidence/
+/swiperise-evidence.zip*

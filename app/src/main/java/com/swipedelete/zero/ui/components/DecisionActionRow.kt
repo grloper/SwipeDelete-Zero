@@ -76,7 +76,7 @@ fun DecisionActionRow(
         )
         SdzCircleAction(
             icon = SdzIcons.Delete,
-            label = "Delete",
+            label = "Stage",
             accent = SdzColor.Red,
             onClick = onReclaim,
             diameter = SdzTouch.primaryAction,
@@ -134,7 +134,7 @@ fun DeckCoachmark(
                     icon = SdzIcons.Delete,
                     accent = SdzColor.Red,
                     gesture = "Swipe left",
-                    meaning = "Delete it. Reversible — it waits safely in Staging before permanent removal.",
+                    meaning = "Stage for review. Your original stays on this device.",
                 )
                 CoachLine(
                     icon = SdzIcons.Keep,

@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 FIELDS = ("total", "passed", "failed", "errors", "skipped")
 
 def audit(xml_root: Path, skip_policy: list[dict[str, str]],
-          handoff: dict[str, Any] | None = None) -> dict[str, Any]:
+          handoff: dict[str, Any] | None = None, required: list[dict[str, str]] | None = None) -> dict[str, Any]:
     xml_root = xml_root.resolve(strict=True)
     records: dict[tuple[str, str, str], dict[str, Any]] = {}
     by_variant: dict[str, dict[str, int]] = {}
@@ -67,8 +67,8 @@ def audit(xml_root: Path, skip_policy: list[dict[str, str]],
                       "xml_timestamp": root.get("timestamp", "")})
     approved: dict[tuple[str, str, str], dict[str, str]] = {}
     for item in skip_policy:
-        required = ("variant", "classname", "name", "reason", "covered_by_variant")
-        if not all(isinstance(item.get(k), str) and item[k].strip() for k in required):
+        policy_fields = ("variant", "classname", "name", "reason", "covered_by_variant")
+        if not all(isinstance(item.get(k), str) and item[k].strip() for k in policy_fields):
             raise ValueError("Skip policy requires variant/classname/name/reason/covered_by_variant")
         key = (item["variant"], item["classname"], item["name"])
         if key in approved:
@@ -88,6 +88,10 @@ def audit(xml_root: Path, skip_policy: list[dict[str, str]],
             issues.append(f"Skipped case has no passing cross-variant counterpart: {key}")
         record["skip_reason"] = item["reason"]
         record["covered_by_variant"] = item["covered_by_variant"]
+    for item in required or []:
+        key = (item['variant'], item['classname'], item['name'])
+        if records.get(key, {}).get('outcome') != 'passed':
+            issues.append(f"Required scenario missing or not passed: {key}")
     totals = {field: sum(v[field] for v in by_variant.values()) for field in FIELDS}
     if totals["failed"] or totals["errors"]:
         issues.append("One or more cases failed or errored")
@@ -114,6 +118,7 @@ def main() -> int:
     parser.add_argument("xml_root", type=Path)
     parser.add_argument("--skip-policy", type=Path)
     parser.add_argument("--handoff", type=Path)
+    parser.add_argument("--required", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
@@ -123,7 +128,7 @@ def main() -> int:
             raise ValueError("Output must be outside the raw XML directory")
         policy = json.loads(args.skip_policy.read_text()) if args.skip_policy else []
         handoff = json.loads(args.handoff.read_text()) if args.handoff else None
-        result = audit(args.xml_root, policy, handoff)
+        result = audit(args.xml_root, policy, handoff, json.loads(args.required.read_text()) if args.required else None)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         print(result["status"] + ": " + json.dumps(result["totals"]))

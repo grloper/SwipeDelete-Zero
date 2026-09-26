@@ -20,6 +20,14 @@ class AuditTests(unittest.TestCase):
                  "reason":"Offline-only behavior", "covered_by_variant":"fdroid"}]
     def test_pass(self):
         self.report(); self.assertEqual('XML_COUNTS_VALID',audit(self.root,[])['status'])
+    def test_missing_required_case_blocked(self):
+        self.report()
+        required=[{'variant':'play','classname':'Missing','name':'required'}]
+        self.assertEqual('BLOCKED',audit(self.root,[],required=required)['status'])
+    def test_present_required_case_passes(self):
+        self.report()
+        required=[{'variant':'play','classname':'Example','name':'scenario'}]
+        self.assertEqual('XML_COUNTS_VALID',audit(self.root,[],required=required)['status'])
     def test_no_files(self):
         with self.assertRaises(ValueError): audit(self.root,[])
     def test_approved_skip_preserved(self):

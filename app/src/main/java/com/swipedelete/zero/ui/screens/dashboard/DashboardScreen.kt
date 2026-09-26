@@ -221,8 +221,8 @@ fun DashboardScreen(
                         Text("Your library, your call", style = SdzType.Subtitle, color = SdzColor.Phosphor)
                         Text(
                             "Allow access to photos and videos to find files worth reviewing. " +
-                                "Review happens on this device. Google Photos backup is optional until you choose to delete; " +
-                                "deletion requires a confirmed backup. You can choose selected photos on supported Android versions.",
+                                "Review happens on this device. Google Photos backup is optional. " +
+                                "Cleanup is unavailable in this test build. You can choose selected photos on supported Android versions.",
                             style = SdzType.BodySmall,
                             color = SdzColor.TextSecondary,
                         )
@@ -667,7 +667,7 @@ private fun StagingBar(
             .padding(horizontal = SdzSpace.xl, vertical = SdzSpace.lg)
             .semantics {
                 contentDescription =
-                    "Review $stagedCount staged files, ${stagedBytes.toReadableSize()} to free"
+                    "Review $stagedCount staged files, ${stagedBytes.toReadableSize()} kept locally"
             },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SdzSpace.md),
@@ -680,7 +680,7 @@ private fun StagingBar(
         )
         Column(Modifier.weight(1f)) {
             Text(
-                "Review & free ${stagedBytes.toReadableSize()}",
+                "Review ${stagedBytes.toReadableSize()} staged",
                 style = SdzType.Label,
                 color = SdzColor.Phosphor,
             )

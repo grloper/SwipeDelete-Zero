@@ -1,0 +1,192 @@
+[
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-R5 - StagingViewModel purge is blocked in Play cloud builds"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.DatabaseMigrationTest",
+    "name": "M0-MIG - Migration versions connect v4 baseline to v5"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.DatabaseMigrationTest",
+    "name": "testRealRoomV4ToV5Migration"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.M0SafetyContainmentTest",
+    "name": "SAFE-01 - throwing provider fake is never touched by an M0 delete request"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.M0SafetyContainmentTest",
+    "name": "SAFE-03 - StagingUiState enforces disabled cleanup and product explanation in Play test builds"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+    "name": "M0-V3-02 - Old job completion cannot clear new session guard or overwrite newer account state"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+    "name": "M0-V2-02 - Drive signOut cancels backupJob and retains SignedOut"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+    "name": "M0-V3-02 - Per-file CancellationException is rethrown and not counted as failed file"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+    "name": "M0-V2-02 - Drive disconnect between two uploads halts processing and retains SignedOut"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+    "name": "M0-V3-02 - Auth callback signs out and returns token results in zero folder or upload operations"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+    "name": "M0-V3-02 - Upload callback observes sign-out and throws 401 - no token refresh or reupload after disconnect"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-V3-03 - session recovery with active partial offset resumes upload from reported offset"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-V3-03 - session recovery with full or out-of-range offset resets session and restarts from byte 0"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-V3-03 - session recovery encountering HTTP 404 or 410 expired session resets session and restarts from byte 0"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-R2 - two consecutive read 401s fail the row without touching append token or consuming retries"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-V3-03 - session recovery with lost completion receipt recovers finalized upload token"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-R1 - disconnect during upload throws CancellationException and prevents new operations"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-R1 - worker restarted under Account B quarantines pending item authorized under Account A"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-V2-02 - disconnect during final readback prevents RemoteVerified save and ledger write"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-V2-02 - startup verifiedWithoutLedger recovery aborts on account disconnect"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-V2-02 - cancellation during token acquisition is rethrown"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-V3-02 - Photos token acquisition observes disconnect before readback - no following media request or success persistence"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-R2 - read 401 invalidates read token only, never clearing append token"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-V2-02 - startup verifiedWithoutLedger recovery quarantines null or mismatched rows"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-V3-03 - session recovery with final status but lost token resets session and restarts from byte 0"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "M0-R1 - legacy queue item with null account owner is quarantined and never sent"
+  },
+  {
+    "variant": "fdroid",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-R7 - StagingViewModel prunes alreadyMissingUris without awarding reclaimed bytes"
+  },
+  {
+    "variant": "fdroid",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-R7 - preparePurge partitions 100 missing items and plans 50 live items preventing starvation"
+  },
+  {
+    "variant": "fdroid",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-V2-01 - 4-state resolution preserves UNKNOWN and reconciles only confirmed ABSENT and TRASHED"
+  },
+  {
+    "variant": "fdroid",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-V2-04 - cancellation of actual non-empty batch preserves queue, clears pending, and launches no follow-on batches"
+  },
+  {
+    "variant": "fdroid",
+    "classname": "com.swipedelete.zero.DatabaseMigrationTest",
+    "name": "M0-MIG - Migration versions connect v4 baseline to v5"
+  },
+  {
+    "variant": "fdroid",
+    "classname": "com.swipedelete.zero.DatabaseMigrationTest",
+    "name": "testRealRoomV4ToV5Migration"
+  },
+  {
+    "variant": "fdroid",
+    "classname": "com.swipedelete.zero.M0SafetyContainmentTest",
+    "name": "SAFE-01 - throwing provider fake is never touched by an M0 delete request"
+  },
+  {
+    "variant": "fdroid",
+    "classname": "com.swipedelete.zero.M0SafetyContainmentTest",
+    "name": "SAFE-03 - StagingUiState enforces disabled cleanup and product explanation in Play test builds"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "production HTTP recovery parses raw responses and bounds requests"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.photos.PhotosUploadWorkerAuthTest",
+    "name": "production HTTP recovery cancellation prevents subsequent request and success writes"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+    "name": "late auth failure from old launched run cannot sign out reconnected account"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.backup.DriveCloudBackupAuthTest",
+    "name": "account changes during token acquisition prevent folder and upload requests"
+  }
+]
