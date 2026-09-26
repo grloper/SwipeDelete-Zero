@@ -600,6 +600,9 @@ class DriveCloudBackup @Inject constructor(
     /** Multipart upload of one file; returns the created Drive file id. */
     private fun uploadFile(token: String, folderId: String, file: KeptFileEntity, guard: () -> Unit, onVerified: (String) -> Unit): String {
         guard()
+        if (file.sizeBytes > 5L * 1024 * 1024) {
+            return uploadLargeFile(token, folderId, file, guard, onVerified)
+        }
         val localHashBeforeUpload = context.contentResolver.openInputStream(Uri.parse(file.contentUri))?.use {
             digestStream(it, file.sizeBytes, guard)
         } ?: error("Local original is unreadable.")
@@ -680,6 +683,99 @@ class DriveCloudBackup @Inject constructor(
             activeConnection.compareAndSet(connection, null)
             connection.disconnect()
         }
+    }
+
+    /** Drive recommends a resumable session for files over 5 MiB. This first
+     * version sends one bounded PUT; transient interrupted sessions are retried
+     * as new uploads and are not yet persisted across process death. */
+    private fun uploadLargeFile(
+        token: String, folderId: String, file: KeptFileEntity, guard: () -> Unit,
+        onVerified: (String) -> Unit,
+    ): String {
+        guard()
+        val sourceHash = context.contentResolver.openInputStream(Uri.parse(file.contentUri))?.use {
+            digestStream(it, file.sizeBytes, guard)
+        } ?: error("Local original is unreadable.")
+        val hashHex = sourceHash.joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        val metadata = JSONObject()
+            .put("name", file.displayName)
+            .put("parents", JSONArray().put(folderId))
+            .put("mimeType", file.mimeType.ifBlank { "application/octet-stream" })
+            .put("appProperties", JSONObject()
+                .put("swipeRiseVersion", "1")
+                .put("originalSha256", hashHex)
+                .put("originalSize", file.sizeBytes.toString()))
+        val init = connectionFactory("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id").apply {
+            requestMethod = "POST"
+            doOutput = true
+            setRequestProperty("Authorization", "Bearer $token")
+            setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            setRequestProperty("X-Upload-Content-Type", file.mimeType.ifBlank { "application/octet-stream" })
+            setRequestProperty("X-Upload-Content-Length", file.sizeBytes.toString())
+            connectTimeout = 30_000
+            readTimeout = 60_000
+        }
+        synchronized(sessionLock) { guard(); activeConnection.set(init) }
+        val sessionUrl = try {
+            guard()
+            init.outputStream.use { it.write(metadata.toString().toByteArray(Charsets.UTF_8)) }
+            val code = init.responseCode
+            if (code != 200) throw HttpStatusException(code, "Drive upload session failed")
+            init.getHeaderField("Location") ?: error("Drive did not return an upload session")
+        } finally {
+            activeConnection.compareAndSet(init, null)
+            init.disconnect()
+        }
+        val session = URL(sessionUrl)
+        // Location contains a bearer-capable upload ID; never send media or
+        // Authorization to an arbitrary host supplied in a response header.
+        check(session.protocol == "https" && session.host == "www.googleapis.com" &&
+            session.port == -1 && session.path == "/upload/drive/v3/files") {
+            "Unexpected Drive upload session destination"
+        }
+        guard()
+        val connection = connectionFactory(sessionUrl).apply {
+            requestMethod = "PUT"
+            doOutput = true
+            setFixedLengthStreamingMode(file.sizeBytes)
+            setRequestProperty("Authorization", "Bearer $token")
+            setRequestProperty("Content-Type", file.mimeType.ifBlank { "application/octet-stream" })
+            connectTimeout = 30_000
+            readTimeout = 120_000
+        }
+        synchronized(sessionLock) { guard(); activeConnection.set(connection) }
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val remoteId = try {
+            val input = context.contentResolver.openInputStream(Uri.parse(file.contentUri))
+                ?: error("Local original is unreadable.")
+            input.use { source -> connection.outputStream.use { output ->
+                val total = copyStreamWithCancellation(java.security.DigestInputStream(source, digest),
+                    output, guard, file.sizeBytes)
+                check(total == file.sizeBytes) { "Local original changed size." }
+            } }
+            guard()
+            check(java.security.MessageDigest.isEqual(sourceHash, digest.digest())) {
+                "Local original changed during upload."
+            }
+            val code = connection.responseCode
+            if (code !in 200..201) throw HttpStatusException(code, "Drive upload failed")
+            JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).getString("id")
+                .also { check(it.matches(Regex("[A-Za-z0-9_-]+"))) }
+        } finally {
+            activeConnection.compareAndSet(connection, null)
+            connection.disconnect()
+        }
+        guard()
+        verifyDownloadedOriginal(token, remoteId, file.sizeBytes, sourceHash, guard)
+        val stillLocal = context.contentResolver.openInputStream(Uri.parse(file.contentUri))?.use {
+            digestStream(it, file.sizeBytes, guard)
+        } ?: error("Local original no longer readable.")
+        check(java.security.MessageDigest.isEqual(sourceHash, stillLocal)) {
+            "Local original changed during backup."
+        }
+        guard()
+        onVerified(hashHex)
+        return remoteId
     }
 
     private fun copyStreamWithCancellation(

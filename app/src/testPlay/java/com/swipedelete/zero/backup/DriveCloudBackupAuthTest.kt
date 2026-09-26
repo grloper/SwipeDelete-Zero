@@ -613,4 +613,50 @@ class DriveCloudBackupAuthTest {
         } finally { destination.delete() }
     }
 
+    @Test
+    fun `large original uses Drive resumable session then exact-byte download`() = runTest {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val original = ByteArray(5 * 1024 * 1024 + 1) { (it % 251).toByte() }
+        val file = java.io.File.createTempFile("drive-large-", ".bin", context.cacheDir)
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(context,
+            com.swipedelete.zero.data.local.AppDatabase::class.java).build()
+        file.writeBytes(original)
+        try {
+            val kept = InMemoryKeptFileDao()
+            kept.upsert(sampleKept(android.net.Uri.fromFile(file).toString(), "large.bin")
+                .copy(sizeBytes = original.size.toLong(), mimeType = "application/octet-stream"))
+            val backup = DriveCloudBackup(context, BackupRepository(kept,
+                InMemoryBackedUpFileDao(), InMemoryCloudUploadDao(), db.backupReceiptDao(), db))
+            backup.getSignedInAccount = { "alice@example.com" to Account("alice@example.com", "com.google") }
+            backup.getAuthToken = { "token" }
+            backup.folderResolver = { "folder" }
+            val calls = mutableListOf<String>()
+            backup.connectionFactory = { url ->
+                calls += url
+                object : java.net.HttpURLConnection(java.net.URL(url)) {
+                    override fun connect() {}
+                    override fun disconnect() {}
+                    override fun usingProxy() = false
+                    override fun getOutputStream(): java.io.OutputStream = java.io.ByteArrayOutputStream()
+                    override fun getResponseCode() = 200
+                    override fun getHeaderField(name: String?): String? =
+                        if (name == "Location")
+                            "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=abc"
+                        else null
+                    override fun getInputStream(): java.io.InputStream = when {
+                        url.contains("alt=media") -> original.inputStream()
+                        else -> """{"id":"remote-large"}""".byteInputStream()
+                    }
+                }
+            }
+            backup.runBackup()
+            assertEquals(3, calls.size)
+            assertTrue(calls.first().contains("uploadType=resumable"))
+            assertTrue(calls[1].contains("upload_id=abc"))
+            assertTrue(calls[2].endsWith("remote-large?alt=media"))
+            assertEquals(1, db.backupReceiptDao().forAccount("GOOGLE_DRIVE", "alice@example.com").size)
+            assertTrue(file.exists())
+        } finally { db.close(); file.delete() }
+    }
+
 }

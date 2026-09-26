@@ -16,9 +16,11 @@ remains available after an authentication failure.
 - No deletion eligibility changes. Play cleanup remains centrally disabled.
 
 The Drive verification costs a full download in addition to the upload. Failed
-verification retains the local file and records no completed receipt. Retrying a
-failed multipart operation may leave duplicate/orphan objects remotely; resumable,
-content-addressed upload recovery is still required before production release.
+verification retains the local file and records no completed receipt. Files over
+5 MiB use a Drive resumable session with one bounded PUT. Sessions are not yet
+persisted across process death, so retry may leave orphan objects remotely;
+resumption, content-addressed deduplication and orphan recovery remain required
+before production release.
 
 ## Still required for backup-then-delete release
 
