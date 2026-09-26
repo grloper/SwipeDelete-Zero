@@ -57,7 +57,7 @@ try:
  assert any('Cleanup is unavailable' in n.get('text','') for n in nodes()), 'Safety lock explanation missing'
  # Both selection modes may change, but neither execution control can be enabled.
  for mode in ['Permanent Delete','30-Day OS Trash']:
-  click(mode)
+  click(mode, scroll=True)
   tree=capture('04-lock-'+('permanent' if mode.startswith('Permanent') else 'trash'))
   parents={child:parent for parent in tree.iter() for child in parent}
   controls=[n for n in tree.iter('node') if ('Move to Android Trash' in n.get('text','') or 'Delete and Free Up' in n.get('text',''))]

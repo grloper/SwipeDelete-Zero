@@ -198,6 +198,23 @@ class DatabaseMigrationTest {
         receiptDao.upsert(stagedReceipt.copy(provider = "ICLOUD_APP_VAULT", accountId = "bob@example.com"))
         assertEquals(2, v5RoomDb.keptFileDao().pendingDriveBackup("bob@example.com").size)
 
+        backedUpFileDao.insert(com.swipedelete.zero.data.local.BackedUpFileEntity(
+            "content://media/staged_101", 10240, "photos:item_101", System.currentTimeMillis(),
+        ))
+        val backupRepo = com.swipedelete.zero.data.repository.BackupRepository(
+            keptFileDao, backedUpFileDao, cloudUploadDao, receiptDao, v5RoomDb,
+        )
+        backupRepo.markVerifiedDriveBackup(
+            com.swipedelete.zero.data.local.KeptFileEntity(
+                "content://media/staged_101", "test_image.jpg", "image/jpeg",
+                10240, System.currentTimeMillis(), false,
+            ), "alice@example.com", "verified-drive-id", "b".repeat(64),
+        )
+        assertEquals("Photos proof must survive a Drive backup on the same URI",
+            "photos:item_101", backedUpFileDao.get("content://media/staged_101")!!.remoteId)
+        assertEquals("verified-drive-id", receiptDao.get("content://media/staged_101",
+            "GOOGLE_DRIVE", "alice@example.com")!!.remoteId)
+
         // 6. Close and reopen to verify durability
         v5RoomDb.close()
 

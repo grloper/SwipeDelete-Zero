@@ -73,116 +73,106 @@ fun StagingSheet(
         contentColor = SdzColor.Phosphor,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
+        // A single bounded lazy list makes every control reachable on compact
+        // phones. The disabled execution action stays pinned at the bottom.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .heightIn(max = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp)
+                .navigationBarsPadding(),
         ) {
-            SheetHeader(state, onClear = viewModel::clearQueue)
+            LazyColumn(
+                modifier = Modifier.weight(1f, fill = false),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = 20.dp, end = 20.dp, top = 8.dp, bottom = 12.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item("header") { SheetHeader(state, onClear = viewModel::clearQueue) }
 
-            if (state.count == 0) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 40.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "Nothing staged. Swipe left on cards to queue files.",
-                        color = SdzColor.TextSecondary,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            } else {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        "Sort",
-                        color = SdzColor.TextSecondary,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    SortChip("Newest", state.sort == StagingSort.NEWEST) {
-                        viewModel.setSort(StagingSort.NEWEST)
-                    }
-                    SortChip("Largest", state.sort == StagingSort.LARGEST) {
-                        viewModel.setSort(StagingSort.LARGEST)
-                    }
-                }
-
-                if (state.backupRequired) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            "Google Photos backup · ${state.verifiedCount}/${state.count} ready",
-                            color = SdzColor.Phosphor,
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                        Text(
-                            when {
-                                !state.cleanupAvailable -> state.cleanupLockExplanation ?: "Cleanup is unavailable in this test build. Your originals stay on this device."
-                                !state.backupConnected -> "Connect Google to back up these files before deletion."
-                                state.failedBackupCount > 0 -> "${state.failedBackupCount} upload(s) failed. Retry them in Backup Manager."
-                                state.pendingBackupCount > 0 -> "Local files stay untouched while uploads finish."
-                                else -> "Google Photos backup verified."
-                            },
-                            color = SdzColor.TextSecondary,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        if (!state.backupConnected) {
-                            OutlinedButton(onClick = onOpenBackupSetup) { Text("Connect Google Photos") }
-                        } else if (state.pendingBackupCount > 0) {
-                            Button(onClick = viewModel::backUpStaged) { Text("Back up staged files") }
-                        } else {
-                            OutlinedButton(onClick = viewModel::backUpStaged) { Text("Recheck backups") }
+                if (state.count == 0) {
+                    item("empty") {
+                        Box(
+                            Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Nothing staged. Swipe left on cards to queue files.",
+                                color = SdzColor.TextSecondary,
+                                style = MaterialTheme.typography.bodyMedium)
                         }
                     }
-                }
-
-                if (!state.backupRequired && !state.cleanupAvailable) {
-                    state.cleanupLockExplanation?.let { explanation ->
-                        Text(
-                            explanation,
-                            color = SdzColor.Amber,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                } else {
+                    if (state.backupRequired) {
+                        item("backup") {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Google Photos backup · ${state.verifiedCount}/${state.count} ready",
+                                    color = SdzColor.Phosphor,
+                                    style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    when {
+                                        !state.cleanupAvailable -> state.cleanupLockExplanation
+                                            ?: "Cleanup is unavailable in this test build. Your originals stay on this device."
+                                        !state.backupConnected -> "Connect Google to back up these files before deletion."
+                                        state.failedBackupCount > 0 -> "${state.failedBackupCount} upload(s) failed. Retry them in Backups."
+                                        state.pendingBackupCount > 0 -> "Local files stay untouched while uploads finish."
+                                        else -> "Google Photos item found. Original-byte restore still requires Drive."
+                                    },
+                                    color = SdzColor.TextSecondary,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                if (!state.backupConnected) {
+                                    OutlinedButton(onClick = onOpenBackupSetup) { Text("Connect Google account") }
+                                } else if (state.pendingBackupCount > 0) {
+                                    Button(onClick = viewModel::backUpStaged) { Text("Back up staged files") }
+                                } else {
+                                    OutlinedButton(onClick = viewModel::backUpStaged) { Text("Recheck backups") }
+                                }
+                            }
+                        }
+                    } else if (!state.cleanupAvailable) {
+                        state.cleanupLockExplanation?.let { explanation ->
+                            item("lock") { Text(explanation, color = SdzColor.Amber,
+                                style = MaterialTheme.typography.bodySmall) }
+                        }
                     }
-                }
 
-                ExecutionModeToggle(
-                    mode = state.mode,
-                    onSelect = viewModel::setMode,
-                )
-
-                LazyColumn(
-                    modifier = Modifier.weight(1f, fill = false),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                    item("mode") {
+                        ExecutionModeToggle(mode = state.mode, onSelect = viewModel::setMode)
+                    }
+                    item("sort") {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Sort", color = SdzColor.TextSecondary,
+                                style = MaterialTheme.typography.labelMedium)
+                            SortChip("Newest", state.sort == StagingSort.NEWEST) {
+                                viewModel.setSort(StagingSort.NEWEST)
+                            }
+                            SortChip("Largest", state.sort == StagingSort.LARGEST) {
+                                viewModel.setSort(StagingSort.LARGEST)
+                            }
+                        }
+                    }
                     items(state.items, key = { it.contentUri }) { item ->
-                        StagedRow(
-                            item = item,
+                        StagedRow(item = item,
                             onPreview = { previewItem = item },
-                            onRestore = { viewModel.restore(item.contentUri) },
-                        )
+                            onRestore = { viewModel.restore(item.contentUri) })
                     }
                 }
 
+                completedPurge?.let { (bytes, count) ->
+                    item("celebration") {
+                        FreedCelebration(freedBytes = bytes, fileCount = count,
+                            onFinished = onCelebrationFinished)
+                    }
+                }
+            }
+            if (state.count > 0) {
                 PurgeCta(
                     bytes = state.totalBytes,
                     mode = state.mode,
                     enabled = !state.purging && state.canDelete,
                     onClick = { confirming = true },
-                    modifier = Modifier.padding(bottom = 16.dp),
-                )
-            }
-
-            completedPurge?.let { (bytes, count) ->
-                FreedCelebration(
-                    freedBytes = bytes,
-                    fileCount = count,
-                    onFinished = onCelebrationFinished,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                 )
             }
         }

@@ -115,10 +115,15 @@ class BackupRepository constructor(
         val dao = requireNotNull(receiptDao) { "Backup receipt DAO unavailable" }
         db.withTransaction {
             dao.upsert(receipt)
-            backedUpFileDao.insert(BackedUpFileEntity(
-                contentUri = file.contentUri, sizeBytes = file.sizeBytes,
-                remoteId = remoteId, uploadedAtMillis = receipt.verifiedAtMillis,
-            ))
+            // Photos uses the legacy URI-keyed row for its live readback gate.
+            // Preserve it when both destinations contain the same local file.
+            val existing = backedUpFileDao.get(file.contentUri)
+            if (existing == null || !existing.remoteId.startsWith("photos:")) {
+                backedUpFileDao.insert(BackedUpFileEntity(
+                    contentUri = file.contentUri, sizeBytes = file.sizeBytes,
+                    remoteId = remoteId, uploadedAtMillis = receipt.verifiedAtMillis,
+                ))
+            }
         }
     }
 
