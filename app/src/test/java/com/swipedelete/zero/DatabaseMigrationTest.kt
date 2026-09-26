@@ -186,6 +186,18 @@ class DatabaseMigrationTest {
         assertEquals("icloud-object", receiptDao.get(receipt.contentUri, "ICLOUD_APP_VAULT", "alice@example.com")!!.remoteId)
         assertEquals("drive:xyz_103", backedUpFileDao.get(receipt.contentUri)!!.remoteId)
 
+        val initialDriveWork = v5RoomDb.keptFileDao().pendingDriveBackup("alice@example.com")
+        assertEquals(setOf("content://media/kept_102", "content://media/staged_101"),
+            initialDriveWork.map { it.contentUri }.toSet())
+        val keptReceipt = receipt.copy(contentUri = "content://media/kept_102", originalSizeBytes = 20480)
+        val stagedReceipt = receipt.copy(contentUri = "content://media/staged_101", originalSizeBytes = 10240)
+        receiptDao.upsert(keptReceipt)
+        receiptDao.upsert(stagedReceipt)
+        assertTrue(v5RoomDb.keptFileDao().pendingDriveBackup("alice@example.com").isEmpty())
+        assertEquals(2, v5RoomDb.keptFileDao().pendingDriveBackup("bob@example.com").size)
+        receiptDao.upsert(stagedReceipt.copy(provider = "ICLOUD_APP_VAULT", accountId = "bob@example.com"))
+        assertEquals(2, v5RoomDb.keptFileDao().pendingDriveBackup("bob@example.com").size)
+
         // 6. Close and reopen to verify durability
         v5RoomDb.close()
 

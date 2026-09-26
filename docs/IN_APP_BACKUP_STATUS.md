@@ -7,7 +7,7 @@ contains the connection and Drive backup action; Backups shows the Photos queue
 and upload history. The routine setup wizard entry is removed; troubleshooting
 remains available after an authentication failure.
 
-- Google Drive: existing kept-file uploads now hash the bytes sent, download the
+- Google Drive: existing kept-file and staged-file uploads now hash the bytes sent, download the
   uploaded object in a separate authenticated request, compare SHA-256 and byte
   count, and re-read the local original before recording completion.
 - Google Photos: existing swipe-up and staged-file uploads use the durable queue
@@ -23,7 +23,7 @@ content-addressed upload recovery is still required before production release.
 ## Still required for backup-then-delete release
 
 Database v6 adds account/provider-scoped receipts with the checked original hash
-and size for new Drive uploads. Legacy rows remain separate because they have no
+and size for new Drive uploads. The Drive work list includes staged originals once each. Legacy rows remain separate because they have no
 hash or authenticated owner; they cannot be promoted into verified receipts.
 Required work includes:
 

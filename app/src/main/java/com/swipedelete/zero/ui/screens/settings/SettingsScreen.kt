@@ -238,7 +238,7 @@ private fun DriveBackupSection(
             )
         }
         Text(
-            "Connect once for Google Drive and Google Photos. Drive uploads kept files and checks a fresh download against the original. Swipe up while reviewing to upload to Photos. Local cleanup remains locked in this test build.",
+            "Connect once for Google Drive and Google Photos. Drive uploads kept and staged files and checks a fresh download against the original. Swipe up while reviewing to upload to Photos. Local cleanup remains locked in this test build.",
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
         )

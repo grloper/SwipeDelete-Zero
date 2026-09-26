@@ -54,7 +54,7 @@ try:
  click(r'^Stage\b');click(r'^Undo\b');click(r'^Stage\b');steps.append('stage, undo, stage again')
  capture('02-review');click(r'^Back\b')
  click(r'Review [1-9].*staged files');capture('03-staging')
- assert any('Cleanup is unavailable' in n.get('text','') for n in nodes())
+ assert any('Cleanup is unavailable' in n.get('text','') for n in nodes()), 'Safety lock explanation missing'
  # Both selection modes may change, but neither execution control can be enabled.
  for mode in ['Permanent Delete','30-Day OS Trash']:
   click(mode)

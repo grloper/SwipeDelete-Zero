@@ -61,7 +61,7 @@ fun StagingSheet(
     onCelebrationFinished: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // The custom explainer runs before the OS dialog, never instead of it.
     var confirming by remember { mutableStateOf(false) }
     var previewItem by remember { mutableStateOf<StagedFileEntity?>(null) }
@@ -113,19 +113,6 @@ fun StagingSheet(
                     }
                 }
 
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 380.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(state.items, key = { it.contentUri }) { item ->
-                        StagedRow(
-                            item = item,
-                            onPreview = { previewItem = item },
-                            onRestore = { viewModel.restore(item.contentUri) },
-                        )
-                    }
-                }
-
                 if (state.backupRequired) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
@@ -154,7 +141,7 @@ fun StagingSheet(
                     }
                 }
 
-                if (!state.cleanupAvailable) {
+                if (!state.backupRequired && !state.cleanupAvailable) {
                     state.cleanupLockExplanation?.let { explanation ->
                         Text(
                             explanation,
@@ -168,6 +155,19 @@ fun StagingSheet(
                     mode = state.mode,
                     onSelect = viewModel::setMode,
                 )
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f, fill = false),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(state.items, key = { it.contentUri }) { item ->
+                        StagedRow(
+                            item = item,
+                            onPreview = { previewItem = item },
+                            onRestore = { viewModel.restore(item.contentUri) },
+                        )
+                    }
+                }
 
                 PurgeCta(
                     bytes = state.totalBytes,
@@ -232,7 +232,7 @@ private fun SheetHeader(state: StagingUiState, onClear: () -> Unit) {
                 style = MaterialTheme.typography.titleLarge,
             )
             Text(
-                "${state.count} files • ${state.totalBytes.toReadableSize()} staged for review",
+                "${state.count} ${if (state.count == 1) "file" else "files"} • ${state.totalBytes.toReadableSize()} staged for review",
                 color = SdzColor.TextSecondary,
                 style = MaterialTheme.typography.labelMedium,
             )

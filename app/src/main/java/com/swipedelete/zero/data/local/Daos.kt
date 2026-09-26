@@ -52,19 +52,38 @@ interface KeptFileDao {
     )
     suspend fun pendingBackup(): List<KeptFileEntity>
 
-    /** Provider/account-scoped work list. Legacy and Photos receipts cannot
-     * suppress an original-byte Drive backup for this Google account. */
+    /** Each local URI appears once even when both kept and staged. The staged
+     * branch is included because the file that may eventually be removed is
+     * precisely the one requiring an original-byte vault copy. */
     @Query("""SELECT k.* FROM kept_files k WHERE NOT EXISTS (
         SELECT 1 FROM backup_receipts r
         WHERE r.contentUri = k.contentUri AND r.provider = 'GOOGLE_DRIVE'
         AND r.accountId = :accountId AND r.originalSizeBytes = k.sizeBytes
-    ) ORDER BY k.keptAtMillis""")
+    ) UNION ALL
+    SELECT s.contentUri, s.displayName, s.mimeType, s.sizeBytes,
+        s.stagedAtMillis AS keptAtMillis, 0 AS starred
+    FROM staged_files s WHERE NOT EXISTS (
+        SELECT 1 FROM kept_files k WHERE k.contentUri = s.contentUri
+    ) AND NOT EXISTS (
+        SELECT 1 FROM backup_receipts r
+        WHERE r.contentUri = s.contentUri AND r.provider = 'GOOGLE_DRIVE'
+        AND r.accountId = :accountId AND r.originalSizeBytes = s.sizeBytes
+    ) ORDER BY keptAtMillis""")
     suspend fun pendingDriveBackup(accountId: String): List<KeptFileEntity>
 
-    @Query("""SELECT COUNT(*) FROM kept_files k WHERE NOT EXISTS (
-        SELECT 1 FROM backup_receipts r
-        WHERE r.contentUri = k.contentUri AND r.provider = 'GOOGLE_DRIVE'
-        AND r.accountId = :accountId AND r.originalSizeBytes = k.sizeBytes
+    @Query("""SELECT COUNT(*) FROM (
+        SELECT k.contentUri FROM kept_files k WHERE NOT EXISTS (
+            SELECT 1 FROM backup_receipts r WHERE r.contentUri = k.contentUri
+            AND r.provider = 'GOOGLE_DRIVE' AND r.accountId = :accountId
+            AND r.originalSizeBytes = k.sizeBytes
+        ) UNION ALL
+        SELECT s.contentUri FROM staged_files s WHERE NOT EXISTS (
+            SELECT 1 FROM kept_files k WHERE k.contentUri = s.contentUri
+        ) AND NOT EXISTS (
+            SELECT 1 FROM backup_receipts r WHERE r.contentUri = s.contentUri
+            AND r.provider = 'GOOGLE_DRIVE' AND r.accountId = :accountId
+            AND r.originalSizeBytes = s.sizeBytes
+        )
     )""")
     fun observePendingDriveBackupCount(accountId: String): Flow<Int>
 
