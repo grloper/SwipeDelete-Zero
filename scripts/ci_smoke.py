@@ -37,19 +37,16 @@ try:
  adb('install','-r',str(APK));steps.append('install canonical APK')
  for perm in ['READ_MEDIA_IMAGES','READ_MEDIA_VIDEO']:
   adb('shell','pm','grant',PKG,'android.permission.'+perm)
- adb('shell','mkdir','-p','/sdcard/Pictures/Screenshots')
- for i,color in enumerate([(80,170,230),(170,90,220),(30,210,180)]):
-  local=OUT/f'fixture-{i}.png';local.write_bytes(png(color));remote=f'/sdcard/Pictures/Screenshots/Screenshot_fixture_{i}.png'
-  adb('push',str(local),remote);adb('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file://'+remote)
- # Media scanning is asynchronous: establish fixture visibility before opening the app.
- deadline=time.time()+30
- while True:
-  media=adb('shell','content','query','--uri','content://media/external/images/media','--projection','_id:_display_name:_size').decode()
-  (OUT/'media-fixtures.txt').write_text(media)
-  if all(f'Screenshot_fixture_{i}.png' in media for i in range(3)):break
-  if time.time()>deadline:raise AssertionError('Synthetic images were not indexed by MediaStore')
-  time.sleep(1)
- steps.append('three synthetic images indexed in MediaStore')
+ test_apk=OUT/'apk/app-play-debug-androidTest.apk'
+ adb('install','-r',str(test_apk))
+ result=adb('shell','am','instrument','-w','-e','class','com.swipedelete.zero.MediaFixtureInstrumentedTest',PKG+'.test/androidx.test.runner.AndroidJUnitRunner').decode()
+ (OUT/'media-fixtures.txt').write_text(result)
+ assert 'OK (1 test)' in result,result
+ media=adb('shell','content','query','--uri','content://media/external/images/media','--projection','_id:_display_name:_size:is_pending').decode()
+ (OUT/'media-fixtures.txt').write_text(result+'\n'+media)
+ for i in range(3):
+  assert re.search(rf'Screenshot_fixture_{i}\.png.*_size=(?!NULL|0\b)\d+',media), 'Committed synthetic image missing from MediaStore'
+ steps.append('three positive-size synthetic images committed via MediaStore')
  start();capture('01-dashboard');steps.append('permissions and dashboard')
  click(r'Start reviewing|Browse library', scroll=True)
  if any('Got it' in n.get('text','') for n in nodes()):click(r'Got it')
@@ -73,7 +70,8 @@ try:
  adb('shell','am','force-stop',PKG);start();click(r'Review [1-9].*staged files');capture('05-persisted')
  click(r'Unstage all');steps.append('queue survives restart; unstage works')
  capture('06-restored')
- for i in range(3): adb('shell','test','-f',f'/sdcard/Pictures/Screenshots/Screenshot_fixture_{i}.png')
+ for i in range(3):
+  assert re.search(rf'Screenshot_fixture_{i}\.png.*_size=(?!NULL|0\b)\d+',adb('shell','content','query','--uri','content://media/external/images/media','--projection','_display_name:_size').decode())
  steps.append('all synthetic originals remain')
  status='PASS'
 except Exception as e:

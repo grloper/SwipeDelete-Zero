@@ -27,9 +27,10 @@ jobs:
       - name: Test both flavors and assemble canonical APK
         run: |
           python scripts/ci_record.py audit-self-tests python -m unittest discover -s tools -p 'test_*.py'
-          python scripts/ci_record.py unit-build ./gradlew :app:testPlayDebugUnitTest :app:testFdroidDebugUnitTest :app:assemblePlayDebug --rerun-tasks --no-build-cache --no-daemon
+          python scripts/ci_record.py unit-build ./gradlew :app:testPlayDebugUnitTest :app:testFdroidDebugUnitTest :app:assemblePlayDebug :app:assemblePlayDebugAndroidTest --rerun-tasks --no-build-cache --no-daemon
           mkdir -p ci-evidence/apk ci-evidence/test-results/play ci-evidence/test-results/fdroid
           cp app/build/outputs/apk/play/debug/app-play-debug.apk ci-evidence/apk/
+          cp app/build/outputs/apk/androidTest/play/debug/app-play-debug-androidTest.apk ci-evidence/apk/
           cp app/build/test-results/testPlayDebugUnitTest/*.xml ci-evidence/test-results/play/
           cp app/build/test-results/testFdroidDebugUnitTest/*.xml ci-evidence/test-results/fdroid/
           python scripts/ci_record.py junit-audit python tools/audit_junit.py ci-evidence/test-results --skip-policy tools/expected_skips.json --required tools/required_cases.json --output ci-evidence/junit_audit.json
