@@ -14,6 +14,7 @@ import com.swipedelete.zero.data.repository.BackupRepository
 import com.swipedelete.zero.domain.backup.BackupState
 import com.swipedelete.zero.domain.backup.CloudBackup
 import com.swipedelete.zero.domain.backup.ConnectionCheck
+import com.swipedelete.zero.domain.backup.RemoteOriginal
 import com.swipedelete.zero.domain.setup.AuthDiagnostic
 import com.swipedelete.zero.photos.PhotosUploadWorker
 import com.swipedelete.zero.photos.PhotosUploader
@@ -424,6 +425,155 @@ class DriveCloudBackup @Inject constructor(
         )
     }
 
+    override suspend fun availableOriginals(): List<RemoteOriginal> = withContext(Dispatchers.IO) {
+        val (email, account) = getSignedInAccount()
+        if (email.isNullOrBlank() || account == null) return@withContext emptyList()
+        val session = currentSessionId.get()
+        val ownerJob = currentCoroutineContext()[kotlinx.coroutines.Job]
+        fun guard() {
+            if (ownerJob?.isActive == false ||
+                session != currentSessionId.get() || getSignedInAccount().first != email) {
+                throw kotlinx.coroutines.CancellationException("Google account changed during restore search")
+            }
+        }
+        guard()
+        val token = getAuthToken(account)
+        guard()
+        val folderId = findFolder(token, ::guard) ?: return@withContext emptyList()
+        val query = URLEncoder.encode("'$folderId' in parents and trashed = false", "UTF-8")
+        val found = mutableListOf<RemoteOriginal>()
+        val pages = mutableSetOf<String>()
+        var pageToken: String? = null
+        do {
+            guard()
+            val pageArg = pageToken?.let { "&pageToken=${URLEncoder.encode(it, "UTF-8")}" } ?: ""
+            val url = "https://www.googleapis.com/drive/v3/files?q=$query&spaces=drive&pageSize=100" +
+                "&fields=nextPageToken,files(id,name,mimeType,size,appProperties)$pageArg"
+            val response = JSONObject(httpRequest(url, token, "GET", null, ::guard))
+            val files = response.optJSONArray("files") ?: JSONArray()
+            for (i in 0 until files.length()) {
+                val item = files.getJSONObject(i)
+                val props = item.optJSONObject("appProperties") ?: continue
+                val sha = props.optString("originalSha256")
+                val size = props.optString("originalSize").toLongOrNull() ?: continue
+                val id = item.optString("id")
+                if (props.optString("swipeRiseVersion") != "1" ||
+                    !sha.matches(Regex("[0-9a-f]{64}")) || size <= 0 ||
+                    id.isBlank() || !id.matches(Regex("[A-Za-z0-9_-]+")) ||
+                    item.optLong("size", -1) != size) continue
+                found += RemoteOriginal(
+                    remoteId = id,
+                    name = item.optString("name").take(200).ifBlank { "Original" },
+                    mimeType = item.optString("mimeType").ifBlank { "application/octet-stream" },
+                    sizeBytes = size,
+                    sha256 = sha,
+                    accountId = email,
+                )
+            }
+            pageToken = response.optString("nextPageToken").takeIf { it.isNotBlank() }
+            if (pageToken != null && (!pages.add(pageToken!!) || pages.size >= 100)) {
+                error("Drive backup inventory pagination did not finish")
+            }
+        } while (pageToken != null)
+        guard()
+        found.distinctBy { it.remoteId }
+    }
+
+    override suspend fun restoreOriginal(original: RemoteOriginal, destination: Uri): Boolean = withContext(Dispatchers.IO) {
+        val (email, account) = getSignedInAccount()
+        if (email.isNullOrBlank() || account == null || original.accountId != email ||
+            !original.remoteId.matches(Regex("[A-Za-z0-9_-]+")) ||
+            !original.sha256.matches(Regex("[0-9a-f]{64}")) || original.sizeBytes <= 0) return@withContext false
+        val session = currentSessionId.get()
+        val ownerJob = currentCoroutineContext()[kotlinx.coroutines.Job]
+        fun guard() {
+            if (ownerJob?.isActive == false ||
+                session != currentSessionId.get() || getSignedInAccount().first != email) {
+                throw kotlinx.coroutines.CancellationException("Google account changed during restore")
+            }
+        }
+        // Keep an untrusted download away from the user's chosen document until
+        // its bytes pass verification; refuse if private scratch cannot fit it.
+        val available = context.cacheDir.usableSpace
+        if (available <= original.sizeBytes || available - original.sizeBytes <= 8L * 1024 * 1024) {
+            return@withContext false
+        }
+        val temp = java.io.File.createTempFile("swiperise-restore-", ".bin", context.cacheDir)
+        try {
+            guard()
+            val token = getAuthToken(account)
+            guard()
+            // The UI's cached inventory is never authoritative at restore time.
+            val metadata = JSONObject(httpRequest(
+                "https://www.googleapis.com/drive/v3/files/${original.remoteId}?fields=id,size,mimeType,appProperties,trashed",
+                token, "GET", null, ::guard,
+            ))
+            val props = metadata.optJSONObject("appProperties") ?: return@withContext false
+            if (metadata.optBoolean("trashed") || metadata.optString("id") != original.remoteId ||
+                metadata.optLong("size", -1) != original.sizeBytes ||
+                metadata.optString("mimeType") != original.mimeType ||
+                props.optString("swipeRiseVersion") != "1" ||
+                props.optString("originalSize") != original.sizeBytes.toString() ||
+                props.optString("originalSha256") != original.sha256) return@withContext false
+
+            val connection = connectionFactory(
+                "https://www.googleapis.com/drive/v3/files/${original.remoteId}?alt=media"
+            ).apply {
+                requestMethod = "GET"
+                setRequestProperty("Authorization", "Bearer $token")
+                setRequestProperty("Accept-Encoding", "identity")
+                setRequestProperty("Cache-Control", "no-cache")
+                useCaches = false
+                instanceFollowRedirects = false
+                connectTimeout = 30_000
+                readTimeout = 120_000
+            }
+            synchronized(sessionLock) { guard(); activeConnection.set(connection) }
+            try {
+                guard()
+                if (connection.responseCode != 200) return@withContext false
+                val digest = java.security.MessageDigest.getInstance("SHA-256")
+                val total = connection.inputStream.use { input ->
+                    temp.outputStream().use { output ->
+                        copyStreamWithCancellation(java.security.DigestInputStream(input, digest),
+                            output, ::guard, original.sizeBytes)
+                    }
+                }
+                if (total != original.sizeBytes ||
+                    digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) } != original.sha256) {
+                    return@withContext false
+                }
+            } finally {
+                activeConnection.compareAndSet(connection, null)
+                connection.disconnect()
+            }
+            guard()
+            val output = context.contentResolver.openOutputStream(destination, "w") ?: return@withContext false
+            output.use { temp.inputStream().use { input ->
+                if (copyStreamWithCancellation(input, it, ::guard, original.sizeBytes) != original.sizeBytes) return@withContext false
+            } }
+            guard()
+            val restored = context.contentResolver.openInputStream(destination)?.use {
+                digestStream(it, original.sizeBytes, ::guard)
+            } ?: return@withContext false
+            guard()
+            restored.joinToString("") { "%02x".format(it.toInt() and 0xff) } == original.sha256
+        } finally {
+            temp.delete()
+        }
+    }
+
+    /** Find the app folder without creating a new folder during restore browsing. */
+    private fun findFolder(token: String, guard: () -> Unit): String? {
+        guard()
+        val query = URLEncoder.encode(
+            "name = '$FOLDER_NAME' and mimeType = '$FOLDER_MIME' and trashed = false", "UTF-8",
+        )
+        val listUrl = "https://www.googleapis.com/drive/v3/files?q=$query&fields=files(id)&spaces=drive"
+        val files = JSONObject(httpRequest(listUrl, token, "GET", null, guard)).optJSONArray("files") ?: return null
+        return if (files.length() > 0) files.getJSONObject(0).getString("id") else null
+    }
+
     /** Returns the id of the backup folder, creating it on first run. */
     private fun findOrCreateFolder(token: String, guard: () -> Unit): String {
         guard()
@@ -450,9 +600,19 @@ class DriveCloudBackup @Inject constructor(
     /** Multipart upload of one file; returns the created Drive file id. */
     private fun uploadFile(token: String, folderId: String, file: KeptFileEntity, guard: () -> Unit, onVerified: (String) -> Unit): String {
         guard()
+        val localHashBeforeUpload = context.contentResolver.openInputStream(Uri.parse(file.contentUri))?.use {
+            digestStream(it, file.sizeBytes, guard)
+        } ?: error("Local original is unreadable.")
+        val hashHex = localHashBeforeUpload.joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        // Keep the manifest on the remote object itself so a fresh install can
+        // discover and restore it without the device's Room database.
         val metadata = JSONObject()
             .put("name", file.displayName)
             .put("parents", JSONArray().put(folderId))
+            .put("appProperties", JSONObject()
+                .put("swipeRiseVersion", "1")
+                .put("originalSha256", hashHex)
+                .put("originalSize", file.sizeBytes.toString()))
             .toString()
 
         val url = URL("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id")
@@ -483,7 +643,7 @@ class DriveCloudBackup @Inject constructor(
                     ?: throw IllegalStateException("File unreadable: ${file.displayName}")
                 input.use {
                     val counted = java.security.DigestInputStream(it, uploadedDigest)
-                    val uploadedBytes = copyStreamWithCancellation(counted, out, guard)
+                    val uploadedBytes = copyStreamWithCancellation(counted, out, guard, file.sizeBytes)
                     check(uploadedBytes == file.sizeBytes) { "Local file changed size; backup was not verified." }
                 }
 
@@ -499,6 +659,9 @@ class DriveCloudBackup @Inject constructor(
             val remoteId = JSONObject(responseText).getString("id")
             check(remoteId.matches(Regex("[A-Za-z0-9_-]+"))) { "Invalid Drive file ID" }
             val expectedHash = uploadedDigest.digest()
+            check(java.security.MessageDigest.isEqual(localHashBeforeUpload, expectedHash)) {
+                "Local file changed while uploading; original retained."
+            }
             // Release the upload socket before opening the independent download.
             activeConnection.compareAndSet(connection, null)
             connection.disconnect()
@@ -519,14 +682,17 @@ class DriveCloudBackup @Inject constructor(
         }
     }
 
-    private fun copyStreamWithCancellation(input: java.io.InputStream, out: OutputStream, guard: () -> Unit): Long {
+    private fun copyStreamWithCancellation(
+        input: java.io.InputStream, out: OutputStream, guard: () -> Unit, maxBytes: Long = Long.MAX_VALUE,
+    ): Long {
         val buffer = ByteArray(8192)
         var bytesRead: Int
         var total = 0L
         while (input.read(buffer).also { bytesRead = it } >= 0) {
             guard()
-            out.write(buffer, 0, bytesRead)
             total += bytesRead
+            check(total <= maxBytes) { "File exceeds the expected original size." }
+            out.write(buffer, 0, bytesRead)
         }
         guard()
         return total

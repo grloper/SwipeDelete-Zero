@@ -85,6 +85,7 @@ import com.swipedelete.zero.data.local.BackedUpFileEntity
 import com.swipedelete.zero.data.local.CloudUploadEntity
 import com.swipedelete.zero.domain.backup.BackupState
 import com.swipedelete.zero.domain.backup.CloudUploadStats
+import com.swipedelete.zero.domain.backup.RemoteOriginal
 import com.swipedelete.zero.ui.theme.SdzColor
 import com.swipedelete.zero.ui.theme.SdzRadius
 import com.swipedelete.zero.ui.theme.SdzSpace
@@ -101,6 +102,14 @@ fun CloudManagerScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val signInLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         viewModel.onSignInResult(it.data)
+    }
+    var selectedRestore by remember { mutableStateOf<RemoteOriginal?>(null) }
+    val createDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { destination ->
+        val original = selectedRestore
+        selectedRestore = null
+        if (destination != null && original != null) viewModel.restore(original, destination)
     }
 
 
@@ -186,6 +195,12 @@ fun CloudManagerScreen(
                     }
                 }
             }
+            if (uiState.backupState is BackupState.Ready) {
+                OutlinedButton(
+                    onClick = viewModel::backupNow,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = SdzSpace.lg),
+                ) { Text("Back up kept and staged originals to Drive") }
+            }
             // Real-Time Speed & Performance Meter
             CloudPerformanceCard(
                 stats = uiState.uploadStats,
@@ -216,7 +231,7 @@ fun CloudManagerScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Queue (${uiState.uploads.size})")
+                            Text("Photos queue")
                         }
                     }
                 )
@@ -227,9 +242,14 @@ fun CloudManagerScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Cloud Ledger (${uiState.backedUpFiles.size})")
+                            Text("History")
                         }
                     }
+                )
+                Tab(
+                    selected = uiState.selectedTab == 2,
+                    onClick = { viewModel.selectTab(2) },
+                    text = { Text("Restore") },
                 )
             }
 
@@ -241,7 +261,7 @@ fun CloudManagerScreen(
                     onCancel = viewModel::cancelUpload,
                     modifier = Modifier.fillMaxSize(),
                 )
-            } else {
+            } else if (uiState.selectedTab == 1) {
                 CloudLedgerTabContent(
                     files = uiState.filteredBackedUpFiles,
                     receipts = uiState.verifiedReceipts.filter { receipt ->
@@ -252,6 +272,57 @@ fun CloudManagerScreen(
                     onSelectFile = { viewModel.openBackedUpFile(context, it) },
                     modifier = Modifier.fillMaxSize(),
                 )
+            } else {
+                DriveRestoreTab(
+                    originals = uiState.remoteOriginals,
+                    loading = uiState.isLoadingOriginals,
+                    onRefresh = viewModel::refreshOriginals,
+                    onRestore = { original ->
+                        selectedRestore = original
+                        createDocument.launch(original.name)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DriveRestoreTab(
+    originals: List<RemoteOriginal>,
+    loading: Boolean,
+    onRefresh: () -> Unit,
+    onRestore: (RemoteOriginal) -> Unit,
+) {
+    Column(Modifier.fillMaxSize().padding(SdzSpace.md)) {
+        Text(
+            "Originals in your SwipeRise Drive folder. Choose where to save a copy; SwipeRise checks the downloaded file and the saved copy byte for byte.",
+            color = SdzColor.TextSecondary,
+            style = MaterialTheme.typography.bodySmall,
+        )
+        TextButton(onClick = onRefresh, enabled = !loading) {
+            Text(if (loading) "Looking in Drive…" else "Refresh originals")
+        }
+        if (!loading && originals.isEmpty()) {
+            Text("No verified originals found in this Google account.", color = SdzColor.TextSecondary)
+        }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(SdzSpace.sm)) {
+            items(originals, key = { it.remoteId }) { original ->
+                Card(colors = CardDefaults.cardColors(containerColor = SdzColor.Surface2)) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(SdzSpace.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(SdzSpace.sm),
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(original.name, color = SdzColor.Phosphor, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis)
+                            Text(original.sizeBytes.toReadableSize(), color = SdzColor.TextSecondary,
+                                style = MaterialTheme.typography.labelSmall)
+                        }
+                        OutlinedButton(onClick = { onRestore(original) }) { Text("Save copy") }
+                    }
+                }
             }
         }
     }

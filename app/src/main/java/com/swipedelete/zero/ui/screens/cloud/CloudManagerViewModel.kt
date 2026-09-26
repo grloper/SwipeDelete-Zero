@@ -14,6 +14,7 @@ import com.swipedelete.zero.domain.backup.CloudBackup
 import com.swipedelete.zero.domain.backup.CloudUploadStats
 import com.swipedelete.zero.domain.backup.ConnectionCheck
 import com.swipedelete.zero.domain.backup.PhotosArchive
+import com.swipedelete.zero.domain.backup.RemoteOriginal
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,6 +30,8 @@ data class CloudManagerUiState(
     val uploads: List<CloudUploadEntity> = emptyList(),
     val backedUpFiles: List<BackedUpFileEntity> = emptyList(),
     val verifiedReceipts: List<BackupReceiptEntity> = emptyList(),
+    val remoteOriginals: List<RemoteOriginal> = emptyList(),
+    val isLoadingOriginals: Boolean = false,
     val selectedTab: Int = 0,
     val searchQuery: String = "",
     val connectionCheck: ConnectionCheck? = null,
@@ -58,6 +61,8 @@ class CloudManagerViewModel @Inject constructor(
     private val connectionCheck = MutableStateFlow<ConnectionCheck?>(null)
     private val isCheckingConnection = MutableStateFlow(false)
     private val userMessage = MutableStateFlow<String?>(null)
+    private val remoteOriginals = MutableStateFlow<List<RemoteOriginal>>(emptyList())
+    private val isLoadingOriginals = MutableStateFlow(false)
 
     val uiState: StateFlow<CloudManagerUiState> = combine(
         cloudBackup.state,
@@ -70,6 +75,8 @@ class CloudManagerViewModel @Inject constructor(
         connectionCheck,
         isCheckingConnection,
         userMessage,
+        remoteOriginals,
+        isLoadingOriginals,
     ) { params ->
         val backupState = params[0] as BackupState
         val stats = params[1] as CloudUploadStats
@@ -84,6 +91,9 @@ class CloudManagerViewModel @Inject constructor(
         val check = params[7] as? ConnectionCheck
         val isChecking = params[8] as Boolean
         val msg = params[9] as? String
+        @Suppress("UNCHECKED_CAST")
+        val originals = params[10] as List<RemoteOriginal>
+        val loadingOriginals = params[11] as Boolean
 
         CloudManagerUiState(
             backupState = backupState,
@@ -91,6 +101,8 @@ class CloudManagerViewModel @Inject constructor(
             uploads = uploads,
             backedUpFiles = backedUp,
             verifiedReceipts = receipts,
+            remoteOriginals = originals,
+            isLoadingOriginals = loadingOriginals,
             selectedTab = tab,
             searchQuery = query,
             connectionCheck = check,
@@ -105,6 +117,37 @@ class CloudManagerViewModel @Inject constructor(
 
     fun selectTab(tabIndex: Int) {
         selectedTab.value = tabIndex
+        if (tabIndex == 2) refreshOriginals()
+    }
+
+    fun refreshOriginals() {
+        viewModelScope.launch {
+            isLoadingOriginals.value = true
+            try {
+                remoteOriginals.value = cloudBackup.availableOriginals()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                remoteOriginals.value = emptyList()
+                userMessage.value = "Could not load Drive originals: ${e.message ?: "connection error"}"
+            } finally {
+                isLoadingOriginals.value = false
+            }
+        }
+    }
+
+    fun restore(original: RemoteOriginal, destination: Uri) {
+        viewModelScope.launch {
+            try {
+                val success = cloudBackup.restoreOriginal(original, destination)
+                userMessage.value = if (success) "Restored and checked ${original.name}"
+                    else "Restore could not be verified. The backup is unchanged; discard any incomplete saved copy."
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                userMessage.value = "Restore failed: ${e.message ?: "connection error"}"
+            }
+        }
     }
 
     fun updateSearchQuery(query: String) {
@@ -163,7 +206,10 @@ class CloudManagerViewModel @Inject constructor(
 
     fun signInIntent(): Intent? = cloudBackup.signInIntent()
 
-    fun onSignInResult(data: Intent?) = cloudBackup.onSignInResult(data)
+    fun onSignInResult(data: Intent?) {
+        cloudBackup.onSignInResult(data)
+        if (cloudBackup.state.value is BackupState.Ready) refreshOriginals()
+    }
 
     fun backupNow() {
         cloudBackup.backupNow()

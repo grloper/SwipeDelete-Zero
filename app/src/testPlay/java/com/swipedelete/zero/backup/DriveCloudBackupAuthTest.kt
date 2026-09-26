@@ -438,12 +438,16 @@ class DriveCloudBackupAuthTest {
         val context = org.robolectric.RuntimeEnvironment.getApplication()
         val original = "original-image-bytes".toByteArray()
         val source = java.io.File.createTempFile("drive-backup-", ".jpg", context.cacheDir)
+        val database = androidx.room.Room.inMemoryDatabaseBuilder(context,
+            com.swipedelete.zero.data.local.AppDatabase::class.java).build()
         source.writeBytes(original)
         try {
             val kept = InMemoryKeptFileDao()
             kept.upsert(sampleKept(android.net.Uri.fromFile(source).toString(), "fixture.jpg").copy(sizeBytes = original.size.toLong()))
             val ledger = InMemoryBackedUpFileDao()
-            val backup = DriveCloudBackup(context, BackupRepository(kept, ledger, InMemoryCloudUploadDao()))
+            val backup = DriveCloudBackup(context, BackupRepository(
+                kept, ledger, InMemoryCloudUploadDao(), database.backupReceiptDao(), database,
+            ))
             backup.getSignedInAccount = { "alice@example.com" to Account("alice@example.com", "com.google") }
             backup.getAuthToken = { "test-token" }
             backup.folderResolver = { "folder" }
@@ -479,8 +483,12 @@ class DriveCloudBackupAuthTest {
                 assertTrue("Only requested disconnection may cancel", disconnect)
             }
             assertTrue("The local original must never be removed", source.exists())
+            assertEquals("A remote receipt exists only for successful byte checks",
+                ledger.backedUp.isNotEmpty(),
+                database.backupReceiptDao().forAccount("GOOGLE_DRIVE", "alice@example.com").isNotEmpty())
             return ledger.backedUp.toList() to requests
         } finally {
+            database.close()
             source.delete()
         }
     }
@@ -518,6 +526,91 @@ class DriveCloudBackupAuthTest {
     fun `Drive disconnect during download prevents receipt commit`() = runTest {
         val (receipts, _) = exerciseDownloadVerification("original-image-bytes".toByteArray(), disconnect = true)
         assertTrue(receipts.isEmpty())
+    }
+
+    @Test
+    fun `Drive clean install inventory and restore verify exact downloaded bytes`() = runTest {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val source = "restore original bytes".toByteArray()
+        val sha = java.security.MessageDigest.getInstance("SHA-256").digest(source)
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        val backup = DriveCloudBackup(context, BackupRepository(
+            InMemoryKeptFileDao(), InMemoryBackedUpFileDao(), InMemoryCloudUploadDao(),
+        ))
+        var accountName = "alice@example.com"
+        backup.getSignedInAccount = { accountName to Account(accountName, "com.google") }
+        backup.getAuthToken = { "token" }
+        val urls = mutableListOf<String>()
+        backup.connectionFactory = { url ->
+            urls += url
+            object : java.net.HttpURLConnection(java.net.URL(url)) {
+                override fun connect() {}
+                override fun disconnect() {}
+                override fun usingProxy() = false
+                override fun getResponseCode() = 200
+                override fun getInputStream(): java.io.InputStream = when {
+                    url.contains("alt=media") -> source.inputStream()
+                    url.contains("fields=files(id)") -> """{"files":[{"id":"folder"}]}""".byteInputStream()
+                    else -> """{"id":"remote-file","name":"fixture.jpg","mimeType":"image/jpeg",
+                        "size":"${source.size}","trashed":false,
+                        "appProperties":{"swipeRiseVersion":"1","originalSha256":"$sha","originalSize":"${source.size}"},
+                        "files":[{"id":"remote-file","name":"fixture.jpg","mimeType":"image/jpeg",
+                        "size":"${source.size}","appProperties":{"swipeRiseVersion":"1",
+                        "originalSha256":"$sha","originalSize":"${source.size}"}}]}""".byteInputStream()
+                }
+            }
+        }
+        val originals = backup.availableOriginals()
+        assertEquals(1, originals.size)
+        assertEquals(sha, originals.single().sha256)
+        val destination = java.io.File.createTempFile("restore-test", ".jpg", context.cacheDir)
+        try {
+            assertTrue(backup.restoreOriginal(originals.single(), android.net.Uri.fromFile(destination)))
+            assertEquals(source.toList(), destination.readBytes().toList())
+            assertTrue(urls.any { it.endsWith("/remote-file?alt=media") })
+            accountName = "bob@example.com"
+            val previousCalls = urls.size
+            assertFalse("Other account cannot restore Alice's record",
+                backup.restoreOriginal(originals.single(), android.net.Uri.fromFile(destination)))
+            assertEquals(previousCalls, urls.size)
+        } finally { destination.delete() }
+    }
+
+    @Test
+    fun `Drive restore rejects corrupted remote bytes before writing chosen destination`() = runTest {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val original = "original bytes".toByteArray()
+        val sha = java.security.MessageDigest.getInstance("SHA-256").digest(original)
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        val backup = DriveCloudBackup(context, BackupRepository(
+            InMemoryKeptFileDao(), InMemoryBackedUpFileDao(), InMemoryCloudUploadDao(),
+        ))
+        backup.getSignedInAccount = { "alice@example.com" to Account("alice@example.com", "com.google") }
+        backup.getAuthToken = { "token" }
+        backup.connectionFactory = { url ->
+            object : java.net.HttpURLConnection(java.net.URL(url)) {
+                override fun connect() {}
+                override fun disconnect() {}
+                override fun usingProxy() = false
+                override fun getResponseCode() = 200
+                override fun getInputStream(): java.io.InputStream = if (url.endsWith("alt=media")) {
+                    "changed! bytes".byteInputStream()
+                } else {
+                    """{"id":"remote-file","mimeType":"image/jpeg","size":"${original.size}",
+                        "appProperties":{"swipeRiseVersion":"1","originalSha256":"$sha",
+                        "originalSize":"${original.size}"}}""".byteInputStream()
+                }
+            }
+        }
+        val destination = java.io.File.createTempFile("restore-untouched", ".jpg", context.cacheDir)
+        destination.writeText("untouched")
+        try {
+            val item = com.swipedelete.zero.domain.backup.RemoteOriginal(
+                "remote-file", "fixture.jpg", "image/jpeg", original.size.toLong(), sha, "alice@example.com",
+            )
+            assertFalse(backup.restoreOriginal(item, android.net.Uri.fromFile(destination)))
+            assertEquals("untouched", destination.readText())
+        } finally { destination.delete() }
     }
 
 }

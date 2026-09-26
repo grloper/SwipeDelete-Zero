@@ -23,16 +23,21 @@ content-addressed upload recovery is still required before production release.
 ## Still required for backup-then-delete release
 
 Database v6 adds account/provider-scoped receipts with the checked original hash
-and size for new Drive uploads. The Drive work list includes staged originals once each. Legacy rows remain separate because they have no
+and size for new Drive uploads. New remote Drive objects carry an app-specific
+manifest (hash, size and version) so a newly installed app can list and restore
+backups even when the local database is gone. Restore downloads into private
+temporary storage, compares the actual bytes, writes to the user-selected new
+Android document, and reads it back to verify again. Old pre-manifest uploads
+will not appear in clean-install Restore; they must be re-backed up. The Drive work list includes staged originals once each. Legacy rows remain separate because they have no
 hash or authenticated owner; they cannot be promoted into verified receipts.
 Required work includes:
 
-1. Immutable local upload snapshots and a remote manifest discoverable after a
-   clean install, without relying on the current device database.
+1. Immutable local upload snapshots and complete manifest lifecycle/recovery,
+   including older uploaded files and orphan cleanup.
 2. Resumable transfer and lifecycle recovery, storage/quota errors and account
    switch handling throughout the persistent queue.
-3. Restore to a user-selected destination, verify its bytes, then separately
-   revalidate the unchanged local original immediately before a confirmed delete.
+3. Live restore to a user-selected destination on a clean install and revalidation
+   of the unchanged local original immediately before a confirmed delete.
 4. Live synthetic-file upload/restore tests against the configured Google project,
    clean-install restore tests and physical-device validation.
 
