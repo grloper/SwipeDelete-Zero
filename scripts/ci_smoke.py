@@ -14,7 +14,7 @@ def click(pattern, timeout=20):
  deadline=time.time()+timeout
  while time.time()<deadline:
   for n in nodes():
-   if re.search(pattern,n.get('text','')+' '+n.get('content-desc','')) and n.get('enabled')=='true':
+   if re.search(pattern,(n.get('text','')+' '+n.get('content-desc','')).strip()) and n.get('enabled')=='true':
     x1,y1,x2,y2=map(int,re.findall(r'\d+',n.get('bounds')));adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2));time.sleep(1);return
   time.sleep(1)
  raise AssertionError('Missing enabled control: '+pattern)
@@ -33,11 +33,11 @@ try:
   local=OUT/f'fixture-{i}.png';local.write_bytes(png(color));remote=f'/sdcard/Pictures/Screenshots/Screenshot_fixture_{i}.png'
   adb('push',str(local),remote);adb('shell','am','broadcast','-a','android.intent.action.MEDIA_SCANNER_SCAN_FILE','-d','file://'+remote)
  start();capture('01-dashboard');steps.append('permissions and synthetic media visible')
- click(r'Screenshots')
+ click(r'Start reviewing|Browse library')
  if any('Got it' in n.get('text','') for n in nodes()):click(r'Got it')
- click(r'^Keep ');click(r'^Undo ');steps.append('keep and undo')
- click(r'^Stage ');click(r'^Undo ');click(r'^Stage ');steps.append('stage, undo, stage again')
- capture('02-review');click(r'^Back ')
+ click(r'^Keep\b');click(r'^Undo\b');steps.append('keep and undo')
+ click(r'^Stage\b');click(r'^Undo\b');click(r'^Stage\b');steps.append('stage, undo, stage again')
+ capture('02-review');click(r'^Back\b')
  click(r'Review [1-9].*staged files');capture('03-staging')
  assert any('Cleanup is unavailable' in n.get('text','') for n in nodes())
  # Both selection modes may change, but neither execution control can be enabled.

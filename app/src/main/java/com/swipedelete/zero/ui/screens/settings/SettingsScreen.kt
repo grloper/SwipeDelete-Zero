@@ -155,9 +155,9 @@ fun SettingsScreen(
         }
         Text(
             if (backupState is BackupState.Unsupported) {
-                "SwipeDelete Zero · GPL v3 · 100% Offline · Zero Net-Permissions"
+                "SwipeRise · GPL v3 · 100% Offline · Zero Net-Permissions"
             } else {
-                "SwipeDelete Zero · GPL v3 · Google Photos and Drive backup"
+                "SwipeRise · GPL v3 · Google Photos and Drive backup"
             },
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
@@ -167,7 +167,7 @@ fun SettingsScreen(
     if (showPrivacy) {
         AlertDialog(
             onDismissRequest = { showPrivacy = false },
-            title = { Text("Privacy · SwipeDelete Zero") },
+            title = { Text("Privacy · SwipeRise") },
             text = {
                 Text(
                     "The Google Play build scans the media you allow on your device and stores " +

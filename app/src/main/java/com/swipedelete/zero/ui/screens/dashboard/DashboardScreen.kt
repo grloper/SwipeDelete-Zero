@@ -221,8 +221,11 @@ fun DashboardScreen(
                         Text("Your library, your call", style = SdzType.Subtitle, color = SdzColor.Phosphor)
                         Text(
                             "Allow access to photos and videos to find files worth reviewing. " +
-                                "Review happens on this device. Google Photos backup is optional. " +
-                                "Cleanup is unavailable in this test build. You can choose selected photos on supported Android versions.",
+                                "Review happens on this device. " +
+                                (if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
+                                    "Google Photos backup is optional. Cleanup is unavailable in this test build. "
+                                else "Local cleanup requires your confirmation. ") +
+                                "You can choose selected photos on supported Android versions.",
                             style = SdzType.BodySmall,
                             color = SdzColor.TextSecondary,
                         )
