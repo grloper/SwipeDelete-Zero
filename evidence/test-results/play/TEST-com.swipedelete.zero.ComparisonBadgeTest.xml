@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.swipedelete.zero.ComparisonBadgeTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-25T23:54:42.058Z" hostname="OFEKVPC" time="0.676">
+<testsuite name="com.swipedelete.zero.ComparisonBadgeTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-26T00:37:48.790Z" hostname="OFEKVPC" time="0.705">
   <properties/>
-  <testcase name="unmeasured sharpness produces no claim" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.671"/>
+  <testcase name="unmeasured sharpness produces no claim" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.7"/>
   <testcase name="trivial resolution differences are ignored" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.001"/>
   <testcase name="badges never contradict each other" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.001"/>
-  <testcase name="trivial size differences are ignored" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.0"/>
-  <testcase name="a genuinely smaller file wins" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.001"/>
-  <testcase name="a genuinely larger resolution wins" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.0"/>
-  <testcase name="sharpness needs a meaningful gap" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.001"/>
+  <testcase name="trivial size differences are ignored" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.001"/>
+  <testcase name="a genuinely smaller file wins" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.0"/>
+  <testcase name="a genuinely larger resolution wins" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.001"/>
+  <testcase name="sharpness needs a meaningful gap" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.0"/>
   <testcase name="byte-identical files claim nothing" classname="com.swipedelete.zero.ComparisonBadgeTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build what is described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org/mockito/Mockito.html#0.3

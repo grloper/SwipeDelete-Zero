@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.swipedelete.zero.M0CleanupResultSemanticsTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-25T23:54:42.843Z" hostname="OFEKVPC" time="0.26">
+<testsuite name="com.swipedelete.zero.M0CleanupResultSemanticsTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-09-26T00:37:52.306Z" hostname="OFEKVPC" time="0.27">
   <properties/>
-  <testcase name="DELETE-01 - permanent purge confirms only ABSENT items, rejecting PRESENT, TRASHED, and UNKNOWN" classname="com.swipedelete.zero.M0CleanupResultSemanticsTest" time="0.256"/>
+  <testcase name="DELETE-01 - permanent purge confirms only ABSENT items, rejecting PRESENT, TRASHED, and UNKNOWN" classname="com.swipedelete.zero.M0CleanupResultSemanticsTest" time="0.266"/>
   <testcase name="DELETE-01 - OS Trash confirms only verified TRASHED items, rejecting UNKNOWN, ABSENT, and PRESENT" classname="com.swipedelete.zero.M0CleanupResultSemanticsTest" time="0.004"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
