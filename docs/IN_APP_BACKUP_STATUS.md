@@ -22,18 +22,18 @@ content-addressed upload recovery is still required before production release.
 
 ## Still required for backup-then-delete release
 
-The existing single URI-keyed receipt table cannot represent independent provider
-and account copies. Old receipts also have no persisted hash/verification version.
-Do not interpret them as passing the new download check. Required work includes:
+Database v6 adds account/provider-scoped receipts with the checked original hash
+and size for new Drive uploads. Legacy rows remain separate because they have no
+hash or authenticated owner; they cannot be promoted into verified receipts.
+Required work includes:
 
-1. Provider/account-specific receipts with persisted original hash and size.
-2. Immutable local upload snapshots and a remote manifest discoverable after a
+1. Immutable local upload snapshots and a remote manifest discoverable after a
    clean install, without relying on the current device database.
-3. Resumable transfer and lifecycle recovery, storage/quota errors and account
+2. Resumable transfer and lifecycle recovery, storage/quota errors and account
    switch handling throughout the persistent queue.
-4. Restore to a user-selected destination, verify its bytes, then separately
+3. Restore to a user-selected destination, verify its bytes, then separately
    revalidate the unchanged local original immediately before a confirmed delete.
-5. Live synthetic-file upload/restore tests against the configured Google project,
+4. Live synthetic-file upload/restore tests against the configured Google project,
    clean-install restore tests and physical-device validation.
 
 These changes do not satisfy or unlock the deletion gate.

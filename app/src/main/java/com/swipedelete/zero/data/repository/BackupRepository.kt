@@ -1,5 +1,7 @@
 package com.swipedelete.zero.data.repository
 
+import com.swipedelete.zero.data.local.BackupReceiptDao
+import com.swipedelete.zero.data.local.BackupReceiptEntity
 import com.swipedelete.zero.data.local.BackedUpFileDao
 import com.swipedelete.zero.data.local.BackedUpFileEntity
 import com.swipedelete.zero.data.local.CloudUploadDao
@@ -8,7 +10,6 @@ import com.swipedelete.zero.data.local.KeptFileDao
 import com.swipedelete.zero.data.local.KeptFileEntity
 import com.swipedelete.zero.domain.model.MediaItem
 import kotlinx.coroutines.flow.Flow
-import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
@@ -18,10 +19,11 @@ import javax.inject.Singleton
  * files kept after the last run are picked up by the next one.
  */
 @Singleton
-class BackupRepository @Inject constructor(
+class BackupRepository constructor(
     private val keptFileDao: KeptFileDao,
     private val backedUpFileDao: BackedUpFileDao,
     private val cloudUploadDao: CloudUploadDao,
+    private val receiptDao: BackupReceiptDao? = null,
 ) {
 
     suspend fun recordKept(item: MediaItem, starred: Boolean) {
@@ -41,6 +43,13 @@ class BackupRepository @Inject constructor(
     suspend fun removeKept(contentUri: String) = keptFileDao.remove(contentUri)
 
     suspend fun pendingBackup(): List<KeptFileEntity> = keptFileDao.pendingBackup()
+
+    suspend fun pendingDriveBackup(accountId: String): List<KeptFileEntity> =
+        if (receiptDao == null) keptFileDao.pendingBackup() else keptFileDao.pendingDriveBackup(accountId)
+
+    fun observePendingDriveBackupCount(accountId: String): Flow<Int> =
+        if (receiptDao == null) keptFileDao.observePendingBackupCount()
+        else keptFileDao.observePendingDriveBackupCount(accountId)
 
     fun observePendingBackupCount(): Flow<Int> = keptFileDao.observePendingBackupCount()
 
@@ -77,6 +86,23 @@ class BackupRepository @Inject constructor(
                 uploadedAtMillis = System.currentTimeMillis(),
             )
         )
+    }
+
+    /** Scoped, byte-proven receipt. Tests using the old in-memory repository do
+     * not fake this table; production injects the real Room DAO. */
+    suspend fun recordDriveReceipt(file: KeptFileEntity, accountId: String, remoteId: String, sha256: String) {
+        require(accountId.isNotBlank() && sha256.matches(Regex("[0-9a-f]{64}")))
+        receiptDao?.upsert(BackupReceiptEntity(
+            contentUri = file.contentUri,
+            provider = "GOOGLE_DRIVE",
+            accountId = accountId,
+            remoteId = remoteId,
+            originalSha256 = sha256,
+            originalSizeBytes = file.sizeBytes,
+            displayName = file.displayName,
+            mimeType = file.mimeType,
+            verifiedAtMillis = System.currentTimeMillis(),
+        ))
     }
 
     /** Remove from ledger so the app forgets it was previously backed up. */

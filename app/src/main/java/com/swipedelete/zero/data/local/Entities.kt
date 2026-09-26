@@ -54,6 +54,26 @@ data class BackedUpFileEntity(
     val uploadedAtMillis: Long,
 )
 
+/** Proven copy of exact original bytes. Legacy backed_up_files rows remain visible in
+ * history but are intentionally not migrated into this table: they have no hash
+ * or authenticated owner and cannot establish restoration safety. */
+@Entity(
+    tableName = "backup_receipts",
+    primaryKeys = ["contentUri", "provider", "accountId"],
+    indices = [Index(value = ["provider", "accountId", "remoteId"])],
+)
+data class BackupReceiptEntity(
+    val contentUri: String,
+    val provider: String,
+    val accountId: String,
+    val remoteId: String,
+    val originalSha256: String,
+    val originalSizeBytes: Long,
+    val displayName: String,
+    val mimeType: String,
+    val verifiedAtMillis: Long,
+)
+
 /**
  * Persisted progress for a deck so a session can resume mid-way
  * ("24/50 swiped in July 2024").

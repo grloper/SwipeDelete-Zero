@@ -52,6 +52,8 @@ class DatabaseMigrationTest {
     fun `M0-MIG - Migration versions connect v4 baseline to v5`() {
         assertEquals("Migration start version must match baseline Room v4", 4, DatabaseModule.MIGRATION_4_5.startVersion)
         assertEquals("Migration end version must target v5", 5, DatabaseModule.MIGRATION_4_5.endVersion)
+        assertEquals(5, DatabaseModule.MIGRATION_5_6.startVersion)
+        assertEquals(6, DatabaseModule.MIGRATION_5_6.endVersion)
     }
 
     /**
@@ -93,7 +95,7 @@ class DatabaseMigrationTest {
         // 3. Open the v4 database using production Room v5 configuration with MIGRATION_4_5
         val v5RoomDb = Room.databaseBuilder(context, AppDatabase::class.java, dbName)
             .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
-            .addMigrations(DatabaseModule.MIGRATION_4_5)
+            .addMigrations(DatabaseModule.MIGRATION_4_5, DatabaseModule.MIGRATION_5_6)
             .build()
 
         // Trigger database opening and Room internal schema validation
@@ -104,6 +106,10 @@ class DatabaseMigrationTest {
         val deckSessionDao = v5RoomDb.deckSessionDao()
         val exclusionDao = v5RoomDb.exclusionDao()
         val mediaAnalysisDao = v5RoomDb.mediaAnalysisDao()
+
+        // Legacy upload receipts have no original hash or authenticated owner.
+        assertTrue("No legacy record may be promoted into a proven receipt",
+            v5RoomDb.backupReceiptDao().forAccount("GOOGLE_DRIVE", "alice@example.com").isEmpty())
 
         // 4. Validate cloud_uploads quarantine and state preservation
         val queuedRow = cloudUploadDao.get("content://media/queued_1")
@@ -164,12 +170,28 @@ class DatabaseMigrationTest {
         assertEquals(15.5, analysis.sharpnessVariance!!, 0.001)
         assertEquals(50000L, analysis.sizeBytes)
 
+        // New records are scoped by provider and account, even for one local URI.
+        val receiptDao = v5RoomDb.backupReceiptDao()
+        val receipt = com.swipedelete.zero.data.local.BackupReceiptEntity(
+            contentUri = "content://media/backed_103", provider = "GOOGLE_DRIVE",
+            accountId = "alice@example.com", remoteId = "new-drive-id",
+            originalSha256 = "a".repeat(64), originalSizeBytes = 1030,
+            displayName = "backed_103.jpg", mimeType = "image/jpeg", verifiedAtMillis = 1234,
+        )
+        receiptDao.upsert(receipt)
+        receiptDao.upsert(receipt.copy(accountId = "bob@example.com", remoteId = "bob-drive-id"))
+        receiptDao.upsert(receipt.copy(provider = "ICLOUD_APP_VAULT", remoteId = "icloud-object"))
+        assertEquals(1, receiptDao.forAccount("GOOGLE_DRIVE", "alice@example.com").size)
+        assertEquals("bob-drive-id", receiptDao.get(receipt.contentUri, "GOOGLE_DRIVE", "bob@example.com")!!.remoteId)
+        assertEquals("icloud-object", receiptDao.get(receipt.contentUri, "ICLOUD_APP_VAULT", "alice@example.com")!!.remoteId)
+        assertEquals("drive:xyz_103", backedUpFileDao.get(receipt.contentUri)!!.remoteId)
+
         // 6. Close and reopen to verify durability
         v5RoomDb.close()
 
         val reopenedRoomDb = Room.databaseBuilder(context, AppDatabase::class.java, dbName)
             .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
-            .addMigrations(DatabaseModule.MIGRATION_4_5)
+            .addMigrations(DatabaseModule.MIGRATION_4_5, DatabaseModule.MIGRATION_5_6)
             .build()
 
         val reopenedVerified = reopenedRoomDb.cloudUploadDao().get("content://media/verified_4")
@@ -190,6 +212,12 @@ class DatabaseMigrationTest {
         assertEquals(22222L, reopenedAnalysis!!.pHash)
         assertEquals(50000L, reopenedAnalysis.sizeBytes)
 
+        assertEquals("new-drive-id", reopenedRoomDb.backupReceiptDao()
+            .get("content://media/backed_103", "GOOGLE_DRIVE", "alice@example.com")!!.remoteId)
+        assertEquals("bob-drive-id", reopenedRoomDb.backupReceiptDao()
+            .get("content://media/backed_103", "GOOGLE_DRIVE", "bob@example.com")!!.remoteId)
+        assertEquals("icloud-object", reopenedRoomDb.backupReceiptDao()
+            .get("content://media/backed_103", "ICLOUD_APP_VAULT", "alice@example.com")!!.remoteId)
         reopenedRoomDb.close()
         } finally {
             dbFile.delete()

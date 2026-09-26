@@ -35,6 +35,8 @@ class DriveCloudBackupAuthTest {
         override suspend fun upsert(file: KeptFileEntity) { kept.add(file) }
         override suspend fun remove(uri: String) { kept.removeIf { it.contentUri == uri } }
         override suspend fun pendingBackup(): List<KeptFileEntity> = kept
+        override suspend fun pendingDriveBackup(accountId: String): List<KeptFileEntity> = kept
+        override fun observePendingDriveBackupCount(accountId: String): Flow<Int> = emptyFlow()
         override fun observePendingBackupCount(): Flow<Int> = emptyFlow()
     }
 

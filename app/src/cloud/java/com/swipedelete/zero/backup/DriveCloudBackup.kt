@@ -197,7 +197,7 @@ class DriveCloudBackup @Inject constructor(
 
         checkSessionActive()
 
-        val pending = backupRepository.pendingBackup()
+        val pending = backupRepository.pendingDriveBackup(email)
         if (pending.isEmpty()) {
             synchronized(sessionLock) {
             if (currentSessionId.get() == sessionId && _state.value !is BackupState.SignedOut) {
@@ -234,9 +234,10 @@ class DriveCloudBackup @Inject constructor(
                     return
                 }
 
+                var verifiedHash: String? = null
                 val remoteId = try {
                     checkSessionActive()
-                    fileUploader?.invoke(token, folderId, file) ?: uploadFile(token, folderId, file, ::checkSessionActive)
+                    fileUploader?.invoke(token, folderId, file) ?: uploadFile(token, folderId, file, ::checkSessionActive) { verifiedHash = it }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (error: Exception) {
@@ -256,7 +257,7 @@ class DriveCloudBackup @Inject constructor(
                         token = getAuthToken(androidAccount)
                         checkSessionActive()
                         try {
-                            fileUploader?.invoke(token, folderId, file) ?: uploadFile(token, folderId, file, ::checkSessionActive)
+                            fileUploader?.invoke(token, folderId, file) ?: uploadFile(token, folderId, file, ::checkSessionActive) { verifiedHash = it }
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             throw e
                         } catch (retryError: Exception) {
@@ -280,6 +281,11 @@ class DriveCloudBackup @Inject constructor(
                         }
                         return
                     }
+                    // Fake uploader tests intentionally have no byte proof. Real uploads
+                    // publish an account-scoped receipt only after the remote download
+                    // and the unchanged local original match.
+                    verifiedHash?.let { backupRepository.recordDriveReceipt(file, email, remoteId, it) }
+                    checkSessionActive()
                     backupRepository.markBackedUp(file, remoteId)
                     done++
                 }
@@ -438,7 +444,7 @@ class DriveCloudBackup @Inject constructor(
     }
 
     /** Multipart upload of one file; returns the created Drive file id. */
-    private fun uploadFile(token: String, folderId: String, file: KeptFileEntity, guard: () -> Unit): String {
+    private fun uploadFile(token: String, folderId: String, file: KeptFileEntity, guard: () -> Unit, onVerified: (String) -> Unit): String {
         guard()
         val metadata = JSONObject()
             .put("name", file.displayName)
@@ -501,6 +507,7 @@ class DriveCloudBackup @Inject constructor(
                 "Local file changed during backup; review and retry."
             }
             guard()
+            onVerified(expectedHash.joinToString("") { "%02x".format(it.toInt() and 0xff) })
             return remoteId
         } finally {
             activeConnection.compareAndSet(connection, null)

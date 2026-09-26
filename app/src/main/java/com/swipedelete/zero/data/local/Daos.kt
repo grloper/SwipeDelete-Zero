@@ -52,6 +52,22 @@ interface KeptFileDao {
     )
     suspend fun pendingBackup(): List<KeptFileEntity>
 
+    /** Provider/account-scoped work list. Legacy and Photos receipts cannot
+     * suppress an original-byte Drive backup for this Google account. */
+    @Query("""SELECT k.* FROM kept_files k WHERE NOT EXISTS (
+        SELECT 1 FROM backup_receipts r
+        WHERE r.contentUri = k.contentUri AND r.provider = 'GOOGLE_DRIVE'
+        AND r.accountId = :accountId AND r.originalSizeBytes = k.sizeBytes
+    ) ORDER BY k.keptAtMillis""")
+    suspend fun pendingDriveBackup(accountId: String): List<KeptFileEntity>
+
+    @Query("""SELECT COUNT(*) FROM kept_files k WHERE NOT EXISTS (
+        SELECT 1 FROM backup_receipts r
+        WHERE r.contentUri = k.contentUri AND r.provider = 'GOOGLE_DRIVE'
+        AND r.accountId = :accountId AND r.originalSizeBytes = k.sizeBytes
+    )""")
+    fun observePendingDriveBackupCount(accountId: String): Flow<Int>
+
     @Query(
         "SELECT COUNT(*) FROM kept_files WHERE contentUri NOT IN " +
             "(SELECT contentUri FROM backed_up_files)"
@@ -89,6 +105,21 @@ interface BackedUpFileDao {
 
     @Query("DELETE FROM backed_up_files")
     suspend fun deleteAll(): Int
+}
+
+@Dao
+interface BackupReceiptDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(receipt: BackupReceiptEntity)
+
+    @Query("SELECT * FROM backup_receipts WHERE contentUri = :uri AND provider = :provider AND accountId = :accountId LIMIT 1")
+    suspend fun get(uri: String, provider: String, accountId: String): BackupReceiptEntity?
+
+    @Query("SELECT * FROM backup_receipts WHERE provider = :provider AND accountId = :accountId ORDER BY verifiedAtMillis DESC")
+    suspend fun forAccount(provider: String, accountId: String): List<BackupReceiptEntity>
+
+    @Query("DELETE FROM backup_receipts WHERE contentUri = :uri AND provider = :provider AND accountId = :accountId")
+    suspend fun remove(uri: String, provider: String, accountId: String)
 }
 
 @Dao
