@@ -172,10 +172,11 @@ fun SettingsScreen(
                 Text(
                     "The Google Play build scans the media you allow on your device and stores " +
                         "review decisions locally. If you connect Google, selected photos and videos " +
-                        "are uploaded to your Google Photos account before deletion is enabled. " +
-                        "Kept files may be backed up to your Google Drive when you request it. " +
+                        "can be uploaded to your Google Photos account when you choose to archive them. " +
+                        "You can back up kept or staged files to Google Drive and restore an original " +
+                        "after its downloaded bytes match the original hash. " +
                         "The app uses internet access for those transfers and does not run ads or analytics. " +
-                        "Android asks you to confirm deletion. Uninstalling clears local app data, " +
+                        "Local cleanup is locked in this test build. Uninstalling clears local app data, " +
                         "but does not remove uploaded Google files."
                 )
             },

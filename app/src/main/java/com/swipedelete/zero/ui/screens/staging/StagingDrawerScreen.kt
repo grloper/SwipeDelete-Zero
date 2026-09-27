@@ -202,7 +202,7 @@ fun StagingDrawerScreen(
 
                 if (state.backupRequired) {
                     Text(
-                        "Google Photos backup: ${state.verifiedCount}/${state.count} ready",
+                        "Google Photos items: ${state.verifiedCount}/${state.count} found",
                         color = SdzColor.Phosphor,
                         style = MaterialTheme.typography.titleSmall,
                     )
@@ -210,8 +210,8 @@ fun StagingDrawerScreen(
                         when {
                             !state.cleanupAvailable -> state.cleanupLockExplanation ?: "Cleanup is unavailable in this test build. Your originals stay on this device."
                             state.failedBackupCount > 0 -> "Some uploads failed. Retry in Backup Manager."
-                            state.pendingBackupCount > 0 -> "Files stay on your device until Google Photos confirms each backup."
-                            else -> "Google Photos backup verified."
+                            state.pendingBackupCount > 0 -> "Files stay on your device while Photos uploads are pending."
+                            else -> "Google Photos items found; original bytes are not proven by Photos."
                         },
                         color = SdzColor.TextSecondary,
                     )
@@ -307,7 +307,7 @@ internal fun StagedRow(
                     if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
                         "☁ Backed up to Google Photos · Originals stay on device"
                     else
-                        "☁ Verified in Google Photos — safe to delete",
+                        "☁ Google Photos item found · Original bytes unproven",
                     color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.labelSmall,
                 )

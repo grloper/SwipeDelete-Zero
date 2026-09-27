@@ -105,14 +105,14 @@ fun StagingSheet(
                     if (state.backupRequired) {
                         item("backup") {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("Google Photos backup · ${state.verifiedCount}/${state.count} ready",
+                                Text("Google Photos items · ${state.verifiedCount}/${state.count} found",
                                     color = SdzColor.Phosphor,
                                     style = MaterialTheme.typography.titleSmall)
                                 Text(
                                     when {
                                         !state.cleanupAvailable -> state.cleanupLockExplanation
                                             ?: "Cleanup is unavailable in this test build. Your originals stay on this device."
-                                        !state.backupConnected -> "Connect Google to back up these files before deletion."
+                                        !state.backupConnected -> "Connect Google to back up these files. Cleanup is locked in this test build."
                                         state.failedBackupCount > 0 -> "${state.failedBackupCount} upload(s) failed. Retry them in Backups."
                                         state.pendingBackupCount > 0 -> "Local files stay untouched while uploads finish."
                                         else -> "Google Photos item found. Original-byte restore still requires Drive."

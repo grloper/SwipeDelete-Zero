@@ -1,19 +1,13 @@
-# SwipeDelete Zero privacy policy
+# SwipeRise privacy policy
 
-Last updated: September 24, 2026
+Last updated: September 27, 2026
 
-This policy describes the **Google Play edition** of SwipeDelete Zero (`com.swipedelete.zero`).
+This policy describes the Google Play edition of SwipeRise (`com.swipedelete.zero`).
 
-## Data used on your device
+With permission, SwipeRise reads the photos, videos and other files you allow it to review. It stores review choices, exclusions, analysis results, staging, backup receipts and cleanup history in its local database. It does not run ads or analytics, and does not send files to the developer's server.
 
-With your permission, the app reads your selected or permitted photos, videos and audio so you can review them, find possible duplicates and clutter, and choose what to keep or delete. It stores review decisions, exclusions, analysis results and cleanup history in local app storage. The Play edition requests internet access for optional uploads to your own Google account. When you connect Google and choose to back up staged photos or videos, the app sends their bytes and filenames to Google Photos and stores the returned media ID locally. It checks that the item can still be read from Google Photos before offering local deletion. You may separately request Google Drive backup of kept files. The app does not run ads or analytics or transmit your files to the developer's server. Android asks you to confirm supported deletion or trash operations.
+Connecting a Google account is optional. When you choose to archive a photo or video, the app uploads it to **your Google Photos account** and stores the returned item ID locally. The Google Photos API can confirm that the app-created item exists; it does not provide an independent checksum of the original bytes. When you tap **Back up now**, the app uploads kept and staged files to an app-created folder in **your Google Drive account**, stores a local account-scoped receipt, and checks a fresh download against the original SHA-256 hash. Drive files created with the current manifest can be discovered after a clean install and restored to a location you choose, with the downloaded and saved bytes checked again. Your filenames, file bytes and backup metadata are sent to Google for these requested operations; Google processes them under your Google account and its terms.
 
-You can deny media access, choose limited access where Android offers it, or revoke access in Android Settings. You can restore a staged item before confirming deletion. Clearing app data or uninstalling removes the local database; files in your Android library are unaffected by uninstalling. Files moved to Android Trash are managed by Android's retention rules. Permanently deleted files cannot be restored by this app.
+The Play test build keeps local cleanup locked. Staging and undo do not delete the original. A Google Photos item or Drive receipt is not a promise of permanent cloud retention. You can disconnect Google in the app, revoke access through your Google account, delete your uploaded copies in Google, or revoke Android media permission in Settings. Disconnecting does not delete remote files. Clearing app data or uninstalling removes the local database, but not the originals in your Android library or uploaded Google files. Legacy Drive uploads made before restore metadata was added might not appear in the clean-install Restore tab.
 
-## Other editions
-
-The independently distributed **F-Droid edition** has no internet permission and cannot verify Google Photos backups. Its deletion flow is separate from the Google Play edition. See [cloud setup](DRIVE_BACKUP_SETUP.md) for account setup and [release notes](PLAY_RELEASE.md) for testing limits.
-
-## Contact
-
-For questions or privacy requests, open an issue at [SwipeDelete Zero on GitHub](https://github.com/grloper/SwipeDelete-Zero/issues). There is no developer-hosted profile to erase. Manage uploaded copies in your Google account.
+The separately distributed F-Droid edition does not request internet access or connect to Google; see [cloud setup](DRIVE_BACKUP_SETUP.md) for the Play edition. For privacy requests or questions, use the [project issue tracker](https://github.com/grloper/SwipeDelete-Zero/issues). There is no developer-hosted account to erase.
