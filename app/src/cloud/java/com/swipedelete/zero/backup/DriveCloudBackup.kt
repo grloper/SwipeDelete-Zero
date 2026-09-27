@@ -701,7 +701,9 @@ class DriveCloudBackup @Inject constructor(
         // A completed upload can outlive the process before its local receipt is
         // committed. Reconcile it first, with a fresh byte download, so retry
         // does not silently create another remote original.
-        val recovered = findMatchingRemoteOriginal(token, folderId, file.sizeBytes, hashHex, guard)
+        val recovered = findMatchingRemoteOriginal(
+            token, folderId, file.sizeBytes, hashHex, sourceUriHash(file.contentUri), guard,
+        )
         if (recovered != null) {
             verifyDownloadedOriginal(token, recovered, file.sizeBytes, sourceHash, guard)
             checkLocalOriginal(file, sourceHash, guard)
@@ -748,6 +750,7 @@ class DriveCloudBackup @Inject constructor(
             .put("appProperties", JSONObject()
                 .put("swipeRiseVersion", "1")
                 .put("originalSha256", hashHex)
+                .put("sourceUriSha256", sourceUriHash(file.contentUri))
                 .put("originalSize", file.sizeBytes.toString()))
         val init = connectionFactory("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id").apply {
             requestMethod = "POST"
@@ -856,6 +859,10 @@ class DriveCloudBackup @Inject constructor(
         return digest.joinToString("") { "%02x".format(it.toInt() and 0xff) }
     }
 
+    private fun sourceUriHash(uri: String): String = java.security.MessageDigest.getInstance("SHA-256")
+        .digest(uri.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+
     private fun validUploadSession(value: String): Boolean = try {
         val url = URL(value)
         url.protocol == "https" && url.host == "www.googleapis.com" && url.port == -1 &&
@@ -871,7 +878,8 @@ class DriveCloudBackup @Inject constructor(
     }
 
     private fun findMatchingRemoteOriginal(
-        token: String, folderId: String, size: Long, hash: String, guard: () -> Unit,
+        token: String, folderId: String, size: Long, hash: String, sourceUriHash: String,
+        guard: () -> Unit,
     ): String? {
         val query = URLEncoder.encode(
             "'$folderId' in parents and trashed = false and appProperties has { key='originalSha256' and value='$hash' }",
@@ -895,7 +903,8 @@ class DriveCloudBackup @Inject constructor(
                 if (id.matches(Regex("[A-Za-z0-9_-]+")) && item.optLong("size", -1) == size &&
                     props.optString("swipeRiseVersion") == "1" &&
                     props.optString("originalSize") == size.toString() &&
-                    props.optString("originalSha256") == hash) return id
+                    props.optString("originalSha256") == hash &&
+                    props.optString("sourceUriSha256") == sourceUriHash) return id
             }
             pageToken = response.optString("nextPageToken").takeIf { it.isNotBlank() }
             if (pageToken != null && (!seen.add(pageToken!!) || seen.size >= 100)) {

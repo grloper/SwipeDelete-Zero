@@ -20,8 +20,11 @@ verification retains the local file and records no completed receipt. Files over
 5 MiB use a Drive resumable session. The private app store saves the session URL
 before sending bytes; retries query Drive's received offset and send only the
 remaining bytes. Before creating a new upload, the app searches its Drive folder
-for a matching manifest and independently downloads that object to verify the
-bytes. This can recover a completed upload whose local receipt was interrupted.
+for a matching manifest from the same local source and independently downloads
+that object to verify the bytes. This can recover a completed upload whose local
+receipt was interrupted. Older remote objects without a source identifier are
+not automatically reused, so a retry of an older interrupted upload may still
+leave a duplicate Drive object.
 Live account testing of session expiry, API errors, account switch, and ambiguous
 network failures is still required before release.
 

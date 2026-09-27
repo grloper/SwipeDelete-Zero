@@ -740,12 +740,16 @@ class DriveCloudBackupAuthTest {
         val hash = java.security.MessageDigest.getInstance("SHA-256").digest(original)
             .joinToString("") { "%02x".format(it.toInt() and 0xff) }
         val file = java.io.File.createTempFile("drive-reconcile-", ".bin", context.cacheDir)
+        val sourceUri = android.net.Uri.fromFile(file).toString()
+        val sourceHash = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(sourceUri.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
         val db = androidx.room.Room.inMemoryDatabaseBuilder(context,
             com.swipedelete.zero.data.local.AppDatabase::class.java).build()
         file.writeBytes(original)
         try {
             val kept = InMemoryKeptFileDao()
-            kept.upsert(sampleKept(android.net.Uri.fromFile(file).toString(), "reconcile.bin")
+            kept.upsert(sampleKept(sourceUri, "reconcile.bin")
                 .copy(sizeBytes = original.size.toLong(), mimeType = "application/octet-stream"))
             val backup = DriveCloudBackup(context, BackupRepository(kept,
                 InMemoryBackedUpFileDao(), InMemoryCloudUploadDao(), db.backupReceiptDao(), db))
@@ -763,7 +767,7 @@ class DriveCloudBackupAuthTest {
                     override fun getInputStream(): java.io.InputStream = if (url.contains("alt=media")) {
                         original.inputStream()
                     } else {
-                        """{"files":[{"id":"existing-file","size":"${original.size}","appProperties":{"swipeRiseVersion":"1","originalSize":"${original.size}","originalSha256":"$hash"}}]}""".byteInputStream()
+                        """{"files":[{"id":"existing-file","size":"${original.size}","appProperties":{"swipeRiseVersion":"1","originalSize":"${original.size}","originalSha256":"$hash","sourceUriSha256":"$sourceHash"}}]}""".byteInputStream()
                     }
                 }
             }
