@@ -45,10 +45,9 @@ import javax.inject.Singleton
  * keystore's SHA-1 (see docs/DRIVE_BACKUP_SETUP.md), so no client secret ships
  * in the code.
  *
- * Uploads: plain Drive REST v3 multipart requests over HttpURLConnection into a
- * "SwipeDelete Zero Backup" folder. Every uploaded file is written to the
- * backup ledger, so each file is uploaded exactly once and later runs only
- * pick up newly kept files.
+ * Uploads use Drive REST v3 into the app-created backup folder. Large uploads
+ * save a resumable session and reconcile matching completed objects before
+ * starting over. A local receipt is written only after a fresh byte check.
  */
 @Singleton
 class DriveCloudBackup @Inject constructor(
@@ -202,7 +201,7 @@ class DriveCloudBackup @Inject constructor(
         if (pending.isEmpty()) {
             synchronized(sessionLock) {
             if (currentSessionId.get() == sessionId && _state.value !is BackupState.SignedOut) {
-                _state.value = BackupState.Ready(email, "No new kept files are pending in this backup ledger.")
+                _state.value = BackupState.Ready(email, "No kept or staged originals are pending for Drive backup.")
             }
             }
             return
@@ -699,6 +698,49 @@ class DriveCloudBackup @Inject constructor(
             digestStream(it, file.sizeBytes, guard)
         } ?: error("Local original is unreadable.")
         val hashHex = sourceHash.joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        // A completed upload can outlive the process before its local receipt is
+        // committed. Reconcile it first, with a fresh byte download, so retry
+        // does not silently create another remote original.
+        val recovered = findMatchingRemoteOriginal(token, folderId, file.sizeBytes, hashHex, guard)
+        if (recovered != null) {
+            verifyDownloadedOriginal(token, recovered, file.sizeBytes, sourceHash, guard)
+            checkLocalOriginal(file, sourceHash, guard)
+            onVerified(hashHex)
+            return recovered
+        }
+        val sessionKey = uploadSessionKey(file.contentUri, hashHex, file.sizeBytes)
+        val sessions = context.getSharedPreferences("drive_upload_sessions", Context.MODE_PRIVATE)
+        var sessionUrl = sessions.getString(sessionKey, null)
+        if (sessionUrl != null && !validUploadSession(sessionUrl)) {
+            sessions.edit().remove(sessionKey).commit()
+            sessionUrl = null
+        }
+        if (sessionUrl == null) {
+            sessionUrl = startLargeUploadSession(token, folderId, file, hashHex, guard)
+            check(sessions.edit().putString(sessionKey, sessionUrl).commit()) {
+                "Could not save Drive upload session; local original retained."
+            }
+        }
+        val remoteId = try {
+            sendLargeUpload(token, sessionUrl, file, sourceHash, guard)
+        } catch (error: HttpStatusException) {
+            if (error.code == 404 || error.code == 410) sessions.edit().remove(sessionKey).commit()
+            throw error
+        }
+        // A process death before the Room receipt is committed is recovered by
+        // the remote manifest search at the start of the next run.
+        guard()
+        verifyDownloadedOriginal(token, remoteId, file.sizeBytes, sourceHash, guard)
+        checkLocalOriginal(file, sourceHash, guard)
+        guard()
+        onVerified(hashHex)
+        sessions.edit().remove(sessionKey).commit()
+        return remoteId
+    }
+
+    private fun startLargeUploadSession(
+        token: String, folderId: String, file: KeptFileEntity, hashHex: String, guard: () -> Unit,
+    ): String {
         val metadata = JSONObject()
             .put("name", file.displayName)
             .put("parents", JSONArray().put(folderId))
@@ -728,37 +770,69 @@ class DriveCloudBackup @Inject constructor(
             activeConnection.compareAndSet(init, null)
             init.disconnect()
         }
-        val session = URL(sessionUrl)
-        // Location contains a bearer-capable upload ID; never send media or
-        // Authorization to an arbitrary host supplied in a response header.
-        check(session.protocol == "https" && session.host == "www.googleapis.com" &&
-            session.port == -1 && session.path == "/upload/drive/v3/files") {
-            "Unexpected Drive upload session destination"
+        check(validUploadSession(sessionUrl)) { "Unexpected Drive upload session destination" }
+        return sessionUrl
+    }
+
+    private fun sendLargeUpload(
+        token: String, sessionUrl: String, file: KeptFileEntity,
+        sourceHash: ByteArray, guard: () -> Unit,
+    ): String {
+        check(validUploadSession(sessionUrl)) { "Unexpected Drive upload session destination" }
+        // Query the server's offset. A lost final response may already contain
+        // the file ID; a partial upload returns 308 and a Range header.
+        val probe = connectionFactory(sessionUrl).apply {
+            requestMethod = "PUT"
+            doOutput = true
+            setFixedLengthStreamingMode(0)
+            setRequestProperty("Authorization", "Bearer $token")
+            setRequestProperty("Content-Range", "bytes */${file.sizeBytes}")
+            connectTimeout = 30_000
+            readTimeout = 60_000
+        }
+        synchronized(sessionLock) { guard(); activeConnection.set(probe) }
+        val offset = try {
+            probe.outputStream.use { }
+            guard()
+            when (val code = probe.responseCode) {
+                200, 201 -> return JSONObject(probe.inputStream.bufferedReader().use { it.readText() })
+                    .getString("id").also { check(it.matches(Regex("[A-Za-z0-9_-]+"))) }
+                308 -> parseDriveOffset(probe.getHeaderField("Range"), file.sizeBytes)
+                else -> throw HttpStatusException(code, "Drive upload status failed")
+            }
+        } finally {
+            activeConnection.compareAndSet(probe, null)
+            probe.disconnect()
         }
         guard()
         val connection = connectionFactory(sessionUrl).apply {
             requestMethod = "PUT"
             doOutput = true
-            setFixedLengthStreamingMode(file.sizeBytes)
+            setFixedLengthStreamingMode(file.sizeBytes - offset)
             setRequestProperty("Authorization", "Bearer $token")
             setRequestProperty("Content-Type", file.mimeType.ifBlank { "application/octet-stream" })
+            setRequestProperty("Content-Range", "bytes $offset-${file.sizeBytes - 1}/${file.sizeBytes}")
             connectTimeout = 30_000
             readTimeout = 120_000
         }
         synchronized(sessionLock) { guard(); activeConnection.set(connection) }
-        val digest = java.security.MessageDigest.getInstance("SHA-256")
-        val remoteId = try {
+        return try {
             val input = context.contentResolver.openInputStream(Uri.parse(file.contentUri))
                 ?: error("Local original is unreadable.")
             input.use { source -> connection.outputStream.use { output ->
-                val total = copyStreamWithCancellation(java.security.DigestInputStream(source, digest),
-                    output, guard, file.sizeBytes)
-                check(total == file.sizeBytes) { "Local original changed size." }
+                var skipped = 0L
+                val buffer = ByteArray(8192)
+                while (skipped < offset) {
+                    guard()
+                    val count = source.read(buffer, 0, minOf(buffer.size.toLong(), offset - skipped).toInt())
+                    check(count > 0) { "Local original became unreadable." }
+                    skipped += count
+                }
+                val total = copyStreamWithCancellation(source, output, guard, file.sizeBytes - offset)
+                check(total == file.sizeBytes - offset) { "Local original changed size." }
             } }
             guard()
-            check(java.security.MessageDigest.isEqual(sourceHash, digest.digest())) {
-                "Local original changed during upload."
-            }
+            checkLocalOriginal(file, sourceHash, guard)
             val code = connection.responseCode
             if (code !in 200..201) throw HttpStatusException(code, "Drive upload failed")
             JSONObject(connection.inputStream.bufferedReader().use { it.readText() }).getString("id")
@@ -767,17 +841,68 @@ class DriveCloudBackup @Inject constructor(
             activeConnection.compareAndSet(connection, null)
             connection.disconnect()
         }
-        guard()
-        verifyDownloadedOriginal(token, remoteId, file.sizeBytes, sourceHash, guard)
-        val stillLocal = context.contentResolver.openInputStream(Uri.parse(file.contentUri))?.use {
+    }
+
+    private fun checkLocalOriginal(file: KeptFileEntity, expected: ByteArray, guard: () -> Unit) {
+        val actual = context.contentResolver.openInputStream(Uri.parse(file.contentUri))?.use {
             digestStream(it, file.sizeBytes, guard)
         } ?: error("Local original no longer readable.")
-        check(java.security.MessageDigest.isEqual(sourceHash, stillLocal)) {
-            "Local original changed during backup."
-        }
-        guard()
-        onVerified(hashHex)
-        return remoteId
+        check(java.security.MessageDigest.isEqual(expected, actual)) { "Local original changed during backup." }
+    }
+
+    private fun uploadSessionKey(uri: String, hash: String, size: Long): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest("${getSignedInAccount().first}|$uri|$hash|$size".toByteArray())
+        return digest.joinToString("") { "%02x".format(it.toInt() and 0xff) }
+    }
+
+    private fun validUploadSession(value: String): Boolean = try {
+        val url = URL(value)
+        url.protocol == "https" && url.host == "www.googleapis.com" && url.port == -1 &&
+            url.path == "/upload/drive/v3/files" && url.query?.contains("upload_id=") == true
+    } catch (_: Exception) { false }
+
+    private fun parseDriveOffset(range: String?, size: Long): Long {
+        if (range == null) return 0
+        val end = Regex("bytes=0-(\\d+)").matchEntire(range)?.groupValues?.get(1)?.toLongOrNull()
+            ?: error("Invalid Drive upload offset")
+        check(end >= 0 && end < size - 1) { "Invalid Drive upload offset" }
+        return end + 1
+    }
+
+    private fun findMatchingRemoteOriginal(
+        token: String, folderId: String, size: Long, hash: String, guard: () -> Unit,
+    ): String? {
+        val query = URLEncoder.encode(
+            "'$folderId' in parents and trashed = false and appProperties has { key='originalSha256' and value='$hash' }",
+            "UTF-8",
+        )
+        var pageToken: String? = null
+        val seen = mutableSetOf<String>()
+        do {
+            guard()
+            val page = pageToken?.let { "&pageToken=${URLEncoder.encode(it, "UTF-8")}" } ?: ""
+            val response = JSONObject(httpRequest(
+                "https://www.googleapis.com/drive/v3/files?q=$query&spaces=drive&pageSize=100" +
+                    "&fields=nextPageToken,files(id,size,appProperties)$page",
+                token, "GET", null, guard,
+            ))
+            val files = response.optJSONArray("files") ?: JSONArray()
+            for (i in 0 until files.length()) {
+                val item = files.getJSONObject(i)
+                val id = item.optString("id")
+                val props = item.optJSONObject("appProperties") ?: continue
+                if (id.matches(Regex("[A-Za-z0-9_-]+")) && item.optLong("size", -1) == size &&
+                    props.optString("swipeRiseVersion") == "1" &&
+                    props.optString("originalSize") == size.toString() &&
+                    props.optString("originalSha256") == hash) return id
+            }
+            pageToken = response.optString("nextPageToken").takeIf { it.isNotBlank() }
+            if (pageToken != null && (!seen.add(pageToken!!) || seen.size >= 100)) {
+                error("Drive backup search pagination did not finish")
+            }
+        } while (pageToken != null)
+        return null
     }
 
     private fun copyStreamWithCancellation(

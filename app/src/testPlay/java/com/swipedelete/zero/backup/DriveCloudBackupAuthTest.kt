@@ -638,24 +638,141 @@ class DriveCloudBackupAuthTest {
                     override fun disconnect() {}
                     override fun usingProxy() = false
                     override fun getOutputStream(): java.io.OutputStream = java.io.ByteArrayOutputStream()
-                    override fun getResponseCode() = 200
+                    override fun getResponseCode() = if (url.contains("upload_id=abc") &&
+                        getRequestProperty("Content-Range") == "bytes */${original.size}") 308 else 200
                     override fun getHeaderField(name: String?): String? =
                         if (name == "Location")
                             "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=abc"
                         else null
                     override fun getInputStream(): java.io.InputStream = when {
+                        url.contains("/drive/v3/files?q=") -> """{"files":[]}""".byteInputStream()
                         url.contains("alt=media") -> original.inputStream()
                         else -> """{"id":"remote-large"}""".byteInputStream()
                     }
                 }
             }
             backup.runBackup()
-            assertEquals(3, calls.size)
-            assertTrue(calls.first().contains("uploadType=resumable"))
-            assertTrue(calls[1].contains("upload_id=abc"))
-            assertTrue(calls[2].endsWith("remote-large?alt=media"))
+            assertEquals(5, calls.size)
+            assertTrue(calls[0].contains("/drive/v3/files?q="))
+            assertTrue(calls[1].contains("uploadType=resumable"))
+            assertTrue(calls[2].contains("upload_id=abc"))
+            assertTrue(calls[3].contains("upload_id=abc"))
+            assertTrue(calls[4].endsWith("remote-large?alt=media"))
             assertEquals(1, db.backupReceiptDao().forAccount("GOOGLE_DRIVE", "alice@example.com").size)
             assertTrue(file.exists())
+        } finally { db.close(); file.delete() }
+    }
+
+    @Test
+    fun `interrupted large upload resumes saved session from server offset without duplicate create`() = runTest {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val original = ByteArray(5 * 1024 * 1024 + 13) { (it % 239).toByte() }
+        val file = java.io.File.createTempFile("drive-resume-", ".bin", context.cacheDir)
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(context,
+            com.swipedelete.zero.data.local.AppDatabase::class.java).build()
+        file.writeBytes(original)
+        try {
+            val kept = InMemoryKeptFileDao()
+            kept.upsert(sampleKept(android.net.Uri.fromFile(file).toString(), "resume.bin")
+                .copy(sizeBytes = original.size.toLong(), mimeType = "application/octet-stream"))
+            val backup = DriveCloudBackup(context, BackupRepository(kept,
+                InMemoryBackedUpFileDao(), InMemoryCloudUploadDao(), db.backupReceiptDao(), db))
+            backup.getSignedInAccount = { "resume@example.com" to Account("resume@example.com", "com.google") }
+            backup.getAuthToken = { "token" }
+            backup.folderResolver = { "folder" }
+            var starts = 0
+            var probes = 0
+            var sent = byteArrayOf()
+            var sentRange: String? = null
+            backup.connectionFactory = { url ->
+                object : java.net.HttpURLConnection(java.net.URL(url)) {
+                    override fun connect() {}
+                    override fun disconnect() {}
+                    override fun usingProxy() = false
+                    override fun getOutputStream(): java.io.OutputStream = if (
+                        url.contains("upload_id=resume") &&
+                        getRequestProperty("Content-Range")?.startsWith("bytes 1048576-") == true
+                    ) java.io.ByteArrayOutputStream().also { stream ->
+                        sentRange = getRequestProperty("Content-Range")
+                        sent = byteArrayOf()
+                        uploadOutput = stream
+                    } else java.io.ByteArrayOutputStream()
+                    private var uploadOutput: java.io.ByteArrayOutputStream? = null
+                    override fun getResponseCode(): Int = when {
+                        url.contains("uploadType=resumable") && !url.contains("upload_id=") -> {
+                            starts++; 200
+                        }
+                        url.contains("upload_id=resume") &&
+                            getRequestProperty("Content-Range") == "bytes */${original.size}" -> {
+                            probes++
+                            if (probes == 1) throw java.io.IOException("lost connection")
+                            308
+                        }
+                        else -> { sent = uploadOutput?.toByteArray() ?: sent; 200 }
+                    }
+                    override fun getHeaderField(name: String?): String? = when (name) {
+                        "Location" -> "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=resume"
+                        "Range" -> "bytes=0-1048575"
+                        else -> null
+                    }
+                    override fun getInputStream(): java.io.InputStream = when {
+                        url.contains("/drive/v3/files?q=") -> """{"files":[]}""".byteInputStream()
+                        url.contains("alt=media") -> original.inputStream()
+                        else -> """{"id":"remote-resumed"}""".byteInputStream()
+                    }
+                }
+            }
+            backup.runBackup()
+            assertEquals(0, db.backupReceiptDao().forAccount("GOOGLE_DRIVE", "resume@example.com").size)
+            backup.runBackup()
+            assertEquals(1, starts)
+            assertEquals(2, probes)
+            assertEquals("bytes 1048576-${original.size - 1}/${original.size}", sentRange)
+            assertTrue(sent.contentEquals(original.copyOfRange(1048576, original.size)))
+            assertEquals(1, db.backupReceiptDao().forAccount("GOOGLE_DRIVE", "resume@example.com").size)
+        } finally { db.close(); file.delete() }
+    }
+
+    @Test
+    fun `completed large upload without local receipt is reconciled by byte download`() = runTest {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val original = ByteArray(5 * 1024 * 1024 + 2) { (it % 197).toByte() }
+        val hash = java.security.MessageDigest.getInstance("SHA-256").digest(original)
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        val file = java.io.File.createTempFile("drive-reconcile-", ".bin", context.cacheDir)
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(context,
+            com.swipedelete.zero.data.local.AppDatabase::class.java).build()
+        file.writeBytes(original)
+        try {
+            val kept = InMemoryKeptFileDao()
+            kept.upsert(sampleKept(android.net.Uri.fromFile(file).toString(), "reconcile.bin")
+                .copy(sizeBytes = original.size.toLong(), mimeType = "application/octet-stream"))
+            val backup = DriveCloudBackup(context, BackupRepository(kept,
+                InMemoryBackedUpFileDao(), InMemoryCloudUploadDao(), db.backupReceiptDao(), db))
+            backup.getSignedInAccount = { "reconcile@example.com" to Account("reconcile@example.com", "com.google") }
+            backup.getAuthToken = { "token" }
+            backup.folderResolver = { "folder" }
+            val requests = mutableListOf<String>()
+            backup.connectionFactory = { url ->
+                requests += url
+                object : java.net.HttpURLConnection(java.net.URL(url)) {
+                    override fun connect() {}
+                    override fun disconnect() {}
+                    override fun usingProxy() = false
+                    override fun getResponseCode() = 200
+                    override fun getInputStream(): java.io.InputStream = if (url.contains("alt=media")) {
+                        original.inputStream()
+                    } else {
+                        """{"files":[{"id":"existing-file","size":"${original.size}","appProperties":{"swipeRiseVersion":"1","originalSize":"${original.size}","originalSha256":"$hash"}}]}""".byteInputStream()
+                    }
+                }
+            }
+            backup.runBackup()
+            assertEquals(2, requests.size)
+            assertTrue(requests[0].contains("/drive/v3/files?q="))
+            assertTrue(requests[1].endsWith("existing-file?alt=media"))
+            assertEquals("existing-file", db.backupReceiptDao()
+                .forAccount("GOOGLE_DRIVE", "reconcile@example.com").single().remoteId)
         } finally { db.close(); file.delete() }
     }
 

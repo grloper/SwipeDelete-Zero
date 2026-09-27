@@ -313,7 +313,7 @@ private fun DriveRestoreTab(
             Text(if (loading) "Looking in Drive…" else "Refresh originals")
         }
         if (!loading && originals.isEmpty()) {
-            Text("No verified originals found in this Google account.", color = SdzColor.TextSecondary)
+            Text("No eligible Drive originals found in this Google account.", color = SdzColor.TextSecondary)
         }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(SdzSpace.sm)) {
             items(originals, key = { it.remoteId }) { original ->

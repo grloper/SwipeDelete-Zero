@@ -17,10 +17,13 @@ remains available after an authentication failure.
 
 The Drive verification costs a full download in addition to the upload. Failed
 verification retains the local file and records no completed receipt. Files over
-5 MiB use a Drive resumable session with one bounded PUT. Sessions are not yet
-persisted across process death, so retry may leave orphan objects remotely;
-resumption, content-addressed deduplication and orphan recovery remain required
-before production release.
+5 MiB use a Drive resumable session. The private app store saves the session URL
+before sending bytes; retries query Drive's received offset and send only the
+remaining bytes. Before creating a new upload, the app searches its Drive folder
+for a matching manifest and independently downloads that object to verify the
+bytes. This can recover a completed upload whose local receipt was interrupted.
+Live account testing of session expiry, API errors, account switch, and ambiguous
+network failures is still required before release.
 
 ## Still required for backup-then-delete release
 
@@ -37,8 +40,8 @@ Required work includes:
 
 1. Immutable local upload snapshots and complete manifest lifecycle/recovery,
    including older uploaded files and orphan cleanup.
-2. Resumable transfer and lifecycle recovery, storage/quota errors and account
-   switch handling throughout the persistent queue.
+2. Live validation of resumable transfer and lifecycle recovery, storage/quota
+   errors and account switch handling throughout the persistent queue.
 3. Live restore to a user-selected destination on a clean install and revalidation
    of the unchanged local original immediately before a confirmed delete.
 4. Live synthetic-file upload/restore tests against the configured Google project,
