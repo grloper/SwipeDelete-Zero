@@ -2,7 +2,7 @@
 
 ## Available implementation
 
-One Google connection grants the existing Drive and Photos permissions. Settings
+One Google connection requests the existing Drive and Photos permissions. Settings
 contains the connection and Drive backup action; Backups shows the Photos queue
 and upload history. The routine setup wizard entry is removed; troubleshooting
 remains available after an authentication failure.
@@ -30,8 +30,9 @@ manifest (hash, size and version) so a newly installed app can list and restore
 backups even when the local database is gone. Restore downloads into private
 temporary storage, compares the actual bytes, writes to the user-selected new
 Android document, and reads it back to verify again. Old pre-manifest uploads
-will not appear in clean-install Restore; they must be re-backed up. The Drive work list includes staged originals once each. Legacy rows remain separate because they have no
-hash or authenticated owner; they cannot be promoted into verified receipts.
+will not appear in clean-install Restore; they must be re-backed up.
+The Drive work list includes staged originals once each. Legacy rows remain
+separate because they have no hash or authenticated owner; they cannot be promoted into verified receipts.
 Required work includes:
 
 1. Immutable local upload snapshots and complete manifest lifecycle/recovery,

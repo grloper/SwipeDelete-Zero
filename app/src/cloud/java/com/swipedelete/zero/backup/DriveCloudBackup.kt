@@ -464,7 +464,9 @@ class DriveCloudBackup @Inject constructor(
                 found += RemoteOriginal(
                     remoteId = id,
                     name = item.optString("name").take(200).ifBlank { "Original" },
-                    mimeType = item.optString("mimeType").ifBlank { "application/octet-stream" },
+                    mimeType = item.optString("mimeType")
+                        .takeIf { it.matches(Regex("[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+")) }
+                        ?: "application/octet-stream",
                     sizeBytes = size,
                     sha256 = sha,
                     accountId = email,

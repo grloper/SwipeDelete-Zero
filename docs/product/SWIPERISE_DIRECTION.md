@@ -61,7 +61,7 @@ Items transition through transparent, discrete states. Visual animations or uplo
 2. **`UPLOADING`**: Active chunked resumable upload in progress under validated account session.
 3. **`PROCESSING`**: Media created; waiting for provider indexing/transcoding (videos).
 4. **`AVAILABLE_IN_PHOTOS`**: Confirmed visible via readback GET metadata.
-5. **`ORIGINAL_RESTORE_VERIFIED`**: (M1 Target) Byte-for-byte original recovery verified from the cloud originals vault. **Does not exist in M0**.
+5. **`ORIGINAL_RESTORE_VERIFIED`**: (M1 Target) Byte-for-byte original recovery verified from the cloud originals vault. A first Drive restore path now exists; release proof requires live clean-install and deletion-gate validation.
 
 ---
 
@@ -71,10 +71,10 @@ Items transition through transparent, discrete states. Visual animations or uplo
 - Google Photos API compresses or alters certain media based on provider storage settings.
 - Google Photos remains an active integration, but a separate **Originals Vault** (M1) must be explicitly selected and named. It must never be deceptively conflated with standard Google Photos backup.
 
-### iCloud Integration (iOS Milestone)
-- iCloud support is reserved for the future iOS codebase.
-- Architectural distinction must be maintained: **iCloud Photos** (which synchronizes deletions across all user devices) vs **iCloud Drive / CloudKit** (independent container storage).
-- Deleting an asset under iCloud Photos synchronizes deletions; it is not a local-only eviction.
+### Apple cloud integration
+- Evaluate an Android app-specific iCloud vault through official CloudKit Web Services once an Apple developer container and supported web authentication flow are configured and tested. Do not present it as an iCloud Photos or arbitrary iCloud Drive integration.
+- iOS support can use Apple's native frameworks in a future codebase.
+- Distinguish **iCloud Photos** (whose deletions sync across a user's devices) from an independently retained originals vault.
 - No simulated iCloud features, private APIs, or credential scraping will be introduced on Android.
 
 ### Free App vs Provider Storage Quotas

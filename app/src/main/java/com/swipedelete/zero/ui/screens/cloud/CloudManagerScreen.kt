@@ -1,5 +1,7 @@
 package com.swipedelete.zero.ui.screens.cloud
 
+import android.content.Intent
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
@@ -105,11 +107,14 @@ fun CloudManagerScreen(
     }
     var selectedRestore by remember { mutableStateOf<RemoteOriginal?>(null) }
     val createDocument = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/octet-stream")
-    ) { destination ->
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
         val original = selectedRestore
         selectedRestore = null
-        if (destination != null && original != null) viewModel.restore(original, destination)
+        val destination = result.data?.data
+        if (result.resultCode == android.app.Activity.RESULT_OK && destination != null && original != null) {
+            viewModel.restore(original, destination)
+        }
     }
 
 
@@ -279,7 +284,11 @@ fun CloudManagerScreen(
                     onRefresh = viewModel::refreshOriginals,
                     onRestore = { original ->
                         selectedRestore = original
-                        createDocument.launch(original.name)
+                        createDocument.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = original.mimeType
+                            putExtra(Intent.EXTRA_TITLE, original.name)
+                        })
                     },
                 )
             }
