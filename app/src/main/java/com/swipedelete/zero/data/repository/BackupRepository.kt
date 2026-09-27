@@ -1,5 +1,9 @@
 package com.swipedelete.zero.data.repository
 
+import androidx.room.withTransaction
+import com.swipedelete.zero.data.local.AppDatabase
+import com.swipedelete.zero.data.local.BackupReceiptDao
+import com.swipedelete.zero.data.local.BackupReceiptEntity
 import com.swipedelete.zero.data.local.BackedUpFileDao
 import com.swipedelete.zero.data.local.BackedUpFileEntity
 import com.swipedelete.zero.data.local.CloudUploadDao
@@ -8,7 +12,6 @@ import com.swipedelete.zero.data.local.KeptFileDao
 import com.swipedelete.zero.data.local.KeptFileEntity
 import com.swipedelete.zero.domain.model.MediaItem
 import kotlinx.coroutines.flow.Flow
-import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
@@ -18,10 +21,12 @@ import javax.inject.Singleton
  * files kept after the last run are picked up by the next one.
  */
 @Singleton
-class BackupRepository @Inject constructor(
+class BackupRepository constructor(
     private val keptFileDao: KeptFileDao,
     private val backedUpFileDao: BackedUpFileDao,
     private val cloudUploadDao: CloudUploadDao,
+    private val receiptDao: BackupReceiptDao? = null,
+    private val database: AppDatabase? = null,
 ) {
 
     suspend fun recordKept(item: MediaItem, starred: Boolean) {
@@ -42,6 +47,13 @@ class BackupRepository @Inject constructor(
 
     suspend fun pendingBackup(): List<KeptFileEntity> = keptFileDao.pendingBackup()
 
+    suspend fun pendingDriveBackup(accountId: String): List<KeptFileEntity> =
+        if (receiptDao == null) keptFileDao.pendingBackup() else keptFileDao.pendingDriveBackup(accountId)
+
+    fun observePendingDriveBackupCount(accountId: String): Flow<Int> =
+        if (receiptDao == null) keptFileDao.observePendingBackupCount()
+        else keptFileDao.observePendingDriveBackupCount(accountId)
+
     fun observePendingBackupCount(): Flow<Int> = keptFileDao.observePendingBackupCount()
 
     fun observeBackedUpCount(): Flow<Int> = backedUpFileDao.observeCount()
@@ -50,6 +62,9 @@ class BackupRepository @Inject constructor(
     fun observeBackedUpUris(): Flow<List<String>> = backedUpFileDao.observeBackedUpUris()
 
     fun observeBackedUpFiles(): Flow<List<BackedUpFileEntity>> = backedUpFileDao.observeAll()
+
+    fun observeVerifiedReceipts(): Flow<List<BackupReceiptEntity>> =
+        receiptDao?.observeAll() ?: kotlinx.coroutines.flow.flowOf(emptyList())
 
     fun observeCloudUploads(): Flow<List<CloudUploadEntity>> = cloudUploadDao.observeAll()
 
@@ -77,6 +92,39 @@ class BackupRepository @Inject constructor(
                 uploadedAtMillis = System.currentTimeMillis(),
             )
         )
+    }
+
+    /** Commit both indexes together. A crash must never create a validated
+     * receipt without the row that backs the user's visible backup history. */
+    suspend fun markVerifiedDriveBackup(
+        file: KeptFileEntity, accountId: String, remoteId: String, sha256: String,
+    ) {
+        require(accountId.isNotBlank() && sha256.matches(Regex("[0-9a-f]{64}")))
+        val receipt = BackupReceiptEntity(
+            contentUri = file.contentUri,
+            provider = "GOOGLE_DRIVE",
+            accountId = accountId,
+            remoteId = remoteId,
+            originalSha256 = sha256,
+            originalSizeBytes = file.sizeBytes,
+            displayName = file.displayName,
+            mimeType = file.mimeType,
+            verifiedAtMillis = System.currentTimeMillis(),
+        )
+        val db = requireNotNull(database) { "Backup receipt database unavailable" }
+        val dao = requireNotNull(receiptDao) { "Backup receipt DAO unavailable" }
+        db.withTransaction {
+            dao.upsert(receipt)
+            // Photos uses the legacy URI-keyed row for its live readback gate.
+            // Preserve it when both destinations contain the same local file.
+            val existing = backedUpFileDao.get(file.contentUri)
+            if (existing == null || !existing.remoteId.startsWith("photos:")) {
+                backedUpFileDao.insert(BackedUpFileEntity(
+                    contentUri = file.contentUri, sizeBytes = file.sizeBytes,
+                    remoteId = remoteId, uploadedAtMillis = receipt.verifiedAtMillis,
+                ))
+            }
+        }
     }
 
     /** Remove from ledger so the app forgets it was previously backed up. */

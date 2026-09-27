@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +37,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -64,6 +67,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
+import com.swipedelete.zero.domain.scanner.AnalysisRunState
 import com.swipedelete.zero.domain.model.Deck
 import com.swipedelete.zero.domain.model.ExecutionMode
 import com.swipedelete.zero.domain.model.DeckGroup
@@ -221,8 +225,11 @@ fun DashboardScreen(
                         Text("Your library, your call", style = SdzType.Subtitle, color = SdzColor.Phosphor)
                         Text(
                             "Allow access to photos and videos to find files worth reviewing. " +
-                                "Review happens on this device. Google Photos backup is optional until you choose to delete; " +
-                                "deletion requires a confirmed backup. You can choose selected photos on supported Android versions.",
+                                "Review happens on this device. " +
+                                (if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
+                                    "Google Photos backup is optional. Cleanup is unavailable in this test build. "
+                                else "Local cleanup requires your confirmation. ") +
+                                "You can choose selected photos on supported Android versions.",
                             style = SdzType.BodySmall,
                             color = SdzColor.TextSecondary,
                         )
@@ -235,7 +242,13 @@ fun DashboardScreen(
                     }
                 }
             } else {
-            // THE HERO. Storage first, because it is the fact that motivates.
+            if (lens == Lens.CONTENT) {
+                item("content-scan") {
+                    ContentScanPanel(state = state, onScan = viewModel::scanNow)
+                }
+            }
+
+            // Storage overview.
             item("storage") {
                 SdzSurface(level = SdzLevel.Raised, contentPadding = SdzSpace.xl) {
                     StorageMeter(
@@ -277,14 +290,13 @@ fun DashboardScreen(
                 state.loading -> items(3) { SkeletonRow() }
 
                 lens == Lens.CONTENT -> items(
-                    sections.contentLenses(state.hasAnalysis),
+                    sections.contentLenses(state.hasAnalysis || state.analysisState == AnalysisRunState.DONE),
                     key = { it.id },
                 ) { entry ->
                     LibraryRow(
                         entry = entry,
                         scanning = state.isScanning,
                         onOpen = { entry.deck?.let(onOpenDeck) },
-                        onScan = viewModel::scanNow,
                     )
                 }
 
@@ -293,7 +305,6 @@ fun DashboardScreen(
                         entry = entry,
                         scanning = false,
                         onOpen = { entry.deck?.let(onOpenDeck) },
-                        onScan = {},
                     )
                 }
             }
@@ -454,6 +465,55 @@ private data class LibrarySections(
 }
 
 /** The single dominant action. Exactly one Primary button exists on this screen. */
+/** One shared entry point: the worker analyzes every supported content category. */
+@Composable
+private fun ContentScanPanel(state: DashboardUiState, onScan: () -> Unit) {
+    SdzSurface(level = SdzLevel.Raised, contentPadding = SdzSpace.xl) {
+        Text("CONTENT SCAN", style = SdzType.Overline, color = SdzColor.TextTertiary)
+        Text(
+            text = when {
+                state.isScanning -> "Scanning your library…"
+                state.analysisState == AnalysisRunState.FAILED -> "Scan interrupted"
+                state.analysisState == AnalysisRunState.DONE && state.loading -> "Updating categories…"
+                state.analysisState == AnalysisRunState.DONE -> "Scan finished"
+                else -> "One scan. All categories."
+            },
+            style = SdzType.Subtitle,
+            color = SdzColor.Phosphor,
+        )
+        Text(
+            text = when {
+                state.isScanning -> "Checking accessible photos and videos for duplicates, blur and text. You can keep browsing."
+                state.analysisState == AnalysisRunState.FAILED -> "The scan did not finish. Tap below to try again."
+                state.analysisState == AnalysisRunState.DONE -> "Review the results in By content below. Scan again after adding photos or changing media access."
+                else -> "Find duplicates, blurry photos and text across the media you allow. One tap checks all content categories on this device."
+            },
+            style = SdzType.BodySmall,
+            color = SdzColor.TextSecondary,
+        )
+        if (state.isScanning) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Content scan in progress" },
+                color = SdzColor.Phosphor,
+                trackColor = SdzColor.Surface3,
+            )
+        }
+        SdzButton(
+            label = when {
+                state.isScanning -> "Scanning all content…"
+                state.analysisState == AnalysisRunState.FAILED -> "Retry scan"
+                state.analysisState == AnalysisRunState.DONE || state.hasAnalysis -> "Scan all content again"
+                else -> "Scan all content"
+            },
+            onClick = onScan,
+            style = SdzButtonStyle.Primary,
+            enabled = !state.isScanning && !state.loading,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text("Scanning does not delete files.", style = SdzType.LabelSmall, color = SdzColor.TextTertiary)
+    }
+}
+
 @Composable
 private fun PrimaryCallToAction(
     loading: Boolean,
@@ -464,10 +524,17 @@ private fun PrimaryCallToAction(
 ) {
     SdzSurface(level = SdzLevel.Card, contentPadding = SdzSpace.xl) {
         Text("START HERE", style = SdzType.Overline, color = SdzColor.TextTertiary)
+        AnimatedVisibility(visible = !loading && candidateCount == 0, enter = fadeIn(), exit = fadeOut()) {
+            Image(
+                painter = painterResource(com.swipedelete.zero.R.drawable.ic_empty_review),
+                contentDescription = null,
+                modifier = Modifier.size(72.dp),
+            )
+        }
         Text(
             text = when {
                 loading -> "Sorting your library…"
-                candidateCount == 0 -> "Nothing needs reviewing"
+                candidateCount == 0 -> "Ready when you are"
                 else -> "Review $candidateCount flagged files"
             },
             style = SdzType.Subtitle,
@@ -476,20 +543,22 @@ private fun PrimaryCallToAction(
         Text(
             text = when {
                 loading -> "This takes a moment on a large library."
-                candidateCount == 0 -> "Your library is already lean."
+                candidateCount == 0 -> "Scan all content above to look for matches, or add photos to review."
                 else -> "${candidateBytes.toReadableSize()} could come back, de-duplicated."
             },
             style = SdzType.BodySmall,
             color = SdzColor.TextSecondary,
         )
         Spacer(Modifier.height(SdzSpace.xs))
-        SdzButton(
-            label = if (candidateCount == 0) "Browse library" else "Start reviewing",
-            onClick = onStart,
-            style = SdzButtonStyle.Primary,
-            enabled = enabled && !loading,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (enabled) {
+            SdzButton(
+                label = "Start reviewing",
+                onClick = onStart,
+                style = SdzButtonStyle.Primary,
+                enabled = !loading,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
@@ -502,7 +571,6 @@ private fun LibraryRow(
     entry: LibraryEntry,
     scanning: Boolean,
     onOpen: () -> Unit,
-    onScan: () -> Unit,
 ) {
     val interactive = entry.remainingCount > 0 && entry.deck != null
     SdzSurface(
@@ -526,7 +594,9 @@ private fun LibraryRow(
                 )
                 Text(
                     // Same two facts, same order, every row, always.
-                    text = "${entry.remainingCount} left · ${entry.remainingBytes.toReadableSize()}",
+                    text = if (entry.needsScan) {
+                        if (scanning) "Waiting for scan results…" else "Use Scan all content above"
+                    } else "${entry.remainingCount} left · ${entry.remainingBytes.toReadableSize()}",
                     style = SdzType.Numeric,
                     color = SdzColor.TextSecondary,
                 )
@@ -535,16 +605,6 @@ private fun LibraryRow(
                 }
             }
             when {
-                entry.needsScan && scanning -> Text(
-                    "Scanning…",
-                    style = SdzType.LabelSmall,
-                    color = SdzColor.TextSecondary,
-                )
-                entry.needsScan -> SdzButton(
-                    label = "Scan",
-                    onClick = onScan,
-                    style = SdzButtonStyle.Secondary,
-                )
                 entry.completedCount > 0 -> Text(
                     "${(entry.progress * 100).roundToInt()}%",
                     style = SdzType.Numeric,
@@ -667,7 +727,7 @@ private fun StagingBar(
             .padding(horizontal = SdzSpace.xl, vertical = SdzSpace.lg)
             .semantics {
                 contentDescription =
-                    "Review $stagedCount staged files, ${stagedBytes.toReadableSize()} to free"
+                    "Review $stagedCount staged files, ${stagedBytes.toReadableSize()} kept locally"
             },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SdzSpace.md),
@@ -680,7 +740,7 @@ private fun StagingBar(
         )
         Column(Modifier.weight(1f)) {
             Text(
-                "Review & free ${stagedBytes.toReadableSize()}",
+                "Review ${stagedBytes.toReadableSize()} staged",
                 style = SdzType.Label,
                 color = SdzColor.Phosphor,
             )

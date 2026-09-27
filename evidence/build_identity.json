@@ -1,0 +1,56 @@
+{
+  "project": "grloper/SwipeDelete-Zero",
+  "pr_number": 16,
+  "pr_url": "https://github.com/grloper/SwipeDelete-Zero/pull/16",
+  "pr_status": "open_draft",
+  "branch": "worker/m0-safety-foundation",
+  "base_branch": "codex/verified-photos-backup",
+  "base_sha": "6e0f5a9d5200914743dcebe8da5e7c4372fbd1da",
+  "tested_source_sha": "dd720379c98ca012e114f5abecd75f670aa87124",
+  "tested_checkout_path": "c:\\Users\\ofekv\\Desktop\\repos\\SwipeDelete-Zero",
+  "environment": {
+    "os": "Windows_NT 10.0.26100",
+    "java_home": "C:\\Program Files\\Android\\Android Studio\\jbr",
+    "java_version": "21.0.6",
+    "android_home": "C:\\Users\\ofekv\\AppData\\Local\\Android\\Sdk",
+    "gradle_version": "8.13",
+    "compile_sdk": 36,
+    "target_sdk": 36,
+    "min_sdk": 29
+  },
+  "apk": {
+    "variant": "playDebug",
+    "application_id": "com.swipedelete.zero.debug",
+    "version_code": 8,
+    "version_name": "4.0.1",
+    "file_name": "app-play-debug.apk",
+    "file_size_bytes": 72722131,
+    "sha256": "b6d57467851a08f6609dfd02ae92304a23abb4ea7f5dd1f0a1c36b40949ae9d9",
+    "signer_dn": "CN=Android Debug, O=Android, C=US",
+    "signing_status": "DEBUG-SIGNED",
+    "signer_sha256": "d0ced91bfd3c223622aebcc7d737c83cfc824839bab856122f0e2ebb6b9e2e25",
+    "signer_sha1": "bb3d213aeefa11d465c7776c6e992b8b981b1edb"
+  },
+  "unit_tests": {
+    "play_debug": {
+      "suites": 30,
+      "tests": 160,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 4,
+      "exit_code": 0
+    },
+    "fdroid_debug": {
+      "suites": 27,
+      "tests": 131,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "exit_code": 0
+    },
+    "total_executed": 286,
+    "total_failures": 0,
+    "total_errors": 0,
+    "total_skipped": 5
+  }
+}

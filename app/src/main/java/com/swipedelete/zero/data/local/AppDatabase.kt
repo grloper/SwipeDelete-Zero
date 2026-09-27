@@ -11,9 +11,10 @@ import androidx.room.RoomDatabase
         MediaAnalysisEntity::class,
         KeptFileEntity::class,
         BackedUpFileEntity::class,
+        BackupReceiptEntity::class,
         CloudUploadEntity::class,
     ],
-    version = 4,
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -23,6 +24,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun mediaAnalysisDao(): MediaAnalysisDao
     abstract fun keptFileDao(): KeptFileDao
     abstract fun backedUpFileDao(): BackedUpFileDao
+    abstract fun backupReceiptDao(): BackupReceiptDao
     abstract fun cloudUploadDao(): CloudUploadDao
 
     companion object {

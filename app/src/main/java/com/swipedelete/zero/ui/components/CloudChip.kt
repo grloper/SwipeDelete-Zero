@@ -22,9 +22,8 @@ import androidx.compose.ui.unit.dp
 import com.swipedelete.zero.ui.theme.SdzColor
 
 /**
- * Per-card cloud verification chip: "Cloud Backed Up" (in the backup ledger)
- * vs "Local Only". The distinction is what makes an up-swipe purge safe to
- * even contemplate — the ledger row only exists after a verified upload.
+ * The legacy ledger combines Drive byte-checked receipts and Photos item
+ * confirmations. This chip must not imply that either remains restorable now.
  */
 @Composable
 fun CloudChip(backedUp: Boolean, modifier: Modifier = Modifier) {
@@ -46,7 +45,7 @@ fun CloudChip(backedUp: Boolean, modifier: Modifier = Modifier) {
             modifier = Modifier.size(14.dp),
         )
         Text(
-            text = if (backedUp) "Cloud Backed Up" else "Local Only",
+            text = if (backedUp) "Uploaded before" else "Local only",
             color = tint,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.labelSmall,

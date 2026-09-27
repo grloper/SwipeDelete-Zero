@@ -192,7 +192,7 @@ fun SwipeEngineScreen(
             visible = state.showCoachmark,
             onDismiss = viewModel::dismissCoachmark,
             archiveLabel = if (viewModel.cloudArchiveEnabled)
-                "Upload to Google Photos, then queue the local copy once verified."
+                "Upload to Google Photos, then stage the local copy after Photos confirms the item. Local cleanup is locked."
             else
                 "Star it and hide it from every future scan.",
         )
@@ -423,7 +423,7 @@ private fun UndoToast(
 }
 
 private fun undoLabel(direction: SwipeDirection, cloudArchive: Boolean): String = when (direction) {
-    SwipeDirection.LEFT -> "Queued to delete (in Staging)"
+    SwipeDirection.LEFT -> "Staged for review"
     SwipeDirection.RIGHT -> "Kept"
     SwipeDirection.UP -> if (cloudArchive) "Uploading to Google Photos" else "Starred & excluded"
     SwipeDirection.NONE -> ""

@@ -52,6 +52,41 @@ interface KeptFileDao {
     )
     suspend fun pendingBackup(): List<KeptFileEntity>
 
+    /** Each local URI appears once even when both kept and staged. The staged
+     * branch is included because the file that may eventually be removed is
+     * precisely the one requiring an original-byte vault copy. */
+    @Query("""SELECT k.* FROM kept_files k WHERE NOT EXISTS (
+        SELECT 1 FROM backup_receipts r
+        WHERE r.contentUri = k.contentUri AND r.provider = 'GOOGLE_DRIVE'
+        AND r.accountId = :accountId AND r.originalSizeBytes = k.sizeBytes
+    ) UNION ALL
+    SELECT s.contentUri, s.displayName, s.mimeType, s.sizeBytes,
+        s.stagedAtMillis AS keptAtMillis, 0 AS starred
+    FROM staged_files s WHERE NOT EXISTS (
+        SELECT 1 FROM kept_files k WHERE k.contentUri = s.contentUri
+    ) AND NOT EXISTS (
+        SELECT 1 FROM backup_receipts r
+        WHERE r.contentUri = s.contentUri AND r.provider = 'GOOGLE_DRIVE'
+        AND r.accountId = :accountId AND r.originalSizeBytes = s.sizeBytes
+    ) ORDER BY keptAtMillis""")
+    suspend fun pendingDriveBackup(accountId: String): List<KeptFileEntity>
+
+    @Query("""SELECT COUNT(*) FROM (
+        SELECT k.contentUri FROM kept_files k WHERE NOT EXISTS (
+            SELECT 1 FROM backup_receipts r WHERE r.contentUri = k.contentUri
+            AND r.provider = 'GOOGLE_DRIVE' AND r.accountId = :accountId
+            AND r.originalSizeBytes = k.sizeBytes
+        ) UNION ALL
+        SELECT s.contentUri FROM staged_files s WHERE NOT EXISTS (
+            SELECT 1 FROM kept_files k WHERE k.contentUri = s.contentUri
+        ) AND NOT EXISTS (
+            SELECT 1 FROM backup_receipts r WHERE r.contentUri = s.contentUri
+            AND r.provider = 'GOOGLE_DRIVE' AND r.accountId = :accountId
+            AND r.originalSizeBytes = s.sizeBytes
+        )
+    )""")
+    fun observePendingDriveBackupCount(accountId: String): Flow<Int>
+
     @Query(
         "SELECT COUNT(*) FROM kept_files WHERE contentUri NOT IN " +
             "(SELECT contentUri FROM backed_up_files)"
@@ -89,6 +124,24 @@ interface BackedUpFileDao {
 
     @Query("DELETE FROM backed_up_files")
     suspend fun deleteAll(): Int
+}
+
+@Dao
+interface BackupReceiptDao {
+    @Query("SELECT * FROM backup_receipts ORDER BY verifiedAtMillis DESC")
+    fun observeAll(): Flow<List<BackupReceiptEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(receipt: BackupReceiptEntity)
+
+    @Query("SELECT * FROM backup_receipts WHERE contentUri = :uri AND provider = :provider AND accountId = :accountId LIMIT 1")
+    suspend fun get(uri: String, provider: String, accountId: String): BackupReceiptEntity?
+
+    @Query("SELECT * FROM backup_receipts WHERE provider = :provider AND accountId = :accountId ORDER BY verifiedAtMillis DESC")
+    suspend fun forAccount(provider: String, accountId: String): List<BackupReceiptEntity>
+
+    @Query("DELETE FROM backup_receipts WHERE contentUri = :uri AND provider = :provider AND accountId = :accountId")
+    suspend fun remove(uri: String, provider: String, accountId: String)
 }
 
 @Dao

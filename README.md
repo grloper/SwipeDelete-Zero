@@ -1,23 +1,24 @@
 <div align="center">
 
-# 🗂️ SwipeDelete Zero
+# 🗂️ SwipeRise
 
 ### Make room for what matters. Review your library on your device.
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-00E676.svg?style=for-the-badge)](LICENSE)
-[![Permissions: Zero Network](https://img.shields.io/badge/Network_Permissions-ZERO-FF3B30.svg?style=for-the-badge)](#-the-air-gap-guarantee)
+[![F-Droid: Offline](https://img.shields.io/badge/F--Droid-Offline-FF3B30.svg?style=for-the-badge)](#-the-air-gap-guarantee)
 [![Min SDK 29](https://img.shields.io/badge/Min_SDK-29_(Android_10)-00F0FF.svg?style=for-the-badge)](#)
 [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack_Compose-FFD700.svg?style=for-the-badge)](#)
 
-Review your photo library one card at a time: swipe left to stage for deletion,
-right to keep, or up to star. The fdroid and Play editions work entirely on
-your device. You review staged items and confirm deletion through Android.
+Review your photo library one card at a time: swipe left to stage, right to
+keep, or up to archive to Photos in the Play build. The F-Droid build works
+offline. The Play test build offers optional Google backup, but local cleanup
+remains locked until the complete safety path is validated live.
 
-### [⬇️ Download the latest APK](../../releases/latest)
+### [⬇️ Test the current Play APK](../../pull/16)
 
-Every push builds a fresh, directly-installable APK and attaches it to the
-[Releases page](../../releases). Grab the `.apk`, open it on your Android device,
-allow "unknown sources", and you're in.
+The pull request's **Play release bundle** workflow attaches an
+`evidence-archive` artifact with a debug APK after the checks pass. Extract
+the APK and install it on an Android device. This is not a signed Play release.
 
 </div>
 
@@ -25,7 +26,7 @@ allow "unknown sources", and you're in.
 
 ## 🔒 The Air-Gap Guarantee
 
-The **fdroid** build of SwipeDelete Zero is architecturally incapable of phoning
+The **fdroid** build of SwipeRise is architecturally incapable of phoning
 home. Its manifest **does not declare `android.permission.INTERNET`** — so the
 OS itself blocks every socket. All scanning, perceptual hashing, blur detection
 and deletion happen locally.
@@ -34,28 +35,22 @@ and deletion happen locally.
 - ✅ No cloud, no accounts, no background uploads
 - ✅ Open source (GPL v3) — audit every line
 
-> If you ever see the fdroid build try to open a network connection, it's a bug
-> worth a CVE. It cannot, by construction.
+> This offline guarantee applies to the F-Droid flavor, not the Play flavor.
 
-### ☁️ Optional: the `cloud` build
+### ☁️ Optional: the Play backup build
 
-Each release also ships a clearly-labelled **cloud** APK — the *only* build with
-the INTERNET permission — adding two opt-in features on your own OAuth
-credentials:
+The Play flavor requests INTERNET for two opt-in Google features. Google OAuth
+must be configured for the installed app's package and signing certificate:
 
-- **Google Drive backup** of the files you keep or star (each uploaded exactly
-  once, incremental forever after), via the non-sensitive `drive.file` scope.
-- **Swipe-up "Archive to Google Photos"**: the up-swipe uploads the card to
-  Google Photos with resumable, process-death-surviving chunked uploads
-  (`photoslibrary.appendonly`, upload-only scope). The local copy is **only**
-  offered for deletion after a verification handshake returns a valid
-  `mediaItemId` — and even then it goes through the normal Safety Staging queue
-  and OS confirmation dialog. Every card shows a live
-  `[ Cloud Backed Up ]` / `[ Local Only ]` chip from the verified ledger.
+- **Google Drive backup** of kept and staged files; a fresh remote download is
+  compared to the original SHA-256 hash. Current files carry restore metadata
+  for discovery after a clean install.
+- **Swipe-up Google Photos archive** uploads selected media and confirms the
+  app-created item exists. Photos does not provide the original-byte hash.
+  Neither backup path unlocks local deletion in this test build.
 
 Setup guide: [docs/DRIVE_BACKUP_SETUP.md](docs/DRIVE_BACKUP_SETUP.md).
-If you want the hard air-gap, simply install the fdroid APK (there, swipe-up
-keeps its offline meaning: star & exclude).
+The F-Droid flavor remains offline; there, swipe-up means star and exclude.
 
 ## ✨ Features
 
@@ -89,20 +84,15 @@ toward pitch black). Cards commit positionally *or* by velocity — a fast flick
 commits early — with progressive haptics: a tick at 50% of the threshold, a
 pulse when it arms, and distinct reject/confirm/double-tick signatures.
 
-## 🛟 3-Tier Safety Pipeline
-
-```
-[ Active Deck Engine ] ──swipe left──► [ Staging Review Drawer ] ──batch confirm──► [ OS Trash / SAF Purge ]
-        keep · trash · star                review · restore · clear                 30-Day Trash or Permanent
-```
+## 🛟 Safety pipeline
 
 1. **Active Deck** — flick cards; a 5-second Undo toast recovers any mistake.
 2. **Safety Staging** — a bottom-sheet queue you can review, restore or clear.
-   Live readout: *"38 files • 2.4 GB ready to purge"*, plus a lifetime
-   *"14.2 GB Reclaimed"* counter fed only by verified deletions.
-3. **Disk Execution** — choose **30-Day OS Trash**
-   (`MediaStore.createTrashRequest`) or **Permanent Purge**
-   (`createDeleteRequest` / SAF). Batched into a single OS confirmation.
+   Local originals remain in place in the Play test build.
+3. **Backup and restore** — Drive checks a fresh download against the original
+   SHA-256 hash and supports restoring current-manifest files. Photos confirms
+   an app-created item, without original-byte verification. Play cleanup stays
+   locked. The F-Droid flavor has a separate offline deletion flow.
 
 ## 🎨 Design System
 
@@ -164,14 +154,14 @@ app/
 # F-Droid flavor (no all-files permission, SAF fallback)
 ./gradlew :app:assembleFdroidDebug
 
-# Play flavor (scoped storage, no all-files or internet permission)
+# Play flavor (scoped storage and optional Google backup over INTERNET)
 ./gradlew :app:assemblePlayDebug
 
-# Play release App Bundle (requires a private upload key; see docs/PLAY_RELEASE.md)
+# Play release App Bundle (signed only with a private upload key; see docs/PLAY_RELEASE.md)
 ./gradlew :app:bundlePlayRelease
 
 # Unit tests (pure-JVM algorithm coverage)
-./gradlew :app:testFdroidDebugUnitTest
+./gradlew :app:testFdroidDebugUnitTest :app:testPlayDebugUnitTest
 ```
 
 Requirements: JDK 17, Android SDK 36.
@@ -190,5 +180,5 @@ Requirements: JDK 17, Android SDK 36.
 [GNU General Public License v3.0](LICENSE) — free as in freedom.
 
 <div align="center">
-<sub>Built with ❤️ and zero network sockets.</sub>
+<sub>SwipeRise · review with care</sub>
 </div>

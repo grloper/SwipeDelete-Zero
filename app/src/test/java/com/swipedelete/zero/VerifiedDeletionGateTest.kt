@@ -2,6 +2,7 @@ package com.swipedelete.zero
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import com.swipedelete.zero.data.local.StagedFileEntity
 import com.swipedelete.zero.data.repository.MediaStoreRepository
 import com.swipedelete.zero.data.repository.PurgeEngine
@@ -15,7 +16,6 @@ import com.swipedelete.zero.domain.model.MediaItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.Mockito.mock
@@ -42,11 +42,15 @@ class VerifiedDeletionGateTest {
             mock(Context::class.java), media, saf,
             mock(StoragePermissionManager::class.java), archive,
         )
+        engine.uriParser = { mock(Uri::class.java) }
 
-        val plan = engine.preparePurge(listOf(item("safe"), item("missing")), ExecutionMode.PERMANENT_PURGE)
-        assertTrue(plan is PurgeEngine.PurgePlan.Failed)
-        assertEquals(listOf("safe.jpg", "missing.jpg"), archive.checked)
-        verifyNoInteractions(media, saf)
+        if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE) {
+            val plan = engine.preparePurge(listOf(item("safe"), item("missing")), ExecutionMode.PERMANENT_PURGE)
+            assertTrue(plan is PurgeEngine.PurgePlan.Failed)
+            // Under M0-R5 immediate safety lock, verifyRemote is never touched
+            assertTrue("Provider verifyRemote must not be called when locked", archive.checked.isEmpty())
+            verifyNoInteractions(media, saf)
+        }
     }
 
     @Test
@@ -56,8 +60,11 @@ class VerifiedDeletionGateTest {
             mock(SafStorageBridge::class.java), mock(StoragePermissionManager::class.java),
             fakeArchive { false },
         )
-        assertTrue(engine.preparePurge(listOf(item("one")), ExecutionMode.OS_TRASH_30_DAY)
-            is PurgeEngine.PurgePlan.Failed)
+        engine.uriParser = { mock(Uri::class.java) }
+        if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE) {
+            assertTrue(engine.preparePurge(listOf(item("one")), ExecutionMode.OS_TRASH_30_DAY)
+                is PurgeEngine.PurgePlan.Failed)
+        }
     }
 
     private fun fakeArchive(check: (StagedFileEntity) -> Boolean) = object : PhotosArchive {

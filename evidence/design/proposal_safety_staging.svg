@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 412 892" width="412" height="892">
+  <title>SwipeDelete Zero — Proposed M2 Safety & Staging Sheet (Token Spec v1.0)</title>
+  <desc>PROPOSED DESIGN INPUT — NOT IMPLEMENTED UI. Uses sheet top radius 28dp, explicit eligibility separation, non-destructive safety lock display, and clear non-color proof indicators.</desc>
+
+  <!-- Dimmed Background Scaffold representing active deck underneath -->
+  <rect width="412" height="892" fill="#101418" />
+  <rect width="412" height="892" fill="#000000" opacity="0.6" />
+
+  <!-- Watermark Top Banner -->
+  <rect x="0" y="0" width="412" height="28" fill="#352D18" />
+  <text x="206" y="18" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#F4CE78" text-anchor="middle">
+    PROPOSED DESIGN (M2 SPEC) — NOT IMPLEMENTED UI — SYNTHETIC FIXTURE
+  </text>
+
+  <!-- Bottom Sheet Container (rx top = 28dp token, y=120..892, fill #191F25) -->
+  <path d="M0 148 C0 132.536 12.536 120 28 120 H384 C399.464 120 412 132.536 412 148 V892 H0 Z" fill="#191F25" stroke="#46515D" stroke-width="1.5" />
+
+  <!-- Drag Handle (w=36, h=4, rx=2, #46515D) -->
+  <rect x="188" y="132" width="36" height="4" rx="2" fill="#46515D" />
+
+  <!-- Sheet Header (phone horizontal padding = 20dp) -->
+  <text x="20" y="172" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="600" fill="#F5F7FA">Staged Cleanup Queue</text>
+  <text x="20" y="196" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="400" fill="#B5C1CD">3 files staged • 14.2 MB total</text>
+
+  <!-- Clear Queue Escape Hatch (min interactive size 48dp) -->
+  <rect x="292" y="152" width="100" height="48" rx="12" fill="#242C35" stroke="#46515D" stroke-width="1" />
+  <text x="342" y="182" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#F5F7FA" text-anchor="middle">Restore All</text>
+
+  <!-- M0 Safety Containment Banner (#352D18 warningSubtle, #F4CE78 warning text) -->
+  <rect x="20" y="216" width="372" height="88" rx="12" fill="#352D18" stroke="#F4CE78" stroke-width="1.5" />
+  <polygon points="40,234 48,250 32,250" fill="#F4CE78" />
+  <text x="56" y="244" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#F4CE78">Local Deletion Centrally Locked (M0)</text>
+  <text x="36" y="268" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#F5F7FA">Google Photos metadata backup does not prove original-byte</text>
+  <text x="36" y="286" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#F5F7FA">restoration. Deletion is held until M1 independent vault proof.</text>
+
+  <!-- Staged File 1: Verified in Photos, but Locked under M0 Domain Rule -->
+  <rect x="20" y="320" width="372" height="96" rx="12" fill="#242C35" stroke="#46515D" stroke-width="1" />
+  <rect x="32" y="332" width="72" height="72" rx="8" fill="#101418" stroke="#46515D" stroke-width="1" />
+  <text x="68" y="372" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7DE6C1" text-anchor="middle">FIXTURE_1</text>
+  <text x="116" y="352" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="600" fill="#F5F7FA">IMG_20260925_001.jpg</text>
+  <text x="116" y="372" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#B5C1CD">4.2 MB • Photos Metadata Synced</text>
+  <!-- Non-color badge: Lock icon + text -->
+  <rect x="116" y="380" width="130" height="24" rx="6" fill="#352D18" stroke="#F4CE78" stroke-width="1" />
+  <text x="181" y="396" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#F4CE78" text-anchor="middle">🔒 M0 Locked: Non-vault</text>
+  <!-- Unstage action -->
+  <rect x="336" y="344" width="48" height="48" rx="12" fill="#191F25" stroke="#46515D" stroke-width="1" />
+  <text x="360" y="373" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#FFB4AB" text-anchor="middle">×</text>
+
+  <!-- Staged File 2: Uploading / Pending -->
+  <rect x="20" y="428" width="372" height="96" rx="12" fill="#242C35" stroke="#46515D" stroke-width="1" />
+  <rect x="32" y="440" width="72" height="72" rx="8" fill="#101418" stroke="#46515D" stroke-width="1" />
+  <text x="68" y="480" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#A9C2FF" text-anchor="middle">FIXTURE_2</text>
+  <text x="116" y="460" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="600" fill="#F5F7FA">VID_20260925_002.mp4</text>
+  <text x="116" y="480" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#B5C1CD">8.1 MB • Uploading chunk 1/2 (4.0 MB)</text>
+  <!-- Non-color badge: Spinner/progress symbol + text -->
+  <rect x="116" y="488" width="144" height="24" rx="6" fill="#163B30" stroke="#7DE6C1" stroke-width="1" />
+  <text x="188" y="504" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#7DE6C1" text-anchor="middle">⏳ Upload In Progress</text>
+  <rect x="336" y="452" width="48" height="48" rx="12" fill="#191F25" stroke="#46515D" stroke-width="1" />
+  <text x="360" y="481" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#FFB4AB" text-anchor="middle">×</text>
+
+  <!-- Staged File 3: Unverified / Local Only -->
+  <rect x="20" y="536" width="372" height="96" rx="12" fill="#242C35" stroke="#46515D" stroke-width="1" />
+  <rect x="32" y="548" width="72" height="72" rx="8" fill="#101418" stroke="#46515D" stroke-width="1" />
+  <text x="68" y="588" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#FFB4AB" text-anchor="middle">FIXTURE_3</text>
+  <text x="116" y="568" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="600" fill="#F5F7FA">SCREEN_20260925_003.png</text>
+  <text x="116" y="588" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#B5C1CD">1.9 MB • Queued for cloud copy</text>
+  <!-- Non-color badge: Square warning + text -->
+  <rect x="116" y="596" width="124" height="24" rx="6" fill="#382020" stroke="#FFB4AB" stroke-width="1" />
+  <text x="178" y="612" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#FFB4AB" text-anchor="middle">■ Not Uploaded Yet</text>
+  <rect x="336" y="560" width="48" height="48" rx="12" fill="#191F25" stroke="#46515D" stroke-width="1" />
+  <text x="360" y="589" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#FFB4AB" text-anchor="middle">×</text>
+
+  <!-- Policy Note -->
+  <rect x="20" y="648" width="372" height="48" rx="8" fill="#101418" stroke="#46515D" stroke-width="1" />
+  <text x="206" y="677" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400" fill="#B5C1CD" text-anchor="middle">Mixed selections with unverified files cause 0 deletions (SAFE-02)</text>
+
+  <!-- Bottom Action Section (primaryButtonHeight = 52dp) -->
+  <!-- Non-Destructive Safe Action (Active): Unstage All / Keep Safe -->
+  <rect x="20" y="716" width="372" height="52" rx="12" fill="#7DE6C1" />
+  <text x="206" y="748" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#0B241A" text-anchor="middle">Keep All Files (Safe)</text>
+
+  <!-- Disabled/Locked Purge Button under M0 (Disabled state, grayed with lock) -->
+  <rect x="20" y="780" width="372" height="52" rx="12" fill="#242C35" stroke="#46515D" stroke-width="1.5" opacity="0.6" />
+  <text x="206" y="812" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#B5C1CD" text-anchor="middle">🔒 Deletion Locked (Requires M1 Restore Proof)</text>
+
+  <text x="206" y="856" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400" fill="#B5C1CD" text-anchor="middle">F-Droid offline edition operates locally without cloud verification lock.</text>
+</svg>

@@ -19,6 +19,9 @@ sealed interface UploadEvent {
     /** GET of that exact app-created item returned matching metadata. */
     data object RemoteVerified : UploadEvent
 
+    /** Resets the upload session cleanly (e.g. after lost finalization or unrecoverable session). */
+    data class SessionReset(val uploadUrl: String? = null) : UploadEvent
+
     /** Any transport/HTTP failure; null [httpCode] = network-level error. */
     data class Failed(val httpCode: Int?, val message: String) : UploadEvent
 }
@@ -53,6 +56,13 @@ object UploadReducer {
             is UploadEvent.SessionStarted -> entity.copy(
                 state = CloudUploadEntity.STATE_UPLOADING,
                 uploadUrl = event.uploadUrl,
+                bytesUploaded = 0,
+                updatedAtMillis = nowMillis,
+            )
+            is UploadEvent.SessionReset -> entity.copy(
+                state = CloudUploadEntity.STATE_UPLOADING,
+                uploadUrl = event.uploadUrl,
+                uploadToken = null,
                 bytesUploaded = 0,
                 updatedAtMillis = nowMillis,
             )

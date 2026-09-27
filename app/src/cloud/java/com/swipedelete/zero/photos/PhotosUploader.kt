@@ -21,7 +21,7 @@ import javax.inject.Singleton
  * only app-created items, not the user's entire pre-existing photo library.
  */
 @Singleton
-class PhotosUploader @Inject constructor() {
+open class PhotosUploader @Inject constructor() {
 
     class HttpStatusException(val code: Int, message: String) : Exception(message)
     class MediaNotReadyException(message: String) : IOException(message)
@@ -30,7 +30,7 @@ class PhotosUploader @Inject constructor() {
     data class Session(val uploadUrl: String, val chunkGranularityBytes: Long)
 
     /** Start a resumable session; the true byte size is mandatory up front. */
-    fun startSession(authToken: String, mimeType: String, rawSizeBytes: Long): Session {
+    open fun startSession(authToken: String, mimeType: String, rawSizeBytes: Long): Session {
         val connection = open(UPLOADS_URL, authToken).apply {
             requestMethod = "POST"
             setRequestProperty("Content-Length", "0")
@@ -50,26 +50,104 @@ class PhotosUploader @Inject constructor() {
         return Session(url, granularity)
     }
 
-    /** How many bytes the server has already received (resume after death). */
-    fun queryOffset(authToken: String, uploadUrl: String): Long {
+    data class SessionQueryResult(
+        val offset: Long,
+        val status: String,
+        val uploadToken: String?,
+        val isResumable: Boolean,
+        val isFinal: Boolean,
+    )
+
+    /**
+     * Parses the resumable session query response according to the Google Photos Library
+     * API resumable upload specification:
+     * - "active": Session is live. Size-Received header must be a valid non-negative Long.
+     * - "final": Session ended; a lost finalize receipt requires a fresh session.
+     * - Any other status (cancelled, terminated, unknown) or invalid offset cannot be resumed.
+     */
+    fun parseSessionQuery(
+        statusHeader: String?,
+        sizeReceivedHeader: String?,
+        responseBody: String?,
+    ): SessionQueryResult {
+        val normalizedStatus = statusHeader?.trim()?.lowercase() ?: "unknown"
+        val parsedSize = sizeReceivedHeader?.trim()?.toLongOrNull()
+
+        return when (normalizedStatus) {
+            "active" -> {
+                if (parsedSize != null && parsedSize >= 0L) {
+                    SessionQueryResult(
+                        offset = parsedSize,
+                        status = "active",
+                        uploadToken = null,
+                        isResumable = true,
+                        isFinal = false,
+                    )
+                } else {
+                    SessionQueryResult(
+                        offset = 0L,
+                        status = "active",
+                        uploadToken = null,
+                        isResumable = false, // invalid or negative offset cannot resume
+                        isFinal = false,
+                    )
+                }
+            }
+            "final" -> {
+                // A query body is not a documented finalize receipt.
+                SessionQueryResult(
+                    offset = parsedSize ?: 0L,
+                    status = "final",
+                    uploadToken = null,
+                    isResumable = false,
+                    isFinal = true,
+                )
+            }
+            else -> {
+                SessionQueryResult(
+                    offset = 0L,
+                    status = normalizedStatus,
+                    uploadToken = null,
+                    isResumable = false,
+                    isFinal = false,
+                )
+            }
+        }
+    }
+
+    /**
+     * Query session state from the server.
+     * Evaluates X-Goog-Upload-Status, received byte count, and does not trust a query body as a finalize receipt.
+     */
+    open fun querySession(authToken: String, uploadUrl: String): SessionQueryResult {
         val connection = open(uploadUrl, authToken).apply {
             requestMethod = "POST"
             setRequestProperty("Content-Length", "0")
             setRequestProperty("X-Goog-Upload-Command", "query")
             doOutput = true
         }
-        connection.outputStream.use { }
-        checkSuccess(connection)
-        val received = connection.getHeaderField("X-Goog-Upload-Size-Received")?.toLongOrNull() ?: 0L
-        connection.disconnect()
-        return received
+        try {
+            connection.outputStream.use { }
+            checkSuccess(connection)
+            return parseSessionQuery(
+                connection.getHeaderField("X-Goog-Upload-Status"),
+                connection.getHeaderField("X-Goog-Upload-Size-Received"),
+                null,
+            )
+        } finally {
+            connection.disconnect()
+        }
     }
+
+    /** How many bytes the server has already received (resume after death). */
+    fun queryOffset(authToken: String, uploadUrl: String): Long =
+        querySession(authToken, uploadUrl).offset
 
     /**
      * Upload one chunk at [offset]. Returns the upload token when [isLast]
      * finalizes the session, null otherwise.
      */
-    fun uploadChunk(
+    open fun uploadChunk(
         authToken: String,
         uploadUrl: String,
         chunk: ByteArray,
@@ -95,7 +173,7 @@ class PhotosUploader @Inject constructor() {
     }
 
     /** Create an item; the returned ID alone is not a verified backup. */
-    fun batchCreate(authToken: String, uploadToken: String, fileName: String): String {
+    open fun batchCreate(authToken: String, uploadToken: String, fileName: String): String {
         val body = JSONObject()
             .put(
                 "newMediaItems",
@@ -134,7 +212,7 @@ class PhotosUploader @Inject constructor() {
      * video. Processing retries through the worker's bounded backoff; failed
      * or unknown states fail closed. No media bytes are restored here.
      */
-    fun getMediaItem(authToken: String, mediaItemId: String): RemoteItem {
+    open fun getMediaItem(authToken: String, mediaItemId: String): RemoteItem {
         require(mediaItemId.isNotBlank())
         val encoded = URLEncoder.encode(mediaItemId, "UTF-8")
         val connection = open("$MEDIA_ITEMS_URL/$encoded", authToken).apply {
@@ -168,8 +246,10 @@ class PhotosUploader @Inject constructor() {
 
     data class RemoteItem(val id: String, val filename: String, val mimeType: String, val productUrl: String)
 
+    internal var connectionFactory: (String) -> HttpURLConnection = { URL(it).openConnection() as HttpURLConnection }
+
     private fun open(urlString: String, authToken: String): HttpURLConnection =
-        (URL(urlString).openConnection() as HttpURLConnection).apply {
+        connectionFactory(urlString).apply {
             setRequestProperty("Authorization", "Bearer $authToken")
             connectTimeout = 30_000
             readTimeout = 60_000

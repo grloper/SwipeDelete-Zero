@@ -155,9 +155,9 @@ fun SettingsScreen(
         }
         Text(
             if (backupState is BackupState.Unsupported) {
-                "SwipeDelete Zero · GPL v3 · 100% Offline · Zero Net-Permissions"
+                "SwipeRise · GPL v3 · 100% Offline · Zero Net-Permissions"
             } else {
-                "SwipeDelete Zero · GPL v3 · Google Photos and Drive backup"
+                "SwipeRise · GPL v3 · Google Photos and Drive backup"
             },
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
@@ -167,15 +167,16 @@ fun SettingsScreen(
     if (showPrivacy) {
         AlertDialog(
             onDismissRequest = { showPrivacy = false },
-            title = { Text("Privacy · SwipeDelete Zero") },
+            title = { Text("Privacy · SwipeRise") },
             text = {
                 Text(
                     "The Google Play build scans the media you allow on your device and stores " +
                         "review decisions locally. If you connect Google, selected photos and videos " +
-                        "are uploaded to your Google Photos account before deletion is enabled. " +
-                        "Kept files may be backed up to your Google Drive when you request it. " +
+                        "can be uploaded to your Google Photos account when you choose to archive them. " +
+                        "You can back up kept or staged files to Google Drive and restore an original " +
+                        "after its downloaded bytes match the original hash. " +
                         "The app uses internet access for those transfers and does not run ads or analytics. " +
-                        "Android asks you to confirm deletion. Uninstalling clears local app data, " +
+                        "Local cleanup is locked in this test build. Uninstalling clears local app data, " +
                         "but does not remove uploaded Google files."
                 )
             },
@@ -219,7 +220,7 @@ private fun DriveBackupSection(
                     modifier = Modifier.size(22.dp),
                 )
                 Text(
-                    "Cloud & Photos Manager",
+                    "Google backup",
                     color = SdzColor.Phosphor,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium,
@@ -238,7 +239,7 @@ private fun DriveBackupSection(
             )
         }
         Text(
-            "Connect Google Photos before deleting staged images and videos. Review upload progress and open confirmed items in Backup Manager. Drive backup of kept files is separate.",
+            "Connect once for Google Drive and Google Photos. Drive uploads kept and staged files and checks a fresh download against the original. Swipe up while reviewing to upload to Photos. Local cleanup remains locked in this test build.",
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
         )
@@ -258,19 +259,14 @@ private fun DriveBackupSection(
                         color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.labelMedium,
                     )
-                    BackupButton(text = "Fix in setup wizard", onClick = onOpenSetup)
+                    BackupButton(text = "Reconnect Google account", onClick = onConnect)
+                    TextButton(onClick = onOpenSetup) { Text("Connection troubleshooting") }
                 } else {
                     state.message?.let {
                         Text(it, color = SdzColor.Amber, style = MaterialTheme.typography.labelMedium)
                     }
                     BackupButton(text = "Connect Google account", onClick = onConnect)
-                    Text(
-                        "First time? The setup wizard walks through it and shows the exact "
-                            + "values Google needs.",
-                        color = SdzColor.TextSecondary,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    BackupButton(text = "Open setup wizard", onClick = onOpenSetup)
+
                 }
             }
 
@@ -289,7 +285,7 @@ private fun DriveBackupSection(
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
                         BackupButton(
-                            text = if (pendingCount > 0) "Back up $pendingCount now" else "Sync to Drive",
+                            text = if (pendingCount > 0) "Back up $pendingCount to Drive" else "Check Drive backup",
                             onClick = onBackupNow,
                         )
                     }
@@ -314,7 +310,7 @@ private fun DriveBackupSection(
 
             is BackupState.Running -> {
                 Text(
-                    "Uploading ${state.done} of ${state.total}…",
+                    "Uploading and checking Drive backups: ${state.done} of ${state.total}…",
                     color = SdzColor.Teal,
                     style = MaterialTheme.typography.labelMedium,
                 )
