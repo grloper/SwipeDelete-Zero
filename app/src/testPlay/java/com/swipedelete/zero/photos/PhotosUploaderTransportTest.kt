@@ -1,6 +1,5 @@
 package com.swipedelete.zero.photos
 
-import com.sun.net.httpserver.HttpServer
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.ByteArrayOutputStream
@@ -8,7 +7,12 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.HttpURLConnection
-import java.net.InetSocketAddress
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.SocketException
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import java.net.URL
 
 /** Synthetic URLs, bearer strings and bytes only; no Google service is contacted. */
@@ -104,35 +108,60 @@ class PhotosUploaderTransportTest {
     fun `real loopback transport never replays a redirect to a second host`() {
         // Map the already-validated service URL to loopback only at the injected
         // factory. Production validation is not relaxed and no service is called.
-        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        var redirectedRequests = 0
-        var initialRequests = 0
-        server.createContext("/initial") { exchange ->
-            initialRequests++
-            assertEquals("Bearer $TOKEN", exchange.requestHeaders.getFirst("Authorization"))
-            exchange.requestBody.use { it.readBytes() }
-            exchange.responseHeaders.add("Location", "http://localhost:${server.address.port}/collect")
-            exchange.sendResponseHeaders(302, -1)
-            exchange.close()
-        }
-        server.createContext("/collect") { exchange ->
-            redirectedRequests++
-            exchange.sendResponseHeaders(200, -1)
-            exchange.close()
-        }
-        server.start()
+        val server = ServerSocket(0, 16, InetAddress.getByName("127.0.0.1"))
+        val redirectedRequests = AtomicInteger()
+        val initialRequests = AtomicInteger()
+        val authorizationHeaders = CopyOnWriteArrayList<String?>()
+        val serverFailure = AtomicReference<Throwable?>()
+        val serverThread = Thread {
+            try {
+                while (!server.isClosed) {
+                    server.accept().use { socket ->
+                        socket.soTimeout = 5_000
+                        val input = socket.getInputStream().bufferedReader(Charsets.US_ASCII)
+                        val requestLine = input.readLine() ?: error("Missing request line")
+                        val headers = mutableMapOf<String, String>()
+                        while (true) {
+                            val line = input.readLine() ?: error("Incomplete request headers")
+                            if (line.isEmpty()) break
+                            headers[line.substringBefore(":").lowercase()] = line.substringAfter(":").trim()
+                        }
+                        // Fixtures use only four ASCII-valued synthetic bytes.
+                        repeat(headers["content-length"]?.toInt() ?: 0) {
+                            check(input.read() >= 0) { "Incomplete synthetic request body" }
+                        }
+                        val redirected = requestLine.contains(" /collect ")
+                        if (redirected) redirectedRequests.incrementAndGet() else {
+                            initialRequests.incrementAndGet()
+                            authorizationHeaders.add(headers["authorization"])
+                        }
+                        val response = if (redirected) "HTTP/1.1 200 OK\r\n" else
+                            "HTTP/1.1 302 Found\r\nLocation: http://localhost:${server.localPort}/collect\r\n"
+                        socket.getOutputStream().write(
+                            (response + "Content-Length: 0\r\nConnection: close\r\n\r\n").toByteArray(Charsets.US_ASCII)
+                        )
+                    }
+                }
+            } catch (error: Throwable) {
+                if (error !is SocketException || !server.isClosed) serverFailure.set(error)
+            }
+        }.apply { isDaemon = true; start() }
         try {
             val uploader = PhotosUploader().apply {
-                connectionFactory = { URL("http://127.0.0.1:${server.address.port}/initial").openConnection() as HttpURLConnection }
+                connectionFactory = { URL("http://127.0.0.1:${server.localPort}/initial").openConnection() as HttpURLConnection }
             }
             for (operation in operations) {
                 assertEquals(302, assertThrows(PhotosUploader.HttpStatusException::class.java) { operation(uploader) }.code)
             }
-            assertEquals(operations.size, initialRequests)
-            assertEquals("Redirect target must never receive a token or bytes", 0, redirectedRequests)
+            assertEquals(operations.size, initialRequests.get())
+            assertEquals(List(operations.size) { "Bearer $TOKEN" }, authorizationHeaders.toList())
+            assertEquals("Redirect target must never receive a token or bytes", 0, redirectedRequests.get())
         } finally {
-            server.stop(0)
+            server.close()
+            serverThread.join(6_000)
         }
+        assertFalse("Loopback server must terminate", serverThread.isAlive)
+        assertNull("Loopback server must finish without hidden failures", serverFailure.get())
     }
 
     @Test
