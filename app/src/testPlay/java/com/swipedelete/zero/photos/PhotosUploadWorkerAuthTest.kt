@@ -784,7 +784,7 @@ class PhotosUploadWorkerAuthTest {
             val staging = InMemoryStagedFileDao()
             val auth = TestAuthClient()
             queue.upsert(sampleEntity("content://media/external/images/media/99", "alice@example.com",
-                CloudUploadEntity.STATE_UPLOADING).copy(uploadUrl = "https://fixture.test/session", sizeBytes = 100))
+                CloudUploadEntity.STATE_UPLOADING).copy(uploadUrl = "https://photoslibrary.googleapis.com/v1/uploads?upload_id=fixture-session&upload_protocol=resumable", sizeBytes = 100))
             val calls = mutableListOf<FixtureConnection>()
             val uploader = PhotosUploader()
             val resumes = status == "active" && offset == "40" && http == 200
@@ -794,7 +794,7 @@ class PhotosUploadWorkerAuthTest {
                         "X-Goog-Upload-Size-Received" to offset), "untrusted-query-body")
                     else -> when {
                         url.endsWith("/v1/uploads") -> FixtureConnection(url, headers = mapOf(
-                            "X-Goog-Upload-URL" to "https://fixture.test/fresh", "X-Goog-Upload-Chunk-Granularity" to "1"))
+                            "X-Goog-Upload-URL" to "https://photoslibrary.googleapis.com/v1/uploads?upload_id=fixture-fresh&upload_protocol=resumable", "X-Goog-Upload-Chunk-Granularity" to "1"))
                         url.contains("batchCreate") -> FixtureConnection(url, body = """{"newMediaItemResults":[{"mediaItem":{"id":"test_media_id"}}]}""")
                         url.contains("/mediaItems/") -> FixtureConnection(url, body = """{"id":"test_media_id","filename":"photo.jpg","mimeType":"image/jpeg","baseUrl":"https://fixture.test/image","productUrl":"https://photos.google.com/test"}""")
                         else -> FixtureConnection(url, body = "fixture-finalize-receipt")
@@ -825,7 +825,7 @@ class PhotosUploadWorkerAuthTest {
         val staging = InMemoryStagedFileDao()
         val auth = TestAuthClient()
         queue.upsert(sampleEntity("content://media/external/images/media/99", "alice@example.com",
-            CloudUploadEntity.STATE_UPLOADING).copy(uploadUrl = "https://fixture.test/session", sizeBytes = 100))
+            CloudUploadEntity.STATE_UPLOADING).copy(uploadUrl = "https://photoslibrary.googleapis.com/v1/uploads?upload_id=fixture-session&upload_protocol=resumable", sizeBytes = 100))
         var calls = 0
         val uploader = PhotosUploader()
         uploader.connectionFactory = { url ->
@@ -852,7 +852,7 @@ class PhotosUploadWorkerAuthTest {
         val auth = TestAuthClient()
         val uri = "content://media/external/images/media/99"
         queue.upsert(sampleEntity(uri, "alice@example.com", CloudUploadEntity.STATE_UPLOADING)
-            .copy(uploadUrl = "https://fixture.test/session", sizeBytes = 100))
+            .copy(uploadUrl = "https://photoslibrary.googleapis.com/v1/uploads?upload_id=fixture-session&upload_protocol=resumable", sizeBytes = 100))
         var calls = 0
         val uploader = PhotosUploader()
         uploader.connectionFactory = { url -> calls++; FixtureConnection(url, status = 503) }
@@ -865,3 +865,4 @@ class PhotosUploadWorkerAuthTest {
         assertTrue(staging.staged.isEmpty())
     }
 }
+

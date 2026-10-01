@@ -6,6 +6,7 @@ import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URI
 import java.net.URLEncoder
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,6 +27,7 @@ open class PhotosUploader @Inject constructor() {
     class HttpStatusException(val code: Int, message: String) : Exception(message)
     class MediaNotReadyException(message: String) : IOException(message)
     class MediaRejectedException(message: String) : Exception(message)
+    class UnexpectedDestinationException(message: String) : Exception(message)
 
     data class Session(val uploadUrl: String, val chunkGranularityBytes: Long)
 
@@ -40,14 +42,18 @@ open class PhotosUploader @Inject constructor() {
             setRequestProperty("X-Goog-Upload-Raw-Size", rawSizeBytes.toString())
             doOutput = true
         }
-        connection.outputStream.use { /* empty body */ }
-        checkSuccess(connection)
-        val url = connection.getHeaderField("X-Goog-Upload-URL")
-            ?: throw HttpStatusException(500, "start: missing X-Goog-Upload-URL")
-        val granularity = connection.getHeaderField("X-Goog-Upload-Chunk-Granularity")
-            ?.toLongOrNull() ?: 0L
-        connection.disconnect()
-        return Session(url, granularity)
+        try {
+            connection.outputStream.use { /* empty body */ }
+            checkSuccess(connection)
+            val url = connection.getHeaderField("X-Goog-Upload-URL")
+                ?: throw HttpStatusException(500, "start: missing X-Goog-Upload-URL")
+            validateDestination(url, uploadSession = true)
+            val granularity = connection.getHeaderField("X-Goog-Upload-Chunk-Granularity")
+                ?.toLongOrNull() ?: 0L
+            return Session(url, granularity)
+        } finally {
+            connection.disconnect()
+        }
     }
 
     data class SessionQueryResult(
@@ -120,7 +126,7 @@ open class PhotosUploader @Inject constructor() {
      * Evaluates X-Goog-Upload-Status, received byte count, and does not trust a query body as a finalize receipt.
      */
     open fun querySession(authToken: String, uploadUrl: String): SessionQueryResult {
-        val connection = open(uploadUrl, authToken).apply {
+        val connection = open(uploadUrl, authToken, uploadSession = true).apply {
             requestMethod = "POST"
             setRequestProperty("Content-Length", "0")
             setRequestProperty("X-Goog-Upload-Command", "query")
@@ -155,7 +161,7 @@ open class PhotosUploader @Inject constructor() {
         offset: Long,
         isLast: Boolean,
     ): String? {
-        val connection = open(uploadUrl, authToken).apply {
+        val connection = open(uploadUrl, authToken, uploadSession = true).apply {
             requestMethod = "POST"
             setRequestProperty("X-Goog-Upload-Command", if (isLast) "upload, finalize" else "upload")
             setRequestProperty("X-Goog-Upload-Offset", offset.toString())
@@ -163,13 +169,16 @@ open class PhotosUploader @Inject constructor() {
             doOutput = true
             readTimeout = 120_000
         }
-        connection.outputStream.use { it.write(chunk, 0, length) }
-        checkSuccess(connection)
-        val body = connection.inputStream.bufferedReader().use { it.readText() }
-        connection.disconnect()
-        return if (isLast) body.trim().ifEmpty {
-            throw HttpStatusException(500, "finalize returned an empty upload token")
-        } else null
+        try {
+            connection.outputStream.use { it.write(chunk, 0, length) }
+            checkSuccess(connection)
+            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            return if (isLast) body.trim().ifEmpty {
+                throw HttpStatusException(500, "finalize returned an empty upload token")
+            } else null
+        } finally {
+            connection.disconnect()
+        }
     }
 
     /** Create an item; the returned ID alone is not a verified backup. */
@@ -192,10 +201,13 @@ open class PhotosUploader @Inject constructor() {
             setRequestProperty("Content-Type", "application/json; charset=UTF-8")
             doOutput = true
         }
-        connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-        checkSuccess(connection)
-        val response = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-        connection.disconnect()
+        val response = try {
+            connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            checkSuccess(connection)
+            JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+        } finally {
+            connection.disconnect()
+        }
         val result = response.optJSONArray("newMediaItemResults")?.optJSONObject(0)
             ?: throw HttpStatusException(500, "batchCreate: empty newMediaItemResults")
         val status = result.optJSONObject("status")
@@ -248,18 +260,54 @@ open class PhotosUploader @Inject constructor() {
 
     internal var connectionFactory: (String) -> HttpURLConnection = { URL(it).openConnection() as HttpURLConnection }
 
-    private fun open(urlString: String, authToken: String): HttpURLConnection =
-        connectionFactory(urlString).apply {
+    private fun open(
+        urlString: String,
+        authToken: String,
+        uploadSession: Boolean = false,
+    ): HttpURLConnection {
+        // Check every use, including a URL restored from the local upload queue,
+        // before opening a socket or attaching credentials or media bytes.
+        validateDestination(urlString, uploadSession)
+        return connectionFactory(urlString).apply {
+            // A session URL comes only from an explicitly validated response header.
+            // Never replay bearer credentials or a request body via Location.
+            instanceFollowRedirects = false
             setRequestProperty("Authorization", "Bearer $authToken")
             connectTimeout = 30_000
             readTimeout = 60_000
         }
+    }
+
+    private fun validateDestination(urlString: String, uploadSession: Boolean) {
+        val uri = runCatching { URI(urlString) }.getOrNull()
+        val allowedAuthority = uri?.rawAuthority.equals(PHOTOS_HOST, ignoreCase = true) ||
+            uri?.rawAuthority.equals("$PHOTOS_HOST:443", ignoreCase = true)
+        val allowedOrigin = uri != null && uri.scheme.equals("https", ignoreCase = true) &&
+            uri.host.equals(PHOTOS_HOST, ignoreCase = true) && allowedAuthority &&
+            uri.rawUserInfo == null && uri.rawFragment == null &&
+            (uri.port == -1 || uri.port == 443)
+        // Preserve the opaque query exactly; do not reconstruct or decode a session.
+        // Google's current guide uses this path on the Library service origin, and
+        // documents no alternate/regional upload host. See docs/PHOTOS_TRANSPORT.md.
+        val allowedSession = !uploadSession ||
+            (uri?.rawPath == "/v1/uploads" && !uri.rawQuery.isNullOrBlank())
+        if (!allowedOrigin || !allowedSession) {
+            // Do not echo session URLs: their query can contain upload capabilities.
+            throw UnexpectedDestinationException(
+                "Unexpected Google Photos ${if (uploadSession) "upload session" else "API"} destination; " +
+                    "expected HTTPS photoslibrary.googleapis.com on port 443" +
+                    if (uploadSession) " with /v1/uploads and a session query" else ""
+            )
+        }
+    }
 
     private fun checkSuccess(connection: HttpURLConnection) {
         val code = connection.responseCode
         if (code !in 200..299) {
+            if (code in 300..399) {
+                throw HttpStatusException(code, "Google Photos redirect rejected (HTTP $code)")
+            }
             val error = connection.errorStream?.bufferedReader()?.use { it.readText() }
-            connection.disconnect()
             throw HttpStatusException(code, error ?: "HTTP $code")
         }
     }
@@ -267,8 +315,10 @@ open class PhotosUploader @Inject constructor() {
     companion object {
         const val PHOTOS_APPEND_SCOPE = "https://www.googleapis.com/auth/photoslibrary.appendonly"
         const val PHOTOS_READ_SCOPE = "https://www.googleapis.com/auth/photoslibrary.readonly.appcreateddata"
+        private const val PHOTOS_HOST = "photoslibrary.googleapis.com"
         private const val UPLOADS_URL = "https://photoslibrary.googleapis.com/v1/uploads"
         private const val BATCH_CREATE_URL = "https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate"
         private const val MEDIA_ITEMS_URL = "https://photoslibrary.googleapis.com/v1/mediaItems"
     }
 }
+
