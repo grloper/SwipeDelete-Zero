@@ -67,6 +67,39 @@ class DriveCloudBackupAuthTest {
         override fun observeCountByState(state: String): Flow<Int> = emptyFlow()
     }
 
+    @Test
+    fun `inventory redirect is rejected without replaying bearer token`() = runTest {
+        val backup = DriveCloudBackup(mock(Context::class.java), BackupRepository(
+            InMemoryKeptFileDao(), InMemoryBackedUpFileDao(), InMemoryCloudUploadDao()))
+        backup.getSignedInAccount = { "alice@example.com" to Account("alice@example.com", "com.google") }
+        backup.getAuthToken = { "private-token" }
+        var requests = 0
+        var disconnected = false
+        backup.connectionFactory = { url ->
+            requests++
+            object : java.net.HttpURLConnection(java.net.URL(url)) {
+                override fun connect() {}
+                override fun disconnect() { disconnected = true }
+                override fun usingProxy() = false
+                override fun getResponseCode(): Int {
+                    assertFalse("Authenticated requests must not follow Location", instanceFollowRedirects)
+                    assertEquals("Bearer private-token", getRequestProperty("Authorization"))
+                    return 302
+                }
+                override fun getHeaderField(name: String?): String? =
+                    if (name == "Location") "https://untrusted.example/collect" else null
+                override fun getErrorStream(): java.io.InputStream? = null
+            }
+        }
+        try {
+            backup.availableOriginals()
+            org.junit.Assert.fail("Redirect must fail, not produce a backup inventory")
+        } catch (error: DriveCloudBackup.HttpStatusException) {
+            assertEquals(302, error.code)
+        }
+        assertEquals(1, requests)
+        assertTrue(disconnected)
+    }
     private fun sampleKept(uri: String, name: String) = KeptFileEntity(
         contentUri = uri,
         displayName = name,
@@ -416,7 +449,7 @@ class DriveCloudBackupAuthTest {
                 override fun connect() {}
                 override fun disconnect() {}
                 override fun usingProxy() = false
-                override fun getResponseCode() = 200
+                override fun getResponseCode(): Int { assertFalse(instanceFollowRedirects); return 200 }
                 override fun getInputStream(): java.io.InputStream {
                     backup.signOut()
                     return """{"files":[]}""".byteInputStream()
@@ -547,7 +580,7 @@ class DriveCloudBackupAuthTest {
                 override fun connect() {}
                 override fun disconnect() {}
                 override fun usingProxy() = false
-                override fun getResponseCode() = 200
+                override fun getResponseCode(): Int { assertFalse(instanceFollowRedirects); return 200 }
                 override fun getInputStream(): java.io.InputStream = when {
                     url.contains("alt=media") -> source.inputStream()
                     url.contains("fields=files(id)") -> """{"files":[{"id":"folder"}]}""".byteInputStream()
@@ -592,7 +625,7 @@ class DriveCloudBackupAuthTest {
                 override fun connect() {}
                 override fun disconnect() {}
                 override fun usingProxy() = false
-                override fun getResponseCode() = 200
+                override fun getResponseCode(): Int { assertFalse(instanceFollowRedirects); return 200 }
                 override fun getInputStream(): java.io.InputStream = if (url.endsWith("alt=media")) {
                     "changed! bytes".byteInputStream()
                 } else {
@@ -763,7 +796,7 @@ class DriveCloudBackupAuthTest {
                     override fun connect() {}
                     override fun disconnect() {}
                     override fun usingProxy() = false
-                    override fun getResponseCode() = 200
+                    override fun getResponseCode(): Int { assertFalse(instanceFollowRedirects); return 200 }
                     override fun getInputStream(): java.io.InputStream = if (url.contains("alt=media")) {
                         original.inputStream()
                     } else {

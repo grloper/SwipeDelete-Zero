@@ -517,7 +517,7 @@ class DriveCloudBackup @Inject constructor(
                 props.optString("originalSize") != original.sizeBytes.toString() ||
                 props.optString("originalSha256") != original.sha256) return@withContext false
 
-            val connection = connectionFactory(
+            val connection = openDriveConnection(
                 "https://www.googleapis.com/drive/v3/files/${original.remoteId}?alt=media"
             ).apply {
                 requestMethod = "GET"
@@ -620,7 +620,7 @@ class DriveCloudBackup @Inject constructor(
             .toString()
 
         val url = URL("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id")
-        val connection = connectionFactory(url.toString()).apply {
+        val connection = openDriveConnection(url.toString()).apply {
             requestMethod = "POST"
             doOutput = true
             setChunkedStreamingMode(0)
@@ -687,8 +687,8 @@ class DriveCloudBackup @Inject constructor(
     }
 
     /** Drive recommends a resumable session for files over 5 MiB. This first
-     * version sends one bounded PUT; transient interrupted sessions are retried
-     * as new uploads and are not yet persisted across process death. */
+     * version sends one bounded PUT; interrupted sessions persist locally and resume
+     * from the server-confirmed offset, with remote reconciliation after process death. */
     private fun uploadLargeFile(
         token: String, folderId: String, file: KeptFileEntity, guard: () -> Unit,
         onVerified: (String) -> Unit,
@@ -752,7 +752,7 @@ class DriveCloudBackup @Inject constructor(
                 .put("originalSha256", hashHex)
                 .put("sourceUriSha256", sourceUriHash(file.contentUri))
                 .put("originalSize", file.sizeBytes.toString()))
-        val init = connectionFactory("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id").apply {
+        val init = openDriveConnection("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id").apply {
             requestMethod = "POST"
             doOutput = true
             setRequestProperty("Authorization", "Bearer $token")
@@ -784,7 +784,7 @@ class DriveCloudBackup @Inject constructor(
         check(validUploadSession(sessionUrl)) { "Unexpected Drive upload session destination" }
         // Query the server's offset. A lost final response may already contain
         // the file ID; a partial upload returns 308 and a Range header.
-        val probe = connectionFactory(sessionUrl).apply {
+        val probe = openDriveConnection(sessionUrl).apply {
             requestMethod = "PUT"
             doOutput = true
             setFixedLengthStreamingMode(0)
@@ -808,7 +808,7 @@ class DriveCloudBackup @Inject constructor(
             probe.disconnect()
         }
         guard()
-        val connection = connectionFactory(sessionUrl).apply {
+        val connection = openDriveConnection(sessionUrl).apply {
             requestMethod = "PUT"
             doOutput = true
             setFixedLengthStreamingMode(file.sizeBytes - offset)
@@ -935,7 +935,7 @@ class DriveCloudBackup @Inject constructor(
         token: String, remoteId: String, size: Long, expectedHash: ByteArray, guard: () -> Unit,
     ) {
         guard()
-        val connection = connectionFactory("https://www.googleapis.com/drive/v3/files/$remoteId?alt=media").apply {
+        val connection = openDriveConnection("https://www.googleapis.com/drive/v3/files/$remoteId?alt=media").apply {
             requestMethod = "GET"
             setRequestProperty("Authorization", "Bearer $token")
             setRequestProperty("Accept-Encoding", "identity")
@@ -990,7 +990,7 @@ class DriveCloudBackup @Inject constructor(
 
     private fun httpRequest(urlString: String, token: String, method: String, body: String?, guard: () -> Unit = {}): String {
         guard()
-        val connection = connectionFactory(urlString).apply {
+        val connection = openDriveConnection(urlString).apply {
             requestMethod = method
             setRequestProperty("Authorization", "Bearer $token")
             connectTimeout = 30_000
@@ -1021,6 +1021,10 @@ class DriveCloudBackup @Inject constructor(
         }
     }
 
+    // Never replay authenticated requests or original bytes through a redirect.
+    // Drive resumable sessions use an explicitly validated Location instead.
+    private fun openDriveConnection(url: String): HttpURLConnection =
+        connectionFactory(url).apply { instanceFollowRedirects = false }
     private fun OutputStream.writeAscii(text: String) = write(text.toByteArray(Charsets.US_ASCII))
 
     internal class HttpStatusException(val code: Int, message: String) : Exception(message)
