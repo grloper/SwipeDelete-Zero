@@ -142,6 +142,11 @@ interface BackupReceiptDao {
 
     @Query("DELETE FROM backup_receipts WHERE contentUri = :uri AND provider = :provider AND accountId = :accountId")
     suspend fun remove(uri: String, provider: String, accountId: String)
+    @Query("DELETE FROM backup_receipts WHERE contentUri = :uri")
+    suspend fun removeLocalHistoryForUri(uri: String): Int
+
+    @Query("DELETE FROM backup_receipts WHERE provider = 'GOOGLE_DRIVE' AND accountId = :accountId")
+    suspend fun invalidateDriveAccount(accountId: String): Int
 }
 
 @Dao

@@ -127,44 +127,50 @@ class BackupRepository constructor(
         }
     }
 
-    /** Remove from ledger so the app forgets it was previously backed up. */
+    /** Explicitly forget all LOCAL backup metadata for this URI. No remote/original deletion. */
     suspend fun forgetBackedUp(uri: String): Boolean {
-        val deleted = backedUpFileDao.delete(uri) > 0
-        cloudUploadDao.delete(uri)
-        return deleted
+        val db = requireNotNull(database) { "Backup database unavailable" }
+        val receipts = requireNotNull(receiptDao) { "Backup receipt DAO unavailable" }
+        return db.withTransaction {
+            val legacy = backedUpFileDao.delete(uri)
+            val verified = receipts.removeLocalHistoryForUri(uri)
+            cloudUploadDao.delete(uri)
+            legacy + verified > 0
+        }
     }
 
-    /**
-     * Re-backup: Clears any stale ledger record and resets or creates a fresh QUEUED
-     * upload row so the upload worker can cleanly push it to Google Photos.
-     */
+    /** Receipts describe previously verified bytes, not a fresh check of today's local bytes.
+     * Explicit recheck invalidates only this Drive account and preserves other destinations. */
+    suspend fun invalidateDriveReceipts(accountId: String): Int {
+        require(accountId.isNotBlank()) { "Connect a Google account before rechecking originals" }
+        return requireNotNull(receiptDao).invalidateDriveAccount(accountId)
+    }
+
+    /** Queue a new Photos upload authorized for the selected account. Worker rechecks identity. */
     suspend fun rebackup(
         uri: String,
         displayName: String,
         mimeType: String,
-        sizeBytes: Long
+        sizeBytes: Long,
+        accountName: String?,
     ) {
-        backedUpFileDao.delete(uri)
-        val now = System.currentTimeMillis()
-        cloudUploadDao.upsert(
-            CloudUploadEntity(
-                contentUri = uri,
-                displayName = displayName,
-                mimeType = mimeType,
-                sizeBytes = sizeBytes,
-                state = CloudUploadEntity.STATE_QUEUED,
-                uploadUrl = null,
-                bytesUploaded = 0,
-                uploadToken = null,
-                mediaItemId = null,
-                attempts = 0,
-                lastError = null,
-                enqueuedAtMillis = now,
-                updatedAtMillis = now,
-            )
-        )
+        require(!accountName.isNullOrBlank()) { "Connect a Google account before re-uploading" }
+        val db = requireNotNull(database) { "Backup database unavailable" }
+        db.withTransaction {
+            // A Photos retry must not erase an independent Drive backup index/receipt.
+            if (backedUpFileDao.get(uri)?.remoteId?.startsWith("photos:") == true) {
+                backedUpFileDao.delete(uri)
+            }
+            val now = System.currentTimeMillis()
+            cloudUploadDao.upsert(CloudUploadEntity(
+                contentUri = uri, displayName = displayName, mimeType = mimeType,
+                sizeBytes = sizeBytes, state = CloudUploadEntity.STATE_QUEUED,
+                uploadUrl = null, bytesUploaded = 0, uploadToken = null,
+                mediaItemId = null, attempts = 0, lastError = null,
+                enqueuedAtMillis = now, updatedAtMillis = now, accountName = accountName,
+            ))
+        }
     }
-
     suspend fun retryAllFailedUploads(): Int = cloudUploadDao.retryAllFailed()
 
     suspend fun clearCompletedUploads(): Int = cloudUploadDao.clearCompleted()

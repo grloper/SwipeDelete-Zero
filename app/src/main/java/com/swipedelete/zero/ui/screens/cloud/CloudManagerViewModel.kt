@@ -178,16 +178,23 @@ class CloudManagerViewModel @Inject constructor(
 
     fun forgetBackedUp(uri: String) {
         viewModelScope.launch {
-            val removed = backupRepository.forgetBackedUp(uri)
-            userMessage.value = if (removed) "Removed from cloud backup ledger" else "Item not found in ledger"
+            try {
+                val removed = backupRepository.forgetBackedUp(uri)
+                userMessage.value = if (removed) "Forgot local backup history. Original and remote copies were not deleted." else "Item not found in local history"
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e
+            } catch (e: Exception) { userMessage.value = e.message ?: "Local history could not be reset." }
         }
     }
 
     fun rebackupFile(uri: String, displayName: String, mimeType: String, sizeBytes: Long) {
         viewModelScope.launch {
-            backupRepository.rebackup(uri, displayName, mimeType, sizeBytes)
-            photosArchive.retryAllFailed() // kicks worker if needed
-            userMessage.value = "Re-backup queued for $displayName"
+            val account = (cloudBackup.state.value as? BackupState.Ready)?.accountEmail
+            try {
+                backupRepository.rebackup(uri, displayName, mimeType, sizeBytes, account)
+                photosArchive.retryAllFailed() // Worker rechecks the bound selected account.
+                userMessage.value = "Photos re-upload queued for $displayName; not yet verified."
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e
+            } catch (e: Exception) { userMessage.value = e.message ?: "Re-upload could not be queued." }
         }
     }
 
@@ -209,6 +216,22 @@ class CloudManagerViewModel @Inject constructor(
     fun onSignInResult(data: Intent?) {
         cloudBackup.onSignInResult(data)
         if (cloudBackup.state.value is BackupState.Ready) refreshOriginals()
+    }
+
+    fun recheckDriveOriginals() {
+        val account = (cloudBackup.state.value as? BackupState.Ready)?.accountEmail ?: return
+        viewModelScope.launch {
+            try {
+                backupRepository.invalidateDriveReceipts(account)
+                if ((cloudBackup.state.value as? BackupState.Ready)?.accountEmail != account) {
+                    userMessage.value = "Account changed; run recheck again for the selected account."
+                    return@launch
+                }
+                cloudBackup.backupNow()
+                userMessage.value = "Fresh Drive backup requested. Stored receipts were reset; completion is not yet verified."
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e
+            } catch (e: Exception) { userMessage.value = e.message ?: "Could not request a fresh backup." }
+        }
     }
 
     fun backupNow() {

@@ -204,7 +204,16 @@ fun CloudManagerScreen(
                 OutlinedButton(
                     onClick = viewModel::backupNow,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = SdzSpace.lg),
-                ) { Text("Back up kept and staged originals to Drive") }
+                ) { Text("Back up kept and staged originals to Drive") }                Text(
+                    "Backup counts use stored receipts. Same-size local edits need a fresh recheck.",
+                    color = SdzColor.TextSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = SdzSpace.lg),
+                )
+                TextButton(
+                    onClick = viewModel::recheckDriveOriginals,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = SdzSpace.lg),
+                ) { Text("Recheck current originals") }
             }
             // Real-Time Speed & Performance Meter
             CloudPerformanceCard(
