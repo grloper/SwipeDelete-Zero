@@ -54,6 +54,7 @@ fun DecisionActionRow(
     onArchive: () -> Unit,
     onKeep: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     undoEnabled: Boolean = false,
     archiveEnabled: Boolean = true,
     archiveLabel: String = "Archive",
@@ -72,14 +73,15 @@ fun DecisionActionRow(
             accent = SdzColor.TextSecondary,
             onClick = onUndo,
             diameter = SdzTouch.minTarget,
-            enabled = undoEnabled,
+            enabled = enabled && undoEnabled,
         )
         SdzCircleAction(
             icon = SdzIcons.Delete,
-            label = "Delete",
+            label = "Stage",
             accent = SdzColor.Red,
             onClick = onReclaim,
             diameter = SdzTouch.primaryAction,
+            enabled = enabled,
         )
         SdzCircleAction(
             icon = SdzIcons.Archive,
@@ -87,7 +89,7 @@ fun DecisionActionRow(
             accent = SdzColor.Teal,
             onClick = onArchive,
             diameter = SdzTouch.secondaryAction,
-            enabled = archiveEnabled,
+            enabled = enabled && archiveEnabled,
         )
         SdzCircleAction(
             icon = SdzIcons.Keep,
@@ -95,6 +97,7 @@ fun DecisionActionRow(
             accent = SdzColor.Azure,
             onClick = onKeep,
             diameter = SdzTouch.primaryAction,
+            enabled = enabled,
             filled = true,
         )
     }
@@ -134,7 +137,7 @@ fun DeckCoachmark(
                     icon = SdzIcons.Delete,
                     accent = SdzColor.Red,
                     gesture = "Swipe left",
-                    meaning = "Delete it. Reversible — it waits safely in Staging before permanent removal.",
+                    meaning = "Stage for review. Your original stays on this device.",
                 )
                 CoachLine(
                     icon = SdzIcons.Keep,

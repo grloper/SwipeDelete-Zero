@@ -36,8 +36,10 @@ class UploadReducerTest {
         assertEquals(r.sizeBytes, r.bytesUploaded)
 
         r = UploadReducer.reduce(r, UploadEvent.Created("media-item-9"), 5)
-        assertEquals(CloudUploadEntity.STATE_VERIFIED, r.state)
+        assertEquals(CloudUploadEntity.STATE_VERIFYING, r.state)
         assertEquals("media-item-9", r.mediaItemId)
+        r = UploadReducer.reduce(r, UploadEvent.RemoteVerified, 6)
+        assertEquals(CloudUploadEntity.STATE_VERIFIED, r.state)
     }
 
     @Test
@@ -46,6 +48,12 @@ class UploadReducerTest {
         val r = UploadReducer.reduce(verifying, UploadEvent.Created(""), 9)
         assertEquals(CloudUploadEntity.STATE_FAILED, r.state)
         assertNull(r.mediaItemId)
+    }
+
+    @Test
+    fun `remote verification without creation cannot unlock deletion`() {
+        val r = UploadReducer.reduce(row, UploadEvent.RemoteVerified, 9)
+        assertEquals(CloudUploadEntity.STATE_FAILED, r.state)
     }
 
     @Test

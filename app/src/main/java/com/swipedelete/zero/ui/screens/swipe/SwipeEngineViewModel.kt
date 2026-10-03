@@ -39,6 +39,9 @@ enum class DeckSortOrder {
 
 data class SwipeUiState(
     val loading: Boolean = true,
+    val actionError: String? = null,
+    val actionInProgress: Boolean = false,
+    val cardResetToken: Long = 0,
     val deck: Deck? = null,
     val cursor: Int = 0,
     val sortOrder: DeckSortOrder = DeckSortOrder.NEWEST_FIRST,
@@ -47,9 +50,9 @@ data class SwipeUiState(
     /** The most recent swipe, kept alive for the 5-second Undo window. */
     val lastAction: SwipeAction? = null,
     /** Bytes queued for reclaim during this sitting — the celebration's figure. */
-    val sessionReclaimedBytes: Long = 0,
-    /** Files queued for reclaim during this sitting. */
-    val sessionReclaimedCount: Int = 0,
+    val sessionStagedBytes: Long = 0,
+    /** Files staged in this review; undo removes them from this tally. */
+    val sessionStagedCount: Int = 0,
     /** True until the user has been shown the gesture coachmark. */
     val showCoachmark: Boolean = false,
 ) {
@@ -70,8 +73,14 @@ class SwipeEngineViewModel @Inject constructor(
     private val analysisDao: MediaAnalysisDao,
     private val mediaPreloader: MediaPreloader,
     private val statsStore: StatsStore,
+    private val reviewSound: com.swipedelete.zero.data.repository.ReviewSound,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
+
+    private var feedbackActive = false
+    fun setFeedbackActive(active: Boolean) { feedbackActive = active }
+
+    private val actionBusy = com.swipedelete.zero.domain.feedback.ReviewActionGate()
 
     private val deckId: String = checkNotNull(savedStateHandle[Routes.ARG_DECK_ID])
 
@@ -128,8 +137,11 @@ class SwipeEngineViewModel @Inject constructor(
     }
 
     fun loadDeck(id: String) {
+        if (!actionBusy.enter()) return
+        _state.update { it.copy(loading = true, lastAction = null, actionError = null,
+            sessionStagedBytes = 0, sessionStagedCount = 0) }
         viewModelScope.launch {
-            _state.update { it.copy(loading = true) }
+            try {
             val deck = deckRepository.getDeck(id)
             val nextDeck = deck?.let { deckRepository.getNextDeckInGroup(it) }
             _state.update {
@@ -141,10 +153,15 @@ class SwipeEngineViewModel @Inject constructor(
                     nextDeckTitle = nextDeck?.title,
                 )
             }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { _state.update { it.copy(loading = false, deck = null,
+                actionError = "Could not load this review. Return to the library and try again.") } }
+            finally { actionBusy.leave(); _state.update { it.copy(actionInProgress = false) } }
         }
     }
 
     fun setSortOrder(order: DeckSortOrder) {
+        if (actionBusy.isBusy()) return
         val current = _state.value
         val deck = current.deck ?: return
         if (current.sortOrder == order) return
@@ -164,14 +181,23 @@ class SwipeEngineViewModel @Inject constructor(
         }
     }
 
-    fun onSwipe(direction: SwipeDirection) {
+    fun onSwipe(direction: SwipeDirection): Boolean {
         val current = _state.value
-        val deck = current.deck ?: return
+        val deck = current.deck ?: return false
         val index = current.cursor
-        if (index >= deck.totalCount) return
+        if (direction == SwipeDirection.NONE || index >= deck.totalCount || !actionBusy.enter()) return false
         val item = deck.items[index]
+        _state.update { it.copy(actionInProgress = true) }
 
         viewModelScope.launch {
+            try {
+            _state.update { it.copy(actionError = null) }
+            reviewSound.afterCommit(when (direction) {
+                SwipeDirection.LEFT -> com.swipedelete.zero.domain.feedback.ReviewFeedback.STAGED
+                SwipeDirection.RIGHT -> com.swipedelete.zero.domain.feedback.ReviewFeedback.KEPT
+                else -> if (photosArchive.isAvailable) com.swipedelete.zero.domain.feedback.ReviewFeedback.QUEUED
+                    else com.swipedelete.zero.domain.feedback.ReviewFeedback.STARRED
+            }, { feedbackActive }) {
             when (direction) {
                 SwipeDirection.LEFT -> stagingRepository.stage(item, deck.id)
                 SwipeDirection.UP -> {
@@ -189,48 +215,68 @@ class SwipeEngineViewModel @Inject constructor(
                 SwipeDirection.NONE -> Unit
             }
             val nextCursor = index + 1
+            deckRepository.saveProgress(deck, nextCursor)
             _state.update {
                 it.copy(
                     cursor = nextCursor,
                     lastAction = SwipeAction(item, direction, deck.id, index),
-                    sessionReclaimedBytes = it.sessionReclaimedBytes +
+                    sessionStagedBytes = it.sessionStagedBytes +
                         if (direction == SwipeDirection.LEFT) item.sizeBytes else 0L,
-                    sessionReclaimedCount = it.sessionReclaimedCount +
+                    sessionStagedCount = it.sessionStagedCount +
                         if (direction == SwipeDirection.LEFT) 1 else 0,
                 )
             }
-            deckRepository.saveProgress(deck, nextCursor)
+            }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                _state.update { it.copy(cardResetToken = it.cardResetToken + 1, actionError = "Could not finish this review action. Some local changes may be saved. Nothing was deleted. Retry or return to your library.") }
+            } finally { actionBusy.leave(); _state.update { it.copy(actionInProgress = false) } }
         }
+        return true
     }
 
     /** Reverse the last swipe within the 5-second window. */
     fun undo() {
         val last = _state.value.lastAction ?: return
         val deck = _state.value.deck ?: return
+        if (last.deckId != deck.id || !actionBusy.enter()) return
+        _state.update { it.copy(actionInProgress = true) }
         viewModelScope.launch {
+            try {
+            _state.update { it.copy(actionError = null) }
+            reviewSound.afterCommit(com.swipedelete.zero.domain.feedback.ReviewFeedback.UNDONE, { feedbackActive }) {
             when (last.direction) {
                 SwipeDirection.LEFT -> stagingRepository.restore(last.item.contentUri.toString())
                 SwipeDirection.UP -> {
-                    photosArchive.cancelIfQueued(last.item.contentUri.toString())
+                    if (photosArchive.isAvailable) photosArchive.cancelIfQueued(last.item.contentUri.toString())
+                    else exclusionRepository.unstarItem(last.item.contentUri.toString())
                     backupRepository.removeKept(last.item.contentUri.toString())
                 }
                 SwipeDirection.RIGHT -> backupRepository.removeKept(last.item.contentUri.toString())
                 SwipeDirection.NONE -> Unit
             }
+            deckRepository.saveProgress(deck, last.deckIndex)
             _state.update {
                 it.copy(
                     cursor = last.deckIndex,
                     lastAction = null,
                     // Undo must also unwind the session tally, or the
                     // celebration would claim space the user just took back.
-                    sessionReclaimedBytes = (it.sessionReclaimedBytes -
+                    sessionStagedBytes = (it.sessionStagedBytes -
                         if (last.direction == SwipeDirection.LEFT) last.item.sizeBytes else 0L)
                         .coerceAtLeast(0L),
-                    sessionReclaimedCount = (it.sessionReclaimedCount -
+                    sessionStagedCount = (it.sessionStagedCount -
                         if (last.direction == SwipeDirection.LEFT) 1 else 0).coerceAtLeast(0),
                 )
             }
-            deckRepository.saveProgress(deck, last.deckIndex)
+            }
+            if (last.direction == SwipeDirection.UP && photosArchive.isAvailable) {
+                _state.update { it.copy(actionError = "Local review undone. Uploads already running may continue; check the cloud queue.") }
+            }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                _state.update { it.copy(actionError = "Undo could not finish. Nothing was deleted. Check the staged list before trying again.") }
+            } finally { actionBusy.leave(); _state.update { it.copy(actionInProgress = false) } }
         }
     }
 

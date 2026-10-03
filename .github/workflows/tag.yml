@@ -15,19 +15,35 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   tag:
     runs-on: ubuntu-latest
+    timeout-minutes: 50
     steps:
-      - name: Create tag ref
+      - uses: actions/checkout@v4
+      - name: Require exact-commit verification before tagging
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ inputs.sha }}
+        run: python scripts/ci_release_gate.py "$TARGET_SHA" --repository "$GITHUB_REPOSITORY"
+      - name: Create tested tag ref
         uses: actions/github-script@v7
+        env:
+          TARGET_SHA: ${{ inputs.sha }}
+          TARGET_TAG: ${{ inputs.tag }}
         with:
           script: |
+            const sha = process.env.TARGET_SHA;
+            const tag = process.env.TARGET_TAG;
+            if (!/^[0-9a-f]{40}$/.test(sha) || !/^v[0-9][0-9A-Za-z._-]*$/.test(tag)) {
+              throw new Error('Expected a full tested SHA and a version tag');
+            }
             await github.rest.git.createRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: `refs/tags/${{ toJSON(inputs.tag) }}`.replace(/"/g, ''),
-              sha: '${{ inputs.sha }}',
+              ref: `refs/tags/${tag}`,
+              sha,
             });
-            core.info(`Created refs/tags/${{ inputs.tag }} at ${{ inputs.sha }}`);
+            core.info(`Created tested refs/tags/${tag} at ${sha}`);

@@ -75,6 +75,7 @@ import java.util.Locale
 @Composable
 fun StagingDrawerScreen(
     onBack: () -> Unit,
+    onOpenBackupSetup: () -> Unit = {},
     viewModel: StagingViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -83,7 +84,7 @@ fun StagingDrawerScreen(
     // The staged file currently opened in the full-screen preview, if any.
     var previewItem by remember { mutableStateOf<StagedFileEntity?>(null) }
 
-    // Keep the preview in sync with the queue: if the shown file is restored or
+    // Keep the preview in sync with the queue: if the shown file is unstaged or
     // purged elsewhere, close the overlay instead of previewing a ghost.
     LaunchedEffect(state.items, previewItem) {
         val shown = previewItem ?: return@LaunchedEffect
@@ -104,7 +105,9 @@ fun StagingDrawerScreen(
                 is PurgeEffect.Completed ->
                     Toast.makeText(
                         context,
-                        "Freed ${effect.freedBytes.toReadableSize()} · ${effect.purgedCount} files",
+                        if (effect.mode == ExecutionMode.PERMANENT_PURGE)
+                            "Deleted ${effect.purgedCount} files · ${effect.freedBytes.toReadableSize()} reclaimed"
+                        else "${effect.purgedCount} files moved to Android Trash",
                         Toast.LENGTH_LONG,
                     ).show()
                 is PurgeEffect.NeedsSafAccess ->
@@ -146,14 +149,14 @@ fun StagingDrawerScreen(
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        "${state.count} files • ${state.totalBytes.toReadableSize()} ready to purge",
+                        "${state.count} files • ${state.totalBytes.toReadableSize()} staged for review",
                         color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.labelMedium,
                     )
                 }
                 if (state.count > 0) {
                     Text(
-                        "Clear",
+                        "Unstage all",
                         color = SdzColor.TextSecondary,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.clickable { viewModel.clearQueue() },
@@ -197,6 +200,41 @@ fun StagingDrawerScreen(
                     }
                 }
 
+                if (state.backupRequired) {
+                    Text(
+                        "Google Photos items: ${state.verifiedCount}/${state.count} found",
+                        color = SdzColor.Phosphor,
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        when {
+                            !state.cleanupAvailable -> state.cleanupLockExplanation ?: "Cleanup is unavailable in this test build. Your originals stay on this device."
+                            state.failedBackupCount > 0 -> "Some uploads failed. Retry in Backup Manager."
+                            state.pendingBackupCount > 0 -> "Files stay on your device while Photos uploads are pending."
+                            else -> "Google Photos items found; original bytes are not proven by Photos."
+                        },
+                        color = SdzColor.TextSecondary,
+                    )
+                    if (!state.backupConnected) {
+                        Text("Connect Google Photos", modifier = Modifier.clickable(onClick = onOpenBackupSetup).padding(12.dp), color = SdzColor.Azure)
+                    } else if (state.pendingBackupCount > 0) {
+                        Text("Back up staged files", modifier = Modifier.clickable(onClick = viewModel::backUpStaged).padding(12.dp), color = SdzColor.Azure)
+                    } else {
+                        Text("Recheck backups", modifier = Modifier.clickable(onClick = viewModel::backUpStaged).padding(12.dp), color = SdzColor.Azure)
+                    }
+                }
+
+                if (!state.cleanupAvailable) {
+                    state.cleanupLockExplanation?.let { explanation ->
+                        Text(
+                            explanation,
+                            color = SdzColor.Amber,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
+                }
+
                 ExecutionModeToggle(
                     mode = state.mode,
                     onSelect = viewModel::setMode,
@@ -205,7 +243,8 @@ fun StagingDrawerScreen(
 
                 PurgeCta(
                     bytes = state.totalBytes,
-                    enabled = !state.purging,
+                    mode = state.mode,
+                    enabled = !state.purging && state.canDelete,
                     onClick = viewModel::purge,
                     modifier = Modifier.padding(bottom = 24.dp),
                 )
@@ -265,7 +304,10 @@ internal fun StagedRow(
             )
             if (item.sourceDeckId == PhotosArchive.VERIFIED_SOURCE_DECK) {
                 Text(
-                    "☁ Verified in Google Photos — safe to delete",
+                    if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
+                        "☁ Backed up to Google Photos · Originals stay on device"
+                    else
+                        "☁ Google Photos item found · Original bytes unproven",
                     color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.labelSmall,
                 )
@@ -279,8 +321,8 @@ internal fun StagedRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Icon(Icons.Rounded.Restore, contentDescription = "Restore", tint = SdzColor.Azure, modifier = Modifier.size(20.dp))
-            Text("Restore", color = SdzColor.Azure, style = MaterialTheme.typography.labelMedium)
+            Icon(Icons.Rounded.Restore, contentDescription = "Unstage", tint = SdzColor.Azure, modifier = Modifier.size(20.dp))
+            Text("Unstage", color = SdzColor.Azure, style = MaterialTheme.typography.labelMedium)
         }
     }
 }
@@ -332,7 +374,7 @@ private fun StagedThumbnail(item: StagedFileEntity, modifier: Modifier = Modifie
  * recognise a keeper. Images render full-bleed; videos show their first frame.
  */
 @Composable
-private fun StagedPreviewOverlay(
+internal fun StagedPreviewOverlay(
     item: StagedFileEntity,
     onRestore: () -> Unit,
     onDismiss: () -> Unit,
@@ -457,7 +499,7 @@ private fun StagedPreviewOverlay(
                 Box(Modifier.weight(1f)) {}
                 Icon(Icons.Rounded.Restore, contentDescription = null, tint = SdzColor.Azure, modifier = Modifier.size(20.dp))
                 Text(
-                    "Restore",
+                    "Unstage",
                     color = SdzColor.Azure,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.labelLarge,
@@ -560,6 +602,7 @@ private fun SegmentButton(
 @Composable
 internal fun PurgeCta(
     bytes: Long,
+    mode: ExecutionMode,
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -584,7 +627,8 @@ internal fun PurgeCta(
                 modifier = Modifier.size(20.dp),
             )
             Text(
-                text = "Delete and Free Up " + bytes.toReadableSize(),
+                text = if (mode == ExecutionMode.OS_TRASH_30_DAY)
+                    "Move to Android Trash" else "Delete and Free Up " + bytes.toReadableSize(),
                 color = if (enabled) SdzColor.OnAccent else SdzColor.TextSecondary,
                 fontWeight = FontWeight.Black,
                 style = MaterialTheme.typography.titleMedium,

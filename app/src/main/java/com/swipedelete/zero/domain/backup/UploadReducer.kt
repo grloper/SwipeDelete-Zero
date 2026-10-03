@@ -13,8 +13,14 @@ sealed interface UploadEvent {
     /** The finalize chunk returned the upload token. */
     data class Finalized(val uploadToken: String) : UploadEvent
 
-    /** mediaItems:batchCreate answered — the verification handshake. */
+    /** batchCreate created an item; remote readback must still succeed. */
     data class Created(val mediaItemId: String) : UploadEvent
+
+    /** GET of that exact app-created item returned matching metadata. */
+    data object RemoteVerified : UploadEvent
+
+    /** Resets the upload session cleanly (e.g. after lost finalization or unrecoverable session). */
+    data class SessionReset(val uploadUrl: String? = null) : UploadEvent
 
     /** Any transport/HTTP failure; null [httpCode] = network-level error. */
     data class Failed(val httpCode: Int?, val message: String) : UploadEvent
@@ -53,6 +59,13 @@ object UploadReducer {
                 bytesUploaded = 0,
                 updatedAtMillis = nowMillis,
             )
+            is UploadEvent.SessionReset -> entity.copy(
+                state = CloudUploadEntity.STATE_UPLOADING,
+                uploadUrl = event.uploadUrl,
+                uploadToken = null,
+                bytesUploaded = 0,
+                updatedAtMillis = nowMillis,
+            )
             is UploadEvent.ChunkAcked -> entity.copy(
                 state = CloudUploadEntity.STATE_UPLOADING,
                 bytesUploaded = event.newOffset,
@@ -74,12 +87,23 @@ object UploadReducer {
                     )
                 } else {
                     entity.copy(
-                        state = CloudUploadEntity.STATE_VERIFIED,
+                        state = CloudUploadEntity.STATE_VERIFYING,
                         mediaItemId = event.mediaItemId,
                         lastError = null,
                         updatedAtMillis = nowMillis,
                     )
                 }
+            UploadEvent.RemoteVerified -> {
+                if (entity.mediaItemId.isNullOrBlank()) entity.copy(
+                    state = CloudUploadEntity.STATE_FAILED,
+                    lastError = "Remote verification has no media item ID",
+                    updatedAtMillis = nowMillis,
+                ) else entity.copy(
+                    state = CloudUploadEntity.STATE_VERIFIED,
+                    lastError = null,
+                    updatedAtMillis = nowMillis,
+                )
+            }
             is UploadEvent.Failed -> {
                 val attempts = entity.attempts + 1
                 if (isRetryable(event.httpCode) && attempts < MAX_ATTEMPTS) {

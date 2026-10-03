@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SwipeRise — M0 Safety & Containment Design Proposals</title>
+  <style>
+    :root {
+      --bg: #0B0F17;
+      --card-bg: #111622;
+      --border: #2B3245;
+      --text: #F5F7FA;
+      --text-muted: #8B949E;
+      --accent: #00F2FE;
+      --warning: #F4CE78;
+      --success: #4EEDA6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: 24px;
+      line-height: 1.5;
+    }
+    header {
+      max-width: 900px;
+      margin: 0 auto 32px auto;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+    h1 { font-size: 26px; color: #FFFFFF; margin-bottom: 6px; }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 6px;
+      background: #352D18;
+      color: var(--warning);
+      border: 1px solid var(--warning);
+      margin-bottom: 12px;
+    }
+    p.subtitle { color: var(--text-muted); font-size: 14px; }
+    .tabs {
+      display: flex;
+      gap: 12px;
+      max-width: 900px;
+      margin: 0 auto 24px auto;
+    }
+    .tab-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .tab-btn:hover { color: var(--text); border-color: var(--accent); }
+    .tab-btn.active {
+      background: var(--border);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .preview-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .proposal-meta {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+    .proposal-title { font-size: 20px; font-weight: 700; color: #FFFFFF; }
+    .proposal-desc { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+    .preview-wrapper {
+      display: flex;
+      justify-content: center;
+      background: #06090E;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      overflow: auto;
+    }
+    img.svg-view {
+      max-width: 412px;
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+    .tokens {
+      background: #0E131C;
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 13px;
+      font-family: monospace;
+      color: #A5D6FF;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="badge">M0 DESIGN SPECIFICATION — NOT RUNNING UI</div>
+    <h1>SwipeRise Safety Foundation Design Proposals</h1>
+    <p class="subtitle">Interactive reviewer preview for M0-R8. Three labeled design proposals demonstrating the immediate M0 local deletion safety lock, non-destructive status indicators, and transparent user explanations.</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showProposal('a')">Proposal A: Safety Lock Banner</button>
+    <button class="tab-btn" onclick="showProposal('b')">Proposal B: Explainer Sheet</button>
+    <button class="tab-btn" onclick="showProposal('c')">Proposal C: Drawer Badge &amp; Chip</button>
+  </div>
+
+  <div class="preview-container">
+    <div class="proposal-meta" id="meta-container">
+      <div class="proposal-title" id="p-title">Proposal A — Immediate M0 Safety Lock Banner</div>
+      <div class="proposal-desc" id="p-desc">Prominently positioned persistent warning banner in Staging Screen. Informs user that cleanup is unavailable in this test build and device originals are kept safe.</div>
+    </div>
+
+    <div class="preview-wrapper">
+      <img id="svg-view" class="svg-view" src="proposal_a_lock_banner.svg" alt="Design Proposal SVG">
+    </div>
+
+    <div class="tokens" id="p-tokens">
+      Tokens: background=#0B0F17, card=#161B26, lockCard=#1C1810, warningBorder=#F4CE78, warningText=#F4CE78, ctaDisabled=#21252E
+    </div>
+  </div>
+
+  <script>
+    const proposals = {
+      a: {
+        title: "Proposal A — Immediate M0 Safety Lock Banner",
+        desc: "Prominently positioned persistent warning banner in Staging Screen. Informs user that cleanup is unavailable in this test build and device originals are kept safe.",
+        file: "proposal_a_lock_banner.svg",
+        tokens: "Tokens: background=#0B0F17, card=#161B26, lockCard=#1C1810, warningBorder=#F4CE78, warningText=#F4CE78, ctaDisabled=#21252E"
+      },
+      b: {
+        title: "Proposal B — Dedicated Explainer Bottom Sheet",
+        desc: "Interactive educational modal triggered when tapping lock indicators. Explicitly explains why Google Photos metadata backup is non-destructive and why local deletion requires M1 original restore verification.",
+        file: "proposal_b_explainer_sheet.svg",
+        tokens: "Tokens: scrim=#05070B (85%), sheet=#111622, border=#2B3245, accent=#00F2FE, success=#4EEDA6, primaryCta=#00F2FE"
+      },
+      c: {
+        title: "Proposal C — Staging Drawer Navigation Badge & Status Chip",
+        desc: "Navigation drawer integration showing persistent 'LOCKED' badge on Staging Drawer menu entry and status chip '☁ Backed up to Google Photos · Originals stay on device' on each card.",
+        file: "proposal_c_drawer_badge.svg",
+        tokens: "Tokens: drawerBg=#111622, badgeBg=#F4CE78, badgeText=#111622, chipBg=#112A26, chipBorder=#4EEDA6, chipText=#4EEDA6"
+      }
+    };
+
+    function showProposal(id) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      const p = proposals[id];
+      document.getElementById('p-title').innerText = p.title;
+      document.getElementById('p-desc').innerText = p.desc;
+      document.getElementById('svg-view').src = p.file;
+      document.getElementById('p-tokens').innerText = p.tokens;
+    }
+  </script>
+</body>
+</html>

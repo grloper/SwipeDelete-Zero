@@ -2,8 +2,10 @@ package com.swipedelete.zero.ui.screens.cloud
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.swipedelete.zero.data.local.BackupReceiptEntity
 import com.swipedelete.zero.data.local.BackedUpFileEntity
 import com.swipedelete.zero.data.local.CloudUploadEntity
 import com.swipedelete.zero.data.repository.BackupRepository
@@ -12,6 +14,7 @@ import com.swipedelete.zero.domain.backup.CloudBackup
 import com.swipedelete.zero.domain.backup.CloudUploadStats
 import com.swipedelete.zero.domain.backup.ConnectionCheck
 import com.swipedelete.zero.domain.backup.PhotosArchive
+import com.swipedelete.zero.domain.backup.RemoteOriginal
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,6 +29,9 @@ data class CloudManagerUiState(
     val uploadStats: CloudUploadStats = CloudUploadStats(),
     val uploads: List<CloudUploadEntity> = emptyList(),
     val backedUpFiles: List<BackedUpFileEntity> = emptyList(),
+    val verifiedReceipts: List<BackupReceiptEntity> = emptyList(),
+    val remoteOriginals: List<RemoteOriginal> = emptyList(),
+    val isLoadingOriginals: Boolean = false,
     val selectedTab: Int = 0,
     val searchQuery: String = "",
     val connectionCheck: ConnectionCheck? = null,
@@ -55,17 +61,22 @@ class CloudManagerViewModel @Inject constructor(
     private val connectionCheck = MutableStateFlow<ConnectionCheck?>(null)
     private val isCheckingConnection = MutableStateFlow(false)
     private val userMessage = MutableStateFlow<String?>(null)
+    private val remoteOriginals = MutableStateFlow<List<RemoteOriginal>>(emptyList())
+    private val isLoadingOriginals = MutableStateFlow(false)
 
     val uiState: StateFlow<CloudManagerUiState> = combine(
         cloudBackup.state,
         photosArchive.uploadStats,
         backupRepository.observeCloudUploads(),
         backupRepository.observeBackedUpFiles(),
+        backupRepository.observeVerifiedReceipts(),
         selectedTab,
         searchQuery,
         connectionCheck,
         isCheckingConnection,
         userMessage,
+        remoteOriginals,
+        isLoadingOriginals,
     ) { params ->
         val backupState = params[0] as BackupState
         val stats = params[1] as CloudUploadStats
@@ -73,17 +84,25 @@ class CloudManagerViewModel @Inject constructor(
         val uploads = params[2] as List<CloudUploadEntity>
         @Suppress("UNCHECKED_CAST")
         val backedUp = params[3] as List<BackedUpFileEntity>
-        val tab = params[4] as Int
-        val query = params[5] as String
-        val check = params[6] as? ConnectionCheck
-        val isChecking = params[7] as Boolean
-        val msg = params[8] as? String
+        @Suppress("UNCHECKED_CAST")
+        val receipts = params[4] as List<BackupReceiptEntity>
+        val tab = params[5] as Int
+        val query = params[6] as String
+        val check = params[7] as? ConnectionCheck
+        val isChecking = params[8] as Boolean
+        val msg = params[9] as? String
+        @Suppress("UNCHECKED_CAST")
+        val originals = params[10] as List<RemoteOriginal>
+        val loadingOriginals = params[11] as Boolean
 
         CloudManagerUiState(
             backupState = backupState,
             uploadStats = stats,
             uploads = uploads,
             backedUpFiles = backedUp,
+            verifiedReceipts = receipts,
+            remoteOriginals = originals,
+            isLoadingOriginals = loadingOriginals,
             selectedTab = tab,
             searchQuery = query,
             connectionCheck = check,
@@ -98,6 +117,37 @@ class CloudManagerViewModel @Inject constructor(
 
     fun selectTab(tabIndex: Int) {
         selectedTab.value = tabIndex
+        if (tabIndex == 2) refreshOriginals()
+    }
+
+    fun refreshOriginals() {
+        viewModelScope.launch {
+            isLoadingOriginals.value = true
+            try {
+                remoteOriginals.value = cloudBackup.availableOriginals()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                remoteOriginals.value = emptyList()
+                userMessage.value = "Could not load Drive originals: ${e.message ?: "connection error"}"
+            } finally {
+                isLoadingOriginals.value = false
+            }
+        }
+    }
+
+    fun restore(original: RemoteOriginal, destination: Uri) {
+        viewModelScope.launch {
+            try {
+                val success = cloudBackup.restoreOriginal(original, destination)
+                userMessage.value = if (success) "Restored and checked ${original.name}"
+                    else "Restore could not be verified. The backup is unchanged; discard any incomplete saved copy."
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                userMessage.value = "Restore failed: ${e.message ?: "connection error"}"
+            }
+        }
     }
 
     fun updateSearchQuery(query: String) {
@@ -128,16 +178,23 @@ class CloudManagerViewModel @Inject constructor(
 
     fun forgetBackedUp(uri: String) {
         viewModelScope.launch {
-            val removed = backupRepository.forgetBackedUp(uri)
-            userMessage.value = if (removed) "Removed from cloud backup ledger" else "Item not found in ledger"
+            try {
+                val removed = backupRepository.forgetBackedUp(uri)
+                userMessage.value = if (removed) "Forgot local backup history. Original and remote copies were not deleted." else "Item not found in local history"
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e
+            } catch (e: Exception) { userMessage.value = e.message ?: "Local history could not be reset." }
         }
     }
 
     fun rebackupFile(uri: String, displayName: String, mimeType: String, sizeBytes: Long) {
         viewModelScope.launch {
-            backupRepository.rebackup(uri, displayName, mimeType, sizeBytes)
-            photosArchive.retryAllFailed() // kicks worker if needed
-            userMessage.value = "Re-backup queued for $displayName"
+            val account = (cloudBackup.state.value as? BackupState.Ready)?.accountEmail
+            try {
+                backupRepository.rebackup(uri, displayName, mimeType, sizeBytes, account)
+                photosArchive.retryAllFailed() // Worker rechecks the bound selected account.
+                userMessage.value = "Photos re-upload queued for $displayName; not yet verified."
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e
+            } catch (e: Exception) { userMessage.value = e.message ?: "Re-upload could not be queued." }
         }
     }
 
@@ -154,6 +211,29 @@ class CloudManagerViewModel @Inject constructor(
         }
     }
 
+    fun signInIntent(): Intent? = cloudBackup.signInIntent()
+
+    fun onSignInResult(data: Intent?) {
+        cloudBackup.onSignInResult(data)
+        if (cloudBackup.state.value is BackupState.Ready) refreshOriginals()
+    }
+
+    fun recheckDriveOriginals() {
+        val account = (cloudBackup.state.value as? BackupState.Ready)?.accountEmail ?: return
+        viewModelScope.launch {
+            try {
+                backupRepository.invalidateDriveReceipts(account)
+                if ((cloudBackup.state.value as? BackupState.Ready)?.accountEmail != account) {
+                    userMessage.value = "Account changed; run recheck again for the selected account."
+                    return@launch
+                }
+                cloudBackup.backupNow()
+                userMessage.value = "Fresh Drive backup requested. Stored receipts were reset; completion is not yet verified."
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e
+            } catch (e: Exception) { userMessage.value = e.message ?: "Could not request a fresh backup." }
+        }
+    }
+
     fun backupNow() {
         cloudBackup.backupNow()
     }
@@ -161,7 +241,28 @@ class CloudManagerViewModel @Inject constructor(
     fun openInGooglePhotos(context: Context) {
         val intent = photosArchive.openInPhotosIntent()
         if (intent != null) {
-            runCatching { context.startActivity(intent) }
+            runCatching { context.startActivity(intent) }.onFailure {
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://photos.google.com/"))) }
+                    .onFailure { userMessage.value = "No app can open Google Photos." }
+            }
+        }
+    }
+
+    fun openBackedUpFile(context: Context, file: BackedUpFileEntity) {
+        viewModelScope.launch {
+            // Legacy Drive receipts use the raw file ID; Photos receipts are namespaced.
+            val isPhotos = file.remoteId.startsWith("photos:")
+            val url = if (isPhotos) photosArchive.remoteUrl(file.remoteId) else {
+                file.remoteId.takeIf { it.matches(Regex("[A-Za-z0-9_-]+")) }
+                    ?.let { "https://drive.google.com/file/d/$it/view" }
+            }
+            if (url == null) {
+                userMessage.value = "Could not open this backup. Local deletion remains locked."
+                return@launch
+            }
+            runCatching {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            }.onFailure { userMessage.value = "No app can open the backup link." }
         }
     }
 }

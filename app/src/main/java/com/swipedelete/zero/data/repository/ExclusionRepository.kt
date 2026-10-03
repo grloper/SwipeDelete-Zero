@@ -4,6 +4,7 @@ import com.swipedelete.zero.data.local.ExclusionDao
 import com.swipedelete.zero.data.local.ExclusionEntity
 import com.swipedelete.zero.domain.model.MediaItem
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -43,6 +44,13 @@ class ExclusionRepository @Inject constructor(
                 createdAtMillis = 0L,
             )
         )
+    }
+
+    /** Undo the local Star action without changing excluded folders or other stars. */
+    suspend fun unstarItem(uri: String) {
+        dao.observeAll().first().filter {
+            it.type == ExclusionEntity.TYPE_STARRED_FILE && it.uri == uri
+        }.forEach { dao.remove(it.id) }
     }
 
     suspend fun remove(id: Long) = dao.remove(id)

@@ -53,6 +53,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun FreedCelebration(
     freedBytes: Long,
+    stagedOnly: Boolean = false,
     modifier: Modifier = Modifier,
     fileCount: Int = 0,
     onFinished: () -> Unit = {},
@@ -61,7 +62,13 @@ fun FreedCelebration(
     val progress = remember(freedBytes) { Animatable(0f) }
     val markScale = remember(freedBytes) { Animatable(0.7f) }
 
-    LaunchedEffect(freedBytes) {
+    LaunchedEffect(freedBytes, stagedOnly) {
+        if (stagedOnly) {
+            // Review completion is a calm summary, without fake space-reclaim reward ticks.
+            progress.snapTo(1f)
+            markScale.snapTo(1f)
+            return@LaunchedEffect
+        }
         markScale.animateTo(1f, SdzMotion.settle())
         // Tick while the counter climbs — the sound of a number going up.
         val ticks = 6
@@ -84,7 +91,7 @@ fun FreedCelebration(
             .padding(SdzSpace.xl)
             .semantics {
                 liveRegion = LiveRegionMode.Assertive
-                contentDescription = "Freed ${freedBytes.toReadableSize()} from $fileCount files"
+                contentDescription = if (stagedOnly) "Review complete. $fileCount files staged, ${freedBytes.toReadableSize()}. Nothing was deleted." else "Freed ${freedBytes.toReadableSize()} from $fileCount files"
             },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(SdzSpace.md),
@@ -107,7 +114,7 @@ fun FreedCelebration(
         }
 
         Text(
-            text = "You freed",
+            text = if (stagedOnly) "Staged for review" else "You freed",
             style = SdzType.Overline,
             color = SdzColor.TextSecondary,
         )
@@ -119,10 +126,14 @@ fun FreedCelebration(
         )
         if (fileCount > 0) {
             Text(
-                text = if (fileCount == 1) "1 file removed" else "$fileCount files removed",
+                text = if (stagedOnly) "$fileCount files staged. Nothing was deleted." else if (fileCount == 1) "1 file removed" else "$fileCount files removed",
                 style = SdzType.Body,
                 color = SdzColor.TextSecondary,
             )
+        }
+
+        if (stagedOnly && fileCount == 0) {
+            Text("Review complete. Nothing was deleted.", color = SdzColor.TextSecondary)
         }
 
         // The strip fills as the number climbs — the same film-cell language as
@@ -169,7 +180,7 @@ fun DeckCompleteCelebration(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(SdzSpace.xl),
         ) {
-            FreedCelebration(freedBytes = freedBytes, fileCount = fileCount)
+            FreedCelebration(freedBytes = freedBytes, fileCount = fileCount, stagedOnly = true)
             Text(
                 text = "Deck complete",
                 style = SdzType.Subtitle,

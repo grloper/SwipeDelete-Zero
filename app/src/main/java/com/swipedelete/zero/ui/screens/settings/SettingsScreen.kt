@@ -5,6 +5,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,11 +31,18 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,10 +61,12 @@ fun SettingsScreen(
     onOpenCloudManager: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val soundEnabled by viewModel.soundEnabled.collectAsStateWithLifecycle()
     val exclusions by viewModel.exclusions.collectAsStateWithLifecycle()
     val backupState by viewModel.backupState.collectAsStateWithLifecycle()
     val pendingBackupCount by viewModel.pendingBackupCount.collectAsStateWithLifecycle()
     val backedUpCount by viewModel.backedUpCount.collectAsStateWithLifecycle()
+    var showPrivacy by remember { mutableStateOf(false) }
 
     val signInLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -69,6 +80,7 @@ fun SettingsScreen(
             .background(SdzColor.Surface0)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp),
     ) {
         Row(
@@ -88,6 +100,16 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.titleLarge,
             )
         }
+
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Review sounds", color = SdzColor.Phosphor)
+                Text("Brief local keep, stage, queue and undo confirmations. Not proof of backup or deletion.",
+                    color = SdzColor.TextSecondary, style = MaterialTheme.typography.bodySmall)
+            }
+            androidx.compose.material3.Switch(checked = soundEnabled, onCheckedChange = viewModel::setSoundEnabled, modifier = Modifier.semantics { contentDescription = "Review sounds" })
+        }
+        Spacer(Modifier.height(16.dp))
 
         if (backupState !is BackupState.Unsupported) {
             DriveBackupSection(
@@ -128,33 +150,54 @@ fun SettingsScreen(
                     .padding(16.dp),
             ) {
                 Text(
-                    "Vault is empty. Swipe up on a card to star & exclude it.",
+                    if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
+                        "Vault is empty. Swipe up queues a Google Photos upload; it does not star or exclude the photo."
+                    else "Vault is empty. Swipe up on a card to star and exclude it.",
                     color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            Spacer(Modifier.weight(1f))
         } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
-            ) {
-                items(exclusions, key = { it.id }) { ex ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                exclusions.forEach { ex ->
                     ExclusionRow(ex = ex, onRemove = { viewModel.remove(ex.id) })
                 }
             }
         }
 
+        TextButton(onClick = { showPrivacy = true }) {
+            Text("Privacy policy", color = SdzColor.Azure)
+        }
         Text(
             if (backupState is BackupState.Unsupported) {
-                "SwipeDelete Zero · GPL v3 · 100% Offline · Zero Net-Permissions"
+                "SwipeRise · GPL v3 · 100% Offline · Zero Net-Permissions"
             } else {
-                "SwipeDelete Zero · GPL v3 · Cloud build — network used only for opt-in Drive backup"
+                "SwipeRise · GPL v3 · Google Photos and Drive backup"
             },
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(vertical = 20.dp),
+        )
+    }
+    if (showPrivacy) {
+        AlertDialog(
+            onDismissRequest = { showPrivacy = false },
+            title = { Text("Privacy · SwipeRise") },
+            text = {
+                Text(
+                    "The Google Play build scans the media you allow on your device and stores " +
+                        "review decisions locally. If you connect Google, selected photos and videos " +
+                        "can be uploaded to your Google Photos account when you choose to archive them. " +
+                        "You can back up kept or staged files to Google Drive and restore an original " +
+                        "after its downloaded bytes match the original hash. " +
+                        "The app uses internet access for those transfers and does not run ads or analytics. " +
+                        "Local cleanup is locked in this test build. Uninstalling clears local app data, " +
+                        "but does not remove uploaded Google files."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showPrivacy = false }) { Text("Close") }
+            },
         )
     }
 }
@@ -192,7 +235,7 @@ private fun DriveBackupSection(
                     modifier = Modifier.size(22.dp),
                 )
                 Text(
-                    "Cloud & Photos Manager",
+                    "Google backup",
                     color = SdzColor.Phosphor,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium,
@@ -211,7 +254,7 @@ private fun DriveBackupSection(
             )
         }
         Text(
-            "Kept & starred files are uploaded once each — view live speed, queue items, re-backup or reconcile deleted cloud files anytime.",
+            "Connect once for Google Drive and Google Photos. Drive uploads kept and staged files and checks a fresh download against the original. Swipe up while reviewing to upload to Photos. Local cleanup remains locked in this test build.",
             color = SdzColor.TextSecondary,
             style = MaterialTheme.typography.labelMedium,
         )
@@ -231,19 +274,14 @@ private fun DriveBackupSection(
                         color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.labelMedium,
                     )
-                    BackupButton(text = "Fix in setup wizard", onClick = onOpenSetup)
+                    BackupButton(text = "Reconnect Google account", onClick = onConnect)
+                    TextButton(onClick = onOpenSetup) { Text("Connection troubleshooting") }
                 } else {
                     state.message?.let {
                         Text(it, color = SdzColor.Amber, style = MaterialTheme.typography.labelMedium)
                     }
                     BackupButton(text = "Connect Google account", onClick = onConnect)
-                    Text(
-                        "First time? The setup wizard walks through it and shows the exact "
-                            + "values Google needs.",
-                        color = SdzColor.TextSecondary,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    BackupButton(text = "Open setup wizard", onClick = onOpenSetup)
+
                 }
             }
 
@@ -262,7 +300,7 @@ private fun DriveBackupSection(
                 ) {
                     Box(modifier = Modifier.weight(1f)) {
                         BackupButton(
-                            text = if (pendingCount > 0) "Back up $pendingCount now" else "Sync to Drive",
+                            text = if (pendingCount > 0) "Back up $pendingCount to Drive" else "Check Drive backup",
                             onClick = onBackupNow,
                         )
                     }
@@ -287,7 +325,7 @@ private fun DriveBackupSection(
 
             is BackupState.Running -> {
                 Text(
-                    "Uploading ${state.done} of ${state.total}…",
+                    "Uploading and checking Drive backups: ${state.done} of ${state.total}…",
                     color = SdzColor.Teal,
                     style = MaterialTheme.typography.labelMedium,
                 )

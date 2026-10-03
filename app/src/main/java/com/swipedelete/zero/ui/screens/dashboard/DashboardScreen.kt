@@ -1,6 +1,7 @@
 package com.swipedelete.zero.ui.screens.dashboard
 
 import android.widget.Toast
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -13,10 +14,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -35,6 +39,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -62,7 +69,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
+import com.swipedelete.zero.domain.scanner.AnalysisRunState
 import com.swipedelete.zero.domain.model.Deck
+import com.swipedelete.zero.domain.model.ExecutionMode
 import com.swipedelete.zero.domain.model.DeckGroup
 import com.swipedelete.zero.domain.model.DeckKind
 import com.swipedelete.zero.ui.components.SdzButton
@@ -85,11 +94,12 @@ import com.swipedelete.zero.ui.theme.SdzType
 import com.swipedelete.zero.ui.util.toReadableSize
 import kotlin.math.roundToInt
 
-private val MediaPermissions = arrayOf(
-    android.Manifest.permission.READ_MEDIA_IMAGES,
-    android.Manifest.permission.READ_MEDIA_VIDEO,
-    android.Manifest.permission.READ_EXTERNAL_STORAGE,
-)
+internal fun photoReviewPermissions(sdk: Int): Array<String> = when {
+    sdk >= 34 -> arrayOf(android.Manifest.permission.READ_MEDIA_IMAGES,
+        android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+    sdk >= 33 -> arrayOf(android.Manifest.permission.READ_MEDIA_IMAGES)
+    else -> arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+}
 
 /**
  * Home.
@@ -102,6 +112,7 @@ private val MediaPermissions = arrayOf(
  * Buckets and sprints are no longer two unrelated stacked sections: they are
  * two *lenses* on the same library, stated as such and switched with a toggle.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DashboardScreen(
     onOpenDeck: (Deck) -> Unit,
@@ -110,17 +121,26 @@ fun DashboardScreen(
     stagingViewModel: StagingViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val loadError by viewModel.loadError.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) viewModel.onPermissionResult(false)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     var lensName by rememberSaveable { mutableStateOf(Lens.CONTENT.name) }
     val lens = Lens.valueOf(lensName)
     var showStaging by rememberSaveable { mutableStateOf(false) }
+    val currentShowStaging by rememberUpdatedState(showStaging)
+    var completedPurge by remember { mutableStateOf<Pair<Long, Int>?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result -> viewModel.onPermissionResult(result.values.any { it }) }
-
-    LaunchedEffect(Unit) { permissionLauncher.launch(MediaPermissions) }
 
     // The OS delete dialog launcher lives in this stable composition, never in
     // the sheet — dismissing the sheet mid-dialog would drop the result.
@@ -135,7 +155,22 @@ fun DashboardScreen(
             when (effect) {
                 is PurgeEffect.LaunchConfirmation ->
                     confirmLauncher.launch(IntentSenderRequest.Builder(effect.sender).build())
-                is PurgeEffect.Completed -> Unit // celebrated in the sheet, not a toast
+                is PurgeEffect.Completed -> {
+                    if (effect.purgedCount > 0) {
+                        if (effect.mode == ExecutionMode.PERMANENT_PURGE) {
+                            completedPurge = effect.freedBytes to effect.purgedCount
+                        }
+                        if (!currentShowStaging) Toast.makeText(
+                            context,
+                            if (effect.mode == ExecutionMode.PERMANENT_PURGE)
+                                "${effect.purgedCount} files deleted · ${effect.freedBytes.toReadableSize()} reclaimed"
+                            else "${effect.purgedCount} files moved to Android Trash",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    } else {
+                        Toast.makeText(context, "No files were deleted. Your queue is still here.", Toast.LENGTH_LONG).show()
+                    }
+                }
                 is PurgeEffect.NeedsSafAccess -> Toast.makeText(
                     context,
                     "${effect.uriCount} non-media files need folder access.",
@@ -192,18 +227,29 @@ fun DashboardScreen(
                 }
             }
 
-            // THE HERO. Storage first, because it is the fact that motivates.
-            item("storage") {
-                SdzSurface(level = SdzLevel.Raised, contentPadding = SdzSpace.xl) {
-                    StorageMeter(
-                        usedBytes = state.usedStorageBytes,
-                        freeBytes = state.freeStorageBytes,
-                        totalBytes = state.totalStorageBytes,
-                        reclaimableBytes = state.stagedBytes,
-                    )
+            if (!state.hasMediaAccess) {
+                item("permission") {
+                    SdzSurface(level = SdzLevel.Raised, contentPadding = SdzSpace.xl) {
+                        Text("Your library, your call", style = SdzType.Subtitle, color = SdzColor.Phosphor)
+                        Text(
+                            "Choose photos to review. Videos and audio are optional and are not requested here. " +
+                                "Review happens on this device. " +
+                                (if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
+                                    "Google Photos backup is optional. Cleanup is unavailable in this test build. "
+                                else "Local cleanup requires your confirmation. ") +
+                                "You can choose selected photos on supported Android versions.",
+                            style = SdzType.BodySmall,
+                            color = SdzColor.TextSecondary,
+                        )
+                        SdzButton(
+                            label = "Choose photos",
+                            onClick = { permissionLauncher.launch(photoReviewPermissions(Build.VERSION.SDK_INT)) },
+                            style = SdzButtonStyle.Primary,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
-            }
-
+            } else {
             // THE ONE ACTION.
             item("primary-action") {
                 PrimaryCallToAction(
@@ -213,6 +259,45 @@ fun DashboardScreen(
                     onStart = { sections.suggestedDeck()?.let(onOpenDeck) },
                     enabled = sections.suggestedDeck() != null,
                 )
+            }
+
+            item("access-scope") {
+                if (loadError != null) {
+                    Text(loadError ?: "", color = SdzColor.TextSecondary)
+                    SdzButton(label = "Retry", onClick = { viewModel.loadDecks(forceRefresh = true) }, style = SdzButtonStyle.Secondary)
+                } else if (!state.loading && state.decks.isEmpty()) {
+                    Text("No review cards in the current selection. Choose other photos or scan again.", style = SdzType.BodySmall, color = SdzColor.TextSecondary)
+                }
+                Text("${state.accessDescription}. Changing selection refreshes this review list.",
+                    style = SdzType.BodySmall, color = SdzColor.TextSecondary)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(SdzSpace.sm),
+                    verticalArrangement = Arrangement.spacedBy(SdzSpace.sm),
+                ) {
+                    androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Choose photos", maxLines = 1) }
+                    androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(if (Build.VERSION.SDK_INT >= 33)
+                        arrayOf(android.Manifest.permission.READ_MEDIA_VIDEO) else photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Videos", maxLines = 1) }
+                    androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(if (Build.VERSION.SDK_INT >= 33)
+                        arrayOf(android.Manifest.permission.READ_MEDIA_AUDIO) else photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Audio", maxLines = 1) }
+                }
+            }
+            if (lens == Lens.CONTENT) {
+                item("content-scan") {
+                    ContentScanPanel(state = state, onScan = viewModel::scanNow)
+                }
+            }
+
+            // Storage overview.
+            item("storage") {
+                SdzSurface(level = SdzLevel.Raised, contentPadding = SdzSpace.xl) {
+                    StorageMeter(
+                        usedBytes = state.usedStorageBytes,
+                        freeBytes = state.freeStorageBytes,
+                        totalBytes = state.totalStorageBytes,
+                        reclaimableBytes = state.stagedBytes,
+                    )
+                }
             }
 
             item("lens") {
@@ -234,14 +319,13 @@ fun DashboardScreen(
                 state.loading -> items(3) { SkeletonRow() }
 
                 lens == Lens.CONTENT -> items(
-                    sections.contentLenses(state.hasAnalysis),
+                    sections.contentLenses(state.hasAnalysis || state.analysisState == AnalysisRunState.DONE),
                     key = { it.id },
                 ) { entry ->
                     LibraryRow(
                         entry = entry,
                         scanning = state.isScanning,
                         onOpen = { entry.deck?.let(onOpenDeck) },
-                        onScan = viewModel::scanNow,
                     )
                 }
 
@@ -250,9 +334,9 @@ fun DashboardScreen(
                         entry = entry,
                         scanning = false,
                         onOpen = { entry.deck?.let(onOpenDeck) },
-                        onScan = {},
                     )
                 }
+            }
             }
         }
 
@@ -273,7 +357,16 @@ fun DashboardScreen(
         }
 
         if (showStaging) {
-            StagingSheet(viewModel = stagingViewModel, onDismiss = { showStaging = false })
+            StagingSheet(
+                viewModel = stagingViewModel,
+                onDismiss = { showStaging = false },
+                onOpenBackupSetup = {
+                    showStaging = false
+                    onOpenSettings()
+                },
+                completedPurge = completedPurge,
+                onCelebrationFinished = { completedPurge = null },
+            )
         }
     }
 }
@@ -401,6 +494,55 @@ private data class LibrarySections(
 }
 
 /** The single dominant action. Exactly one Primary button exists on this screen. */
+/** One shared entry point: the worker analyzes every supported content category. */
+@Composable
+private fun ContentScanPanel(state: DashboardUiState, onScan: () -> Unit) {
+    SdzSurface(level = SdzLevel.Raised, contentPadding = SdzSpace.xl) {
+        Text("CONTENT SCAN", style = SdzType.Overline, color = SdzColor.TextTertiary)
+        Text(
+            text = when {
+                state.isScanning -> "Scanning your library…"
+                state.analysisState == AnalysisRunState.FAILED -> "Scan interrupted"
+                state.analysisState == AnalysisRunState.DONE && state.loading -> "Updating categories…"
+                state.analysisState == AnalysisRunState.DONE -> "Scan finished"
+                else -> "One scan. All categories."
+            },
+            style = SdzType.Subtitle,
+            color = SdzColor.Phosphor,
+        )
+        Text(
+            text = when {
+                state.isScanning -> "Checking accessible photos and videos for duplicates, blur and text. You can keep browsing."
+                state.analysisState == AnalysisRunState.FAILED -> "The scan did not finish. Tap below to try again."
+                state.analysisState == AnalysisRunState.DONE -> "Review the results in By content below. Scan again after adding photos or changing media access."
+                else -> "Find duplicates, blurry photos and text across the media you allow. One tap checks all content categories on this device."
+            },
+            style = SdzType.BodySmall,
+            color = SdzColor.TextSecondary,
+        )
+        if (state.isScanning) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Content scan in progress" },
+                color = SdzColor.Phosphor,
+                trackColor = SdzColor.Surface3,
+            )
+        }
+        SdzButton(
+            label = when {
+                state.isScanning -> "Scanning all content…"
+                state.analysisState == AnalysisRunState.FAILED -> "Retry scan"
+                state.analysisState == AnalysisRunState.DONE || state.hasAnalysis -> "Scan all content again"
+                else -> "Scan all content"
+            },
+            onClick = onScan,
+            style = SdzButtonStyle.Primary,
+            enabled = !state.isScanning && !state.loading,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text("Scanning does not delete files.", style = SdzType.LabelSmall, color = SdzColor.TextTertiary)
+    }
+}
+
 @Composable
 private fun PrimaryCallToAction(
     loading: Boolean,
@@ -411,10 +553,17 @@ private fun PrimaryCallToAction(
 ) {
     SdzSurface(level = SdzLevel.Card, contentPadding = SdzSpace.xl) {
         Text("START HERE", style = SdzType.Overline, color = SdzColor.TextTertiary)
+        AnimatedVisibility(visible = !loading && candidateCount == 0, enter = fadeIn(), exit = fadeOut()) {
+            Image(
+                painter = painterResource(com.swipedelete.zero.R.drawable.ic_empty_review),
+                contentDescription = null,
+                modifier = Modifier.size(72.dp),
+            )
+        }
         Text(
             text = when {
                 loading -> "Sorting your library…"
-                candidateCount == 0 -> "Nothing needs reviewing"
+                candidateCount == 0 -> "Ready when you are"
                 else -> "Review $candidateCount flagged files"
             },
             style = SdzType.Subtitle,
@@ -423,20 +572,22 @@ private fun PrimaryCallToAction(
         Text(
             text = when {
                 loading -> "This takes a moment on a large library."
-                candidateCount == 0 -> "Your library is already lean."
+                candidateCount == 0 -> "Scan all content above to look for matches, or add photos to review."
                 else -> "${candidateBytes.toReadableSize()} could come back, de-duplicated."
             },
             style = SdzType.BodySmall,
             color = SdzColor.TextSecondary,
         )
         Spacer(Modifier.height(SdzSpace.xs))
-        SdzButton(
-            label = if (candidateCount == 0) "Browse library" else "Start reviewing",
-            onClick = onStart,
-            style = SdzButtonStyle.Primary,
-            enabled = enabled && !loading,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (enabled) {
+            SdzButton(
+                label = "Start reviewing",
+                onClick = onStart,
+                style = SdzButtonStyle.Primary,
+                enabled = !loading,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
@@ -449,7 +600,6 @@ private fun LibraryRow(
     entry: LibraryEntry,
     scanning: Boolean,
     onOpen: () -> Unit,
-    onScan: () -> Unit,
 ) {
     val interactive = entry.remainingCount > 0 && entry.deck != null
     SdzSurface(
@@ -473,7 +623,9 @@ private fun LibraryRow(
                 )
                 Text(
                     // Same two facts, same order, every row, always.
-                    text = "${entry.remainingCount} left · ${entry.remainingBytes.toReadableSize()}",
+                    text = if (entry.needsScan) {
+                        if (scanning) "Waiting for scan results…" else "Use Scan all content above"
+                    } else "${entry.remainingCount} left · ${entry.remainingBytes.toReadableSize()}",
                     style = SdzType.Numeric,
                     color = SdzColor.TextSecondary,
                 )
@@ -482,16 +634,6 @@ private fun LibraryRow(
                 }
             }
             when {
-                entry.needsScan && scanning -> Text(
-                    "Scanning…",
-                    style = SdzType.LabelSmall,
-                    color = SdzColor.TextSecondary,
-                )
-                entry.needsScan -> SdzButton(
-                    label = "Scan",
-                    onClick = onScan,
-                    style = SdzButtonStyle.Secondary,
-                )
                 entry.completedCount > 0 -> Text(
                     "${(entry.progress * 100).roundToInt()}%",
                     style = SdzType.Numeric,
@@ -614,7 +756,7 @@ private fun StagingBar(
             .padding(horizontal = SdzSpace.xl, vertical = SdzSpace.lg)
             .semantics {
                 contentDescription =
-                    "Review $stagedCount staged files, ${stagedBytes.toReadableSize()} to free"
+                    "Review $stagedCount staged files, ${stagedBytes.toReadableSize()} kept locally"
             },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SdzSpace.md),
@@ -627,7 +769,7 @@ private fun StagingBar(
         )
         Column(Modifier.weight(1f)) {
             Text(
-                "Review & free ${stagedBytes.toReadableSize()}",
+                "Review ${stagedBytes.toReadableSize()} staged",
                 style = SdzType.Label,
                 color = SdzColor.Phosphor,
             )

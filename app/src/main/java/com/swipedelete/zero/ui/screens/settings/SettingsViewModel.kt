@@ -9,6 +9,8 @@ import com.swipedelete.zero.data.repository.ExclusionRepository
 import com.swipedelete.zero.domain.backup.BackupState
 import com.swipedelete.zero.domain.backup.CloudBackup
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -19,8 +21,12 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val exclusionRepository: ExclusionRepository,
     private val cloudBackup: CloudBackup,
-    backupRepository: BackupRepository,
+    private val backupRepository: BackupRepository,
+    private val reviewSound: com.swipedelete.zero.data.repository.ReviewSound,
 ) : ViewModel() {
+
+    val soundEnabled = reviewSound.enabled
+    fun setSoundEnabled(enabled: Boolean) = reviewSound.setEnabled(enabled)
 
     val exclusions: StateFlow<List<ExclusionEntity>> =
         exclusionRepository.observeAll()
@@ -29,8 +35,12 @@ class SettingsViewModel @Inject constructor(
     val backupState: StateFlow<BackupState> = cloudBackup.state
 
     val pendingBackupCount: StateFlow<Int> =
-        backupRepository.observePendingBackupCount()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+        cloudBackup.state.flatMapLatest { state ->
+            when (state) {
+                is BackupState.Ready -> backupRepository.observePendingDriveBackupCount(state.accountEmail)
+                else -> flowOf(0)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     val backedUpCount: StateFlow<Int> =
         backupRepository.observeBackedUpCount()

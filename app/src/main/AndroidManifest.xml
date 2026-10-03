@@ -26,10 +26,8 @@
         android:maxSdkVersion="32" />
 
     <!--
-      MANAGE_EXTERNAL_STORAGE is declared ONLY in the `play` flavor manifest
-      (src/play/AndroidManifest.xml), used strictly for purging non-media clutter
-      (.apk/.zip/raw downloads) that MediaStore cannot trash. The `fdroid` flavor
-      never declares it and falls back to the Storage Access Framework.
+      No build distributed on Play declares MANAGE_EXTERNAL_STORAGE. Non-media
+      documents require access via the Storage Access Framework.
       See StoragePermissionManager.
     -->
 

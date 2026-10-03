@@ -1,0 +1,25 @@
+=== SEC-01: Privacy, Secrets, and Flavor Boundary Audit ===
+Date: 2026-09-25T18:37:00+03:00
+Target Branch: worker/m0-safety-foundation
+
+1. F-Droid Air-Gap Audit:
+- build.gradle.kts: Flavor 'fdroid' sets:
+    ALLOW_MANAGE_STORAGE = false
+    SUPPORTS_DRIVE_BACKUP = false
+    SUPPORTS_PHOTOS_ARCHIVE = false
+- src/cloud/java is ONLY wired into 'play' sourceSet:
+    sourceSets.getByName("play").java.srcDir("src/cloud/java")
+- AndroidManifest.xml (main vs fdroid vs play):
+    Network permissions (INTERNET, ACCESS_NETWORK_STATE) are completely absent from fdroid manifest.
+- Bytecode isolation test:
+    M0PrivacyFlavorSecurityTest proves NoOpPhotosArchive binds isAvailable=false.
+
+2. Secret & Token Leak Audit:
+- Scanned repository for hardcoded client secrets, private keys, or API tokens.
+- No OAuth client secrets or user tokens are stored in source code.
+- Resumable upload URLs and upload tokens are strictly kept in private Room database (CloudUploadEntity) and never logged in plain text or telemetry.
+- UploadWorker authentication bound to stable initial GoogleSignIn account to prevent cross-account credential leakage.
+
+3. Synthetic Media Compliance:
+- Zero real user photos or PII included in repository, tests, or evidence.
+- Baseline captures derived strictly from synthetic CI emulator smoke runs and SVGs.

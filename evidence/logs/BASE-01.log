@@ -1,0 +1,25 @@
+=== BASE-01: Repository Ancestry & Toolchain Baseline ===
+Date: 2026-09-25T18:37:00+03:00
+Repository: grloper/SwipeDelete-Zero
+Base PR: #15 (codex/verified-photos-backup) — OPEN
+Base SHA: 6e0f5a9d5200914743dcebe8da5e7c4372fbd1da
+Related Merged PR: #14 (main @ c17a265694f3a84f342764ca042faee8607bc277)
+Worker Branch: worker/m0-safety-foundation
+
+Toolchain Inventory:
+- OS: Windows 11 (x86_64)
+- JAVA_HOME: C:\Program Files\Android\Android Studio\jbr (OpenJDK 21.0.6)
+- ANDROID_HOME: C:\Users\ofekv\AppData\Local\Android\Sdk (Build-Tools 35.0.0)
+- Gradle: 8.9 (Wrapper)
+- Kotlin: 2.0.21 / KSP
+- Python: 3.13.0
+
+CI Workflows Inventoried (.github/workflows/):
+- android-ci.yml: Unit tests, F-Droid & Play debug builds, emulator smoke test.
+- release.yml: Tag-triggered release builds.
+
+Baseline Verification Commands:
+1. .\gradlew.bat :app:testPlayDebugUnitTest :app:testFdroidDebugUnitTest
+   Result: BUILD SUCCESSFUL — 24 test suites per flavor, 121 passed, 0 failed, 0 skipped.
+2. .\gradlew.bat :app:assemblePlayDebug
+   Result: BUILD SUCCESSFUL — app-play-debug.apk (72,255,595 bytes).

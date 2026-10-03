@@ -82,8 +82,12 @@ fun DualCardSplitScreen(
             subtitle = if (state.total > 0) "${state.index + 1} of ${state.total}" else null,
         )
 
+        state.actionError?.let { Text(it, color = SdzColor.TextSecondary, style = SdzType.Body) }
         val pair = state.current
         if (pair == null) {
+            if (state.actionError != null) {
+                androidx.compose.material3.TextButton(onClick = viewModel::retryLoad) { Text("Retry comparisons") }
+            }
             Box(Modifier.fillMaxSize(), Alignment.Center) {
                 Text(
                     if (state.loading) "Loading…" else "No duplicates left to compare",
@@ -152,7 +156,7 @@ fun DualCardSplitScreen(
                 style = SdzButtonStyle.Tertiary,
             )
             SdzButton(
-                label = "Reclaim both",
+                label = "Stage both",
                 onClick = { viewModel.act(CompareAction.TRASH_BOTH) },
                 style = SdzButtonStyle.Tertiary,
             )

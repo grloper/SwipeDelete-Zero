@@ -18,7 +18,6 @@ on:
       - 'v*'
     branches:
       - main
-      - 'claude/**'
     paths-ignore:
       - '**.md'
       - 'LICENSE'
@@ -26,6 +25,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -34,9 +34,15 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Require exact-commit verification and synthetic runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/ci_release_gate.py "$GITHUB_SHA" --repository "$GITHUB_REPOSITORY"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -44,11 +50,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          SDKMANAGER=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -name sdkmanager -type f | head -n 1)
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -59,8 +64,8 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/libs.versions.toml') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      - name: Build debug APKs (fdroid + cloud)
-        run: ./gradlew :app:assembleFdroidDebug :app:assembleCloudDebug --no-daemon --stacktrace
+      - name: Check supported editions and build debug APKs (fdroid + cloud)
+        run: ./gradlew :app:testPlayDebugUnitTest :app:testFdroidDebugUnitTest :app:testCloudDebugUnitTest :app:lintPlayDebug :app:lintFdroidDebug :app:lintCloudDebug :app:assembleFdroidDebug :app:assembleCloudDebug --no-daemon --stacktrace
 
       - name: Stage APK artifacts
         id: stage
@@ -87,13 +92,17 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-            echo "name=SwipeDelete Zero ${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "tag=${GITHUB_REF_NAME}"
+              echo "name=SwipeDelete Zero ${GITHUB_REF_NAME}"
+              echo "prerelease=false"
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "tag=rolling" >> "$GITHUB_OUTPUT"
-            echo "name=SwipeDelete Zero — rolling build" >> "$GITHUB_OUTPUT"
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "tag=rolling"
+              echo "name=SwipeDelete Zero - rolling build"
+              echo "prerelease=true"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish GitHub Release
@@ -108,9 +117,9 @@ jobs:
             **SwipeDelete Zero v${{ steps.stage.outputs.version }}** — Android storage cleaner.
 
             ### 📲 Pick your APK
-            - **`fdroid`** — 100% offline, **zero network permissions**. The air-gap build.
-            - **`cloud-drive`** — same app **plus opt-in Google Drive backup** of kept & starred
-              files (the only build with the INTERNET permission). Requires a one-time OAuth
+            - **`fdroid`** — offline edition, without the INTERNET permission.
+            - **`cloud-drive`** — internal test edition with **opt-in Google Drive backup** of kept & starred
+              files (this edition requires INTERNET). Requires a one-time OAuth
               setup — see [docs/DRIVE_BACKUP_SETUP.md](${{ github.server_url }}/${{ github.repository }}/blob/main/docs/DRIVE_BACKUP_SETUP.md).
 
             ### Install

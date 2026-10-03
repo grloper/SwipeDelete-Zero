@@ -117,8 +117,8 @@ fun CloudSetupScreen(
                     style = MaterialTheme.typography.headlineMedium,
                 )
                 Text(
-                    "A one-time setup on your own Google account. " +
-                        "Nothing is uploaded until you swipe a card up.",
+                    "Connect your Google account. Photos upload starts when you swipe up " +
+                        "or tap Back up staged files. Deletion stays locked until readback succeeds.",
                     color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 6.dp),

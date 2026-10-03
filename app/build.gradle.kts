@@ -8,14 +8,14 @@ plugins {
 
 android {
     namespace = "com.swipedelete.zero"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.swipedelete.zero"
         minSdk = 29
-        targetSdk = 35
-        versionCode = 7
-        versionName = "4.0.0"
+        targetSdk = 36
+        versionCode = 8
+        versionName = "4.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -32,10 +32,20 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        create("upload") {
+            val keyPath = System.getenv("SDZ_UPLOAD_KEYSTORE")
+            if (keyPath != null) storeFile = file(keyPath)
+            storePassword = System.getenv("SDZ_UPLOAD_STORE_PASSWORD")
+            keyAlias = System.getenv("SDZ_UPLOAD_KEY_ALIAS")
+            keyPassword = System.getenv("SDZ_UPLOAD_KEY_PASSWORD")
+        }
     }
 
     buildTypes {
         release {
+            if (System.getenv("SDZ_UPLOAD_KEYSTORE") != null) {
+                signingConfig = signingConfigs.getByName("upload")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -50,10 +60,8 @@ android {
 
     // Three flavors abstract the permission model:
     // `fdroid` — MediaStore + SAF only, zero network permissions (air-gapped);
-    // `play`  — may additionally request MANAGE_EXTERNAL_STORAGE, still no network;
-    // `cloud` — the ONLY flavor with android.permission.INTERNET, powering the
-    //           opt-in Google Drive backup. The air-gap promise holds for the
-    //           fdroid/play builds; cloud is a separate, clearly-labelled APK.
+    // `play` and `cloud` — opt-in Photos/Drive backup with network access;
+    // `fdroid` remains the offline edition.
     flavorDimensions += "distribution"
     productFlavors {
         create("fdroid") {
@@ -64,9 +72,9 @@ android {
         }
         create("play") {
             dimension = "distribution"
-            buildConfigField("boolean", "ALLOW_MANAGE_STORAGE", "true")
-            buildConfigField("boolean", "SUPPORTS_DRIVE_BACKUP", "false")
-            buildConfigField("boolean", "SUPPORTS_PHOTOS_ARCHIVE", "false")
+            buildConfigField("boolean", "ALLOW_MANAGE_STORAGE", "false")
+            buildConfigField("boolean", "SUPPORTS_DRIVE_BACKUP", "true")
+            buildConfigField("boolean", "SUPPORTS_PHOTOS_ARCHIVE", "true")
         }
         create("cloud") {
             dimension = "distribution"
@@ -75,6 +83,10 @@ android {
             buildConfigField("boolean", "SUPPORTS_PHOTOS_ARCHIVE", "true")
         }
     }
+
+    // Play and cloud share the authenticated Google Photos implementation.
+    // F-Droid remains the separate offline build.
+    sourceSets.getByName("play").java.srcDir("src/cloud/java")
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -91,6 +103,9 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 }
 
@@ -151,14 +166,20 @@ dependencies {
     // Cloud flavor only: Google Sign-In for the opt-in Drive backup. The
     // fdroid/play flavors never compile against any network-capable library.
     "cloudImplementation"(libs.play.services.auth)
+    "playImplementation"(libs.play.services.auth)
 
     // Test
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     // Stubs android.net.Uri so pure-JVM tests can build MediaItem fixtures.
     testImplementation(libs.mockito.core)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
 }

@@ -101,7 +101,9 @@ class CloudManagerTest {
         assertEquals(CloudUploadEntity.STATE_VERIFYING, finalized.state)
         assertEquals("token_abc_123", finalized.uploadToken)
 
-        val verified = UploadReducer.reduce(finalized, UploadEvent.Created("photos_media_item_999"), 1400L)
+        val created = UploadReducer.reduce(finalized, UploadEvent.Created("photos_media_item_999"), 1400L)
+        assertEquals(CloudUploadEntity.STATE_VERIFYING, created.state)
+        val verified = UploadReducer.reduce(created, UploadEvent.RemoteVerified, 1500L)
         assertEquals(CloudUploadEntity.STATE_VERIFIED, verified.state)
         assertEquals("photos_media_item_999", verified.mediaItemId)
     }

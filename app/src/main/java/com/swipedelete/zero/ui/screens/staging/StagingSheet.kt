@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -24,6 +26,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.swipedelete.zero.data.local.StagedFileEntity
 import com.swipedelete.zero.ui.components.PurgeConfirmSheet
 import com.swipedelete.zero.ui.components.FreedCelebration
 import androidx.compose.ui.Alignment
@@ -51,12 +56,15 @@ import com.swipedelete.zero.ui.util.toReadableSize
 fun StagingSheet(
     viewModel: StagingViewModel,
     onDismiss: () -> Unit,
+    onOpenBackupSetup: () -> Unit = {},
+    completedPurge: Pair<Long, Int>? = null,
+    onCelebrationFinished: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // The custom explainer runs before the OS dialog, never instead of it.
     var confirming by remember { mutableStateOf(false) }
-    var celebrating by remember { mutableStateOf<Pair<Long, Int>?>(null) }
+    var previewItem by remember { mutableStateOf<StagedFileEntity?>(null) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -65,77 +73,106 @@ fun StagingSheet(
         contentColor = SdzColor.Phosphor,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
+        // A single bounded lazy list makes every control reachable on compact
+        // phones. The disabled execution action stays pinned at the bottom.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .heightIn(max = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp)
+                .navigationBarsPadding(),
         ) {
-            SheetHeader(state, onClear = viewModel::clearQueue)
+            LazyColumn(
+                modifier = Modifier.weight(1f, fill = false),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = 20.dp, end = 20.dp, top = 8.dp, bottom = 12.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item("header") { SheetHeader(state, onClear = viewModel::clearQueue) }
 
-            if (state.count == 0) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 40.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "Nothing staged. Swipe left on cards to queue files.",
-                        color = SdzColor.TextSecondary,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            } else {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        "Sort",
-                        color = SdzColor.TextSecondary,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    SortChip("Newest", state.sort == StagingSort.NEWEST) {
-                        viewModel.setSort(StagingSort.NEWEST)
+                if (state.count == 0) {
+                    item("empty") {
+                        Box(
+                            Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Nothing staged. Swipe left on cards to queue files.",
+                                color = SdzColor.TextSecondary,
+                                style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
-                    SortChip("Largest", state.sort == StagingSort.LARGEST) {
-                        viewModel.setSort(StagingSort.LARGEST)
+                } else {
+                    if (state.backupRequired) {
+                        item("backup") {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Google Photos items · ${state.verifiedCount}/${state.count} found",
+                                    color = SdzColor.Phosphor,
+                                    style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    when {
+                                        !state.cleanupAvailable -> state.cleanupLockExplanation
+                                            ?: "Cleanup is unavailable in this test build. Your originals stay on this device."
+                                        !state.backupConnected -> "Connect Google to back up these files. Cleanup is locked in this test build."
+                                        state.failedBackupCount > 0 -> "${state.failedBackupCount} upload(s) failed. Retry them in Backups."
+                                        state.pendingBackupCount > 0 -> "Local files stay untouched while uploads finish."
+                                        else -> "Google Photos item found. Original-byte restore still requires Drive."
+                                    },
+                                    color = SdzColor.TextSecondary,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                if (!state.backupConnected) {
+                                    OutlinedButton(onClick = onOpenBackupSetup) { Text("Connect Google account") }
+                                } else if (state.pendingBackupCount > 0) {
+                                    Button(onClick = viewModel::backUpStaged) { Text("Back up staged files") }
+                                } else {
+                                    OutlinedButton(onClick = viewModel::backUpStaged) { Text("Recheck backups") }
+                                }
+                            }
+                        }
+                    } else if (!state.cleanupAvailable) {
+                        state.cleanupLockExplanation?.let { explanation ->
+                            item("lock") { Text(explanation, color = SdzColor.Amber,
+                                style = MaterialTheme.typography.bodySmall) }
+                        }
                     }
-                }
 
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 380.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                    item("mode") {
+                        ExecutionModeToggle(mode = state.mode, onSelect = viewModel::setMode)
+                    }
+                    item("sort") {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Sort", color = SdzColor.TextSecondary,
+                                style = MaterialTheme.typography.labelMedium)
+                            SortChip("Newest", state.sort == StagingSort.NEWEST) {
+                                viewModel.setSort(StagingSort.NEWEST)
+                            }
+                            SortChip("Largest", state.sort == StagingSort.LARGEST) {
+                                viewModel.setSort(StagingSort.LARGEST)
+                            }
+                        }
+                    }
                     items(state.items, key = { it.contentUri }) { item ->
-                        StagedRow(
-                            item = item,
-                            onPreview = {},
-                            onRestore = { viewModel.restore(item.contentUri) },
-                        )
+                        StagedRow(item = item,
+                            onPreview = { previewItem = item },
+                            onRestore = { viewModel.restore(item.contentUri) })
                     }
                 }
 
-                ExecutionModeToggle(
-                    mode = state.mode,
-                    onSelect = viewModel::setMode,
-                )
-
+                completedPurge?.let { (bytes, count) ->
+                    item("celebration") {
+                        FreedCelebration(freedBytes = bytes, fileCount = count,
+                            onFinished = onCelebrationFinished)
+                    }
+                }
+            }
+            if (state.count > 0) {
                 PurgeCta(
                     bytes = state.totalBytes,
-                    enabled = !state.purging,
+                    mode = state.mode,
+                    enabled = !state.purging && state.canDelete,
                     onClick = { confirming = true },
-                    modifier = Modifier.padding(bottom = 16.dp),
-                )
-            }
-
-            celebrating?.let { (bytes, count) ->
-                FreedCelebration(
-                    freedBytes = bytes,
-                    fileCount = count,
-                    onFinished = { celebrating = null },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                 )
             }
         }
@@ -148,11 +185,25 @@ fun StagingSheet(
             mode = state.mode,
             onConfirm = {
                 confirming = false
-                celebrating = state.totalBytes to state.count
                 viewModel.purge()
             },
             onDismiss = { confirming = false },
         )
+    }
+    previewItem?.let { item ->
+        Dialog(
+            onDismissRequest = { previewItem = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            StagedPreviewOverlay(
+                item = item,
+                onRestore = {
+                    viewModel.restore(item.contentUri)
+                    previewItem = null
+                },
+                onDismiss = { previewItem = null },
+            )
+        }
     }
 }
 
@@ -171,7 +222,7 @@ private fun SheetHeader(state: StagingUiState, onClear: () -> Unit) {
                 style = MaterialTheme.typography.titleLarge,
             )
             Text(
-                "${state.count} files • ${state.totalBytes.toReadableSize()} ready to purge",
+                "${state.count} ${if (state.count == 1) "file" else "files"} • ${state.totalBytes.toReadableSize()} staged for review",
                 color = SdzColor.TextSecondary,
                 style = MaterialTheme.typography.labelMedium,
             )
@@ -179,7 +230,7 @@ private fun SheetHeader(state: StagingUiState, onClear: () -> Unit) {
         }
         if (state.count > 0) {
             Text(
-                "Clear",
+                "Unstage all",
                 color = SdzColor.TextSecondary,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier

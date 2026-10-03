@@ -15,3 +15,9 @@ local.properties
 *.aab
 *.keystore
 !debug.keystore
+__pycache__/
+*.pyc
+
+/ci-evidence/
+/evidence/
+/swiperise-evidence.zip*

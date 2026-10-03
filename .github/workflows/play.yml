@@ -1,0 +1,130 @@
+name: Play release bundle
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install pinned workflow validators
+        run: bash scripts/install_validation_tools.sh
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install SDK
+        run: |
+          SDKMANAGER=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -name sdkmanager -type f | head -n 1)
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0"
+      - name: Record clean checkout
+        run: python scripts/ci_evidence.py identity
+      - name: Test, lint and assemble all supported debug editions
+        run: |
+          python scripts/ci_record.py audit-self-tests python -m unittest discover -s tools -p 'test_*.py'
+          python scripts/ci_record.py unit-build python scripts/prepush_gate.py --app swipe
+          mkdir -p ci-evidence/apk ci-evidence/test-results/play ci-evidence/test-results/fdroid ci-evidence/test-results/cloud
+          cp app/build/outputs/apk/play/debug/app-play-debug.apk ci-evidence/apk/
+          cp app/build/outputs/apk/androidTest/play/debug/app-play-debug-androidTest.apk ci-evidence/apk/
+          cp app/build/test-results/testPlayDebugUnitTest/*.xml ci-evidence/test-results/play/
+          cp app/build/test-results/testFdroidDebugUnitTest/*.xml ci-evidence/test-results/fdroid/
+          cp app/build/test-results/testCloudDebugUnitTest/*.xml ci-evidence/test-results/cloud/
+          python scripts/ci_record.py junit-audit python tools/audit_junit.py ci-evidence/test-results --skip-policy tools/expected_skips.json --required tools/required_cases.json --output ci-evidence/junit_audit.json
+      - name: Inspect actual APK and compile release bundle
+        run: |
+          python scripts/ci_record.py apk-badging "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging ci-evidence/apk/app-play-debug.apk
+          python scripts/ci_record.py apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs ci-evidence/apk/app-play-debug.apk
+          python scripts/ci_record.py release-compile ./gradlew :app:bundlePlayRelease --no-daemon
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test exact canonical APK on isolated emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python scripts/ci_record.py emulator-smoke python scripts/ci_smoke.py
+      - name: Generate canonical reports and verified archive
+        run: python scripts/ci_evidence.py package
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diagnostic-evidence
+          path: ci-evidence/
+          retention-days: 7
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: evidence-archive
+          path: |
+            swiperise-evidence.zip
+            swiperise-evidence.zip.sha256
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Package small validation evidence for delivery
+        if: always()
+        run: |
+          mkdir -p ci-evidence
+          python scripts/ci_compact_evidence.py validation ci-evidence swiperise-validation-compact.zip
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: SwipeRise-validation-evidence
+          path: swiperise-validation-compact.zip
+          retention-days: 7
+          if-no-files-found: error
+
+  bundle:
+    if: github.event_name == 'workflow_dispatch'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require exact-commit synthetic runtime before signing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/ci_release_gate.py "$GITHUB_SHA" --repository "$GITHUB_REPOSITORY" --runtime-only
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install SDK
+        run: |
+          SDKMANAGER=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -name sdkmanager -type f | head -n 1)
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0"
+      - name: Build signed Play bundle
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SDZ_UPLOAD_KEYSTORE_BASE64 }}
+          SDZ_UPLOAD_STORE_PASSWORD: ${{ secrets.SDZ_UPLOAD_STORE_PASSWORD }}
+          SDZ_UPLOAD_KEY_ALIAS: ${{ secrets.SDZ_UPLOAD_KEY_ALIAS }}
+          SDZ_UPLOAD_KEY_PASSWORD: ${{ secrets.SDZ_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" && test -n "$SDZ_UPLOAD_STORE_PASSWORD" && test -n "$SDZ_UPLOAD_KEY_ALIAS" && test -n "$SDZ_UPLOAD_KEY_PASSWORD"
+          export SDZ_UPLOAD_KEYSTORE="$RUNNER_TEMP/upload.keystore"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$SDZ_UPLOAD_KEYSTORE"
+          ./gradlew :app:bundlePlayRelease --no-daemon
+          rm -f "$SDZ_UPLOAD_KEYSTORE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: play-release-aab
+          path: app/build/outputs/bundle/playRelease/*.aab
+          retention-days: 7

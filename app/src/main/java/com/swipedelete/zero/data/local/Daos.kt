@@ -5,6 +5,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
+import androidx.room.Update
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -52,6 +54,41 @@ interface KeptFileDao {
     )
     suspend fun pendingBackup(): List<KeptFileEntity>
 
+    /** Each local URI appears once even when both kept and staged. The staged
+     * branch is included because the file that may eventually be removed is
+     * precisely the one requiring an original-byte vault copy. */
+    @Query("""SELECT k.* FROM kept_files k WHERE NOT EXISTS (
+        SELECT 1 FROM backup_receipts r
+        WHERE r.contentUri = k.contentUri AND r.provider = 'GOOGLE_DRIVE'
+        AND r.accountId = :accountId AND r.originalSizeBytes = k.sizeBytes
+    ) UNION ALL
+    SELECT s.contentUri, s.displayName, s.mimeType, s.sizeBytes,
+        s.stagedAtMillis AS keptAtMillis, 0 AS starred
+    FROM staged_files s WHERE NOT EXISTS (
+        SELECT 1 FROM kept_files k WHERE k.contentUri = s.contentUri
+    ) AND NOT EXISTS (
+        SELECT 1 FROM backup_receipts r
+        WHERE r.contentUri = s.contentUri AND r.provider = 'GOOGLE_DRIVE'
+        AND r.accountId = :accountId AND r.originalSizeBytes = s.sizeBytes
+    ) ORDER BY keptAtMillis""")
+    suspend fun pendingDriveBackup(accountId: String): List<KeptFileEntity>
+
+    @Query("""SELECT COUNT(*) FROM (
+        SELECT k.contentUri FROM kept_files k WHERE NOT EXISTS (
+            SELECT 1 FROM backup_receipts r WHERE r.contentUri = k.contentUri
+            AND r.provider = 'GOOGLE_DRIVE' AND r.accountId = :accountId
+            AND r.originalSizeBytes = k.sizeBytes
+        ) UNION ALL
+        SELECT s.contentUri FROM staged_files s WHERE NOT EXISTS (
+            SELECT 1 FROM kept_files k WHERE k.contentUri = s.contentUri
+        ) AND NOT EXISTS (
+            SELECT 1 FROM backup_receipts r WHERE r.contentUri = s.contentUri
+            AND r.provider = 'GOOGLE_DRIVE' AND r.accountId = :accountId
+            AND r.originalSizeBytes = s.sizeBytes
+        )
+    )""")
+    fun observePendingDriveBackupCount(accountId: String): Flow<Int>
+
     @Query(
         "SELECT COUNT(*) FROM kept_files WHERE contentUri NOT IN " +
             "(SELECT contentUri FROM backed_up_files)"
@@ -89,6 +126,29 @@ interface BackedUpFileDao {
 
     @Query("DELETE FROM backed_up_files")
     suspend fun deleteAll(): Int
+}
+
+@Dao
+interface BackupReceiptDao {
+    @Query("SELECT * FROM backup_receipts ORDER BY verifiedAtMillis DESC")
+    fun observeAll(): Flow<List<BackupReceiptEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(receipt: BackupReceiptEntity)
+
+    @Query("SELECT * FROM backup_receipts WHERE contentUri = :uri AND provider = :provider AND accountId = :accountId LIMIT 1")
+    suspend fun get(uri: String, provider: String, accountId: String): BackupReceiptEntity?
+
+    @Query("SELECT * FROM backup_receipts WHERE provider = :provider AND accountId = :accountId ORDER BY verifiedAtMillis DESC")
+    suspend fun forAccount(provider: String, accountId: String): List<BackupReceiptEntity>
+
+    @Query("DELETE FROM backup_receipts WHERE contentUri = :uri AND provider = :provider AND accountId = :accountId")
+    suspend fun remove(uri: String, provider: String, accountId: String)
+    @Query("DELETE FROM backup_receipts WHERE contentUri = :uri")
+    suspend fun removeLocalHistoryForUri(uri: String): Int
+
+    @Query("DELETE FROM backup_receipts WHERE provider = 'GOOGLE_DRIVE' AND accountId = :accountId")
+    suspend fun invalidateDriveAccount(accountId: String): Int
 }
 
 @Dao
@@ -146,8 +206,34 @@ interface CloudUploadDao {
     )
     suspend fun nextPending(): CloudUploadEntity?
 
+    /** Recover a crash after verification but before ledger/staging writes. */
+    @Query("SELECT u.* FROM cloud_uploads u LEFT JOIN backed_up_files b ON b.contentUri = u.contentUri " +
+        "WHERE u.state = 'VERIFIED' AND u.mediaItemId IS NOT NULL AND b.contentUri IS NULL")
+    suspend fun verifiedWithoutLedger(): List<CloudUploadEntity>
+
     @Upsert
     suspend fun upsert(entity: CloudUploadEntity)
+    @Update
+    suspend fun updateExisting(entity: CloudUploadEntity): Int
+
+    /** Cancellation and claim serialize in Room: canceled queued work cannot be revived. */
+    @Transaction
+    suspend fun claimForProcessing(candidate: CloudUploadEntity): CloudUploadEntity? {
+        val current = get(candidate.contentUri) ?: return null
+        if (current != candidate) return null
+        if (current.state !in listOf(CloudUploadEntity.STATE_QUEUED, CloudUploadEntity.STATE_UPLOADING, CloudUploadEntity.STATE_VERIFYING)) return null
+        val claimed = if (current.state == CloudUploadEntity.STATE_QUEUED)
+            current.copy(state = CloudUploadEntity.STATE_UPLOADING) else current
+        return if (updateExisting(claimed) == 1) claimed else null
+    }
+
+    /** Worker updates never insert deleted work or overwrite a newer queue generation. */
+    @Transaction
+    suspend fun updateOwned(entity: CloudUploadEntity, expected: CloudUploadEntity): Boolean {
+        val current = get(entity.contentUri) ?: return false
+        if (current != expected || current.enqueuedAtMillis != entity.enqueuedAtMillis || current.accountName != entity.accountName) return false
+        return updateExisting(entity) == 1
+    }
 
     /** Cancel an up-swipe that hasn't started uploading yet (Undo path). */
     @Query("DELETE FROM cloud_uploads WHERE contentUri = :uri AND state = 'QUEUED'")
@@ -156,10 +242,18 @@ interface CloudUploadDao {
     @Query("DELETE FROM cloud_uploads WHERE contentUri = :uri")
     suspend fun delete(uri: String)
 
-    @Query("UPDATE cloud_uploads SET state = 'QUEUED', attempts = 0, lastError = null, updatedAtMillis = :nowMillis WHERE state = 'FAILED'")
+    @Query("DELETE FROM cloud_uploads WHERE contentUri = :uri AND state IN ('QUEUED', 'FAILED')")
+    suspend fun deleteIfCancelable(uri: String): Int
+
+    @Query("UPDATE cloud_uploads SET state = 'QUEUED', attempts = 0, lastError = null, " +
+        "uploadUrl = CASE WHEN mediaItemId IS NULL THEN NULL ELSE uploadUrl END, " +
+        "uploadToken = CASE WHEN mediaItemId IS NULL THEN NULL ELSE uploadToken END, " +
+        "bytesUploaded = CASE WHEN mediaItemId IS NULL THEN 0 ELSE bytesUploaded END, " +
+        "updatedAtMillis = :nowMillis WHERE state = 'FAILED'")
     suspend fun retryAllFailed(nowMillis: Long = System.currentTimeMillis()): Int
 
-    @Query("DELETE FROM cloud_uploads WHERE state = 'VERIFIED'")
+    @Query("DELETE FROM cloud_uploads WHERE state = 'VERIFIED' AND contentUri NOT IN " +
+        "(SELECT contentUri FROM staged_files)")
     suspend fun clearCompleted(): Int
 
     @Query("SELECT COUNT(*) FROM cloud_uploads WHERE state = :state")

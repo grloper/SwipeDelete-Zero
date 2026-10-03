@@ -75,7 +75,7 @@ fun PurgeConfirmSheet(
                     color = SdzColor.Amber,
                 )
                 Text(
-                    "comes back",
+                    if (permanent) "may be reclaimed" else "moves to Trash (space not yet freed)",
                     style = SdzType.Body,
                     color = SdzColor.TextSecondary,
                     modifier = Modifier.padding(bottom = 3.dp),

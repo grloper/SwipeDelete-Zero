@@ -1,15 +1,27 @@
 package com.swipedelete.zero.domain.backup
 
 import android.content.Intent
+import android.net.Uri
 import com.swipedelete.zero.domain.setup.AuthDiagnostic
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Discoverable original in the app-owned Drive folder. Its checksum is
+ * untrusted metadata until restore downloads and verifies the actual bytes. */
+data class RemoteOriginal(
+    val remoteId: String,
+    val name: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val sha256: String,
+    val accountId: String,
+)
+
 /** Auth + upload status of the cloud backup engine. */
 sealed interface BackupState {
-    /** Backup exists only in the cloud flavor; fdroid/play always report this. */
+    /** The offline F-Droid flavor reports this. */
     data object Unsupported : BackupState
 
     /**
@@ -44,8 +56,8 @@ data class ConnectionCheck(
  * Flavor seam for the opt-in cloud features (Drive backup of kept files and the
  * swipe-up Google Photos archive).
  *
- * The fdroid/play flavors bind [NoOpCloudBackup] — no network code is even
- * compiled into those builds. The cloud flavor binds a Google implementation.
+ * F-Droid binds [NoOpCloudBackup] without network access. Play/cloud bind
+ * the Google implementation.
  * UI code talks only to this interface.
  */
 interface CloudBackup {
@@ -62,6 +74,12 @@ interface CloudBackup {
 
     fun signOut()
 
+    /** Originals discoverable after a clean install, using remote Drive metadata. */
+    suspend fun availableOriginals(): List<RemoteOriginal>
+
+    /** Restore into a user-selected new document, then read and hash it again. */
+    suspend fun restoreOriginal(original: RemoteOriginal, destination: Uri): Boolean
+
     /**
      * Actively call the APIs and report exactly what works. Used by the setup
      * wizard's "Verify connection" step so success is proven, not assumed.
@@ -76,6 +94,8 @@ class NoOpCloudBackup @Inject constructor() : CloudBackup {
     override fun onSignInResult(data: Intent?) = Unit
     override fun backupNow() = Unit
     override fun signOut() = Unit
+    override suspend fun availableOriginals(): List<RemoteOriginal> = emptyList()
+    override suspend fun restoreOriginal(original: RemoteOriginal, destination: Uri): Boolean = false
     override suspend fun verifyConnection() = ConnectionCheck(
         signedIn = false,
         message = "This build has no network access by design.",

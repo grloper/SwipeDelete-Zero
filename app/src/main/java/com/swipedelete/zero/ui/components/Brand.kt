@@ -41,7 +41,7 @@ fun SdzWordmark(
     showTagline: Boolean = false,
 ) {
     Row(
-        modifier = modifier.semantics { contentDescription = "SwipeDelete Zero" },
+        modifier = modifier.semantics { contentDescription = "SwipeRise" },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(markSize / 2),
     ) {
@@ -54,7 +54,7 @@ fun SdzWordmark(
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "SWIPEDELETE",
+                    text = "SWIPE",
                     style = TextStyle(
                         fontFamily = DisplayFamily,
                         fontWeight = FontWeight.Medium,
@@ -64,7 +64,7 @@ fun SdzWordmark(
                     color = tint.copy(alpha = 0.72f),
                 )
                 Text(
-                    text = "ZERO",
+                    text = "RISE",
                     style = TextStyle(
                         fontFamily = DisplayFamily,
                         fontWeight = FontWeight.Bold,
@@ -76,7 +76,7 @@ fun SdzWordmark(
             }
             if (showTagline) {
                 Text(
-                    text = "Reclaim the negative space",
+                    text = "Review. Back up. Stay in control.",
                     style = SdzType.LabelSmall,
                     color = SdzColor.TextTertiary,
                 )
@@ -94,7 +94,7 @@ fun SdzLogo(
 ) {
     Icon(
         painter = SdzIcons.LogoMark,
-        contentDescription = "SwipeDelete Zero",
+        contentDescription = "SwipeRise",
         tint = tint,
         modifier = modifier.size(size),
     )

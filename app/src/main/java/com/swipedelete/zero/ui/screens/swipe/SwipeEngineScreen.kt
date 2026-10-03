@@ -81,6 +81,15 @@ fun SwipeEngineScreen(
     viewModel: SwipeEngineViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val feedbackLifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(feedbackLifecycleOwner, viewModel) {
+        viewModel.setFeedbackActive(feedbackLifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED))
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, _ ->
+            viewModel.setFeedbackActive(feedbackLifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED))
+        }
+        feedbackLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { feedbackLifecycleOwner.lifecycle.removeObserver(observer); viewModel.setFeedbackActive(false) }
+    }
     val topVideoMeta by viewModel.topVideoMeta.collectAsStateWithLifecycle()
     val backedUpUris by viewModel.backedUpUris.collectAsStateWithLifecycle()
 
@@ -155,15 +164,18 @@ fun SwipeEngineScreen(
                 when {
                     state.loading -> Text("Loading…", color = SdzColor.TextSecondary)
                     state.isComplete -> DeckCompleteCelebration(
-                        freedBytes = state.sessionReclaimedBytes,
-                        fileCount = state.sessionReclaimedCount,
+                        freedBytes = state.sessionStagedBytes,
+                        fileCount = state.sessionStagedCount,
                         onDone = onBack,
                         nextPartLabel = state.nextDeckTitle?.let { "Continue with $it" },
                         onContinueNextPart = state.nextDeckId?.let { nextId -> { viewModel.loadDeck(nextId) } },
                     )
+                    state.deck == null -> Text("This review is unavailable. Return to the library and scan again.", color = SdzColor.TextSecondary)
                     else -> CardStack(state, viewModel, topVideoMeta, backedUpUris, playerState)
                 }
             }
+
+            state.actionError?.let { Text(it, color = SdzColor.TextSecondary, style = MaterialTheme.typography.bodySmall) }
 
             // Live cloud archive status — renders nothing when the queue is
             // empty (always the case in the fdroid/play flavors).
@@ -181,7 +193,9 @@ fun SwipeEngineScreen(
                     onReclaim = { viewModel.onSwipe(SwipeDirection.LEFT) },
                     onArchive = { viewModel.onSwipe(SwipeDirection.UP) },
                     onKeep = { viewModel.onSwipe(SwipeDirection.RIGHT) },
-                    undoEnabled = state.lastAction != null,
+                    undoEnabled = state.lastAction != null && !state.actionInProgress,
+                    enabled = !state.actionInProgress,
+                    archiveEnabled = !state.actionInProgress,
                     archiveLabel = if (viewModel.cloudArchiveEnabled) "Archive" else "Star",
                 )
             }
@@ -192,7 +206,7 @@ fun SwipeEngineScreen(
             visible = state.showCoachmark,
             onDismiss = viewModel::dismissCoachmark,
             archiveLabel = if (viewModel.cloudArchiveEnabled)
-                "Upload to Google Photos, then queue the local copy once verified."
+                "Upload to Google Photos, then stage the local copy after Photos confirms the item. Local cleanup is locked."
             else
                 "Star it and hide it from every future scan.",
         )
@@ -262,9 +276,10 @@ private fun CardStack(
             }
         }
         // key on the item so a fresh Animatable is created per card.
-        key(topItem.id) {
+        key(topItem.id, state.cardResetToken) {
             SwipeableCard(
                 item = topItem,
+                enabled = !state.actionInProgress,
                 onSwiped = viewModel::onSwipe,
                 modifier = Modifier.fillMaxSize(),
                 onDragProgress = { dragProgress = it },
@@ -423,8 +438,8 @@ private fun UndoToast(
 }
 
 private fun undoLabel(direction: SwipeDirection, cloudArchive: Boolean): String = when (direction) {
-    SwipeDirection.LEFT -> "Queued to delete (in Staging)"
+    SwipeDirection.LEFT -> "Staged for review"
     SwipeDirection.RIGHT -> "Kept"
-    SwipeDirection.UP -> if (cloudArchive) "Uploading to Google Photos" else "Starred & excluded"
+    SwipeDirection.UP -> if (cloudArchive) "Queued for Google Photos; not backed up yet" else "Starred & excluded"
     SwipeDirection.NONE -> ""
 }

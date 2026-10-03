@@ -57,7 +57,10 @@ fun AppNavigation() {
         }
 
         composable(Routes.STAGING) {
-            StagingDrawerScreen(onBack = { navController.popBackStack() })
+            StagingDrawerScreen(
+                onBack = { navController.popBackStack() },
+                onOpenBackupSetup = { navController.navigate(Routes.CLOUD_SETUP) },
+            )
         }
 
         composable(Routes.SETTINGS) {
