@@ -91,8 +91,8 @@ pulse when it arms, and distinct reject/confirm/double-tick signatures.
    Local originals remain in place in the Play test build.
 3. **Backup and restore** — Drive checks a fresh download against the original
    SHA-256 hash and supports restoring current-manifest files. Photos confirms
-   an app-created item, without original-byte verification. Play cleanup stays
-   locked. The F-Droid flavor has a separate offline deletion flow.
+   an app-created item, without original-byte verification. Cleanup in every edition stays
+   locked until live original-byte recovery is qualified.
 
 ## 🎨 Design System
 
@@ -186,3 +186,4 @@ Requirements: JDK 17, Android SDK 36.
 ## Validation boundaries
 
 PR20 consolidates the independently reviewed backup and session work. Final local checks cover Play, F-Droid and Cloud with 501 unit tests, lint and development packages; exact-head emulator evidence remains mandatory before merge. No live original-byte clean-install cloud restore or physical pose/device qualification is claimed. iCloud is unimplemented. The earlier PR16/36310543845 evidence belongs only to its archived ca1f457 APK and cannot certify this snapshot.
+
