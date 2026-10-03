@@ -2,7 +2,7 @@
   {
     "variant": "play",
     "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
-    "name": "M0-R5 - StagingViewModel purge is blocked in Play cloud builds"
+    "name": "M0-R5 - real StagingViewModel purge is blocked in every edition"
   },
   {
     "variant": "play",
@@ -22,7 +22,7 @@
   {
     "variant": "play",
     "classname": "com.swipedelete.zero.M0SafetyContainmentTest",
-    "name": "SAFE-03 - StagingUiState enforces disabled cleanup and product explanation in Play test builds"
+    "name": "SAFE-03 - cleanup stays disabled with or without backup requirements in every edition"
   },
   {
     "variant": "play",
@@ -167,7 +167,7 @@
   {
     "variant": "fdroid",
     "classname": "com.swipedelete.zero.M0SafetyContainmentTest",
-    "name": "SAFE-03 - StagingUiState enforces disabled cleanup and product explanation in Play test builds"
+    "name": "SAFE-03 - cleanup stays disabled with or without backup requirements in every edition"
   },
   {
     "variant": "play",
@@ -208,5 +208,80 @@
     "variant": "fdroid",
     "classname": "com.swipedelete.zero.MediaCollectionProjectionTest",
     "name": "collection projections return images videos and audio without incompatible columns"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-R7 - StagingViewModel prunes alreadyMissingUris without awarding reclaimed bytes"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-R7 - preparePurge partitions 100 missing items and plans 50 live items preventing starvation"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-V2-01 - 4-state resolution preserves UNKNOWN and reconciles only confirmed ABSENT and TRASHED"
+  },
+  {
+    "variant": "play",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-V2-04 - cancellation of actual non-empty batch preserves queue, clears pending, and launches no follow-on batches"
+  },
+  {
+    "variant": "cloud",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-R7 - StagingViewModel prunes alreadyMissingUris without awarding reclaimed bytes"
+  },
+  {
+    "variant": "cloud",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-R7 - preparePurge partitions 100 missing items and plans 50 live items preventing starvation"
+  },
+  {
+    "variant": "cloud",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-V2-01 - 4-state resolution preserves UNKNOWN and reconciles only confirmed ABSENT and TRASHED"
+  },
+  {
+    "variant": "cloud",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-V2-04 - cancellation of actual non-empty batch preserves queue, clears pending, and launches no follow-on batches"
+  },
+  {
+    "variant": "cloud",
+    "classname": "com.swipedelete.zero.DatabaseMigrationTest",
+    "name": "M0-MIG - Migration versions connect v4 baseline to v5"
+  },
+  {
+    "variant": "cloud",
+    "classname": "com.swipedelete.zero.DatabaseMigrationTest",
+    "name": "testRealRoomV4ToV5Migration"
+  },
+  {
+    "variant": "cloud",
+    "classname": "com.swipedelete.zero.M0SafetyContainmentTest",
+    "name": "SAFE-01 - throwing provider fake is never touched by an M0 delete request"
+  },
+  {
+    "variant": "cloud",
+    "classname": "com.swipedelete.zero.M0SafetyContainmentTest",
+    "name": "SAFE-03 - cleanup stays disabled with or without backup requirements in every edition"
+  },
+  {
+    "variant": "cloud",
+    "classname": "com.swipedelete.zero.MediaCollectionProjectionTest",
+    "name": "collection projections return images videos and audio without incompatible columns"
+  },
+  {
+    "variant": "fdroid",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-R5 - real StagingViewModel purge is blocked in every edition"
+  },
+  {
+    "variant": "cloud",
+    "classname": "com.swipedelete.zero.PurgeBatchReconciliationTest",
+    "name": "M0-R5 - real StagingViewModel purge is blocked in every edition"
   }
 ]

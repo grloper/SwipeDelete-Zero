@@ -5,13 +5,16 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags: ['v*']
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -24,15 +27,16 @@ jobs:
           "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0"
       - name: Record clean checkout
         run: python scripts/ci_evidence.py identity
-      - name: Test both flavors and assemble canonical APK
+      - name: Test, lint and assemble all supported debug editions
         run: |
           python scripts/ci_record.py audit-self-tests python -m unittest discover -s tools -p 'test_*.py'
-          python scripts/ci_record.py unit-build ./gradlew :app:testPlayDebugUnitTest :app:testFdroidDebugUnitTest :app:assemblePlayDebug :app:assemblePlayDebugAndroidTest --rerun-tasks --no-build-cache --no-daemon
-          mkdir -p ci-evidence/apk ci-evidence/test-results/play ci-evidence/test-results/fdroid
+          python scripts/ci_record.py unit-build ./gradlew :app:testPlayDebugUnitTest :app:testFdroidDebugUnitTest :app:testCloudDebugUnitTest :app:lintPlayDebug :app:lintFdroidDebug :app:lintCloudDebug :app:assembleFdroidDebug :app:assembleCloudDebug :app:assemblePlayDebug :app:assemblePlayDebugAndroidTest --rerun-tasks --no-build-cache --no-daemon
+          mkdir -p ci-evidence/apk ci-evidence/test-results/play ci-evidence/test-results/fdroid ci-evidence/test-results/cloud
           cp app/build/outputs/apk/play/debug/app-play-debug.apk ci-evidence/apk/
           cp app/build/outputs/apk/androidTest/play/debug/app-play-debug-androidTest.apk ci-evidence/apk/
           cp app/build/test-results/testPlayDebugUnitTest/*.xml ci-evidence/test-results/play/
           cp app/build/test-results/testFdroidDebugUnitTest/*.xml ci-evidence/test-results/fdroid/
+          cp app/build/test-results/testCloudDebugUnitTest/*.xml ci-evidence/test-results/cloud/
           python scripts/ci_record.py junit-audit python tools/audit_junit.py ci-evidence/test-results --skip-policy tools/expected_skips.json --required tools/required_cases.json --output ci-evidence/junit_audit.json
       - name: Inspect actual APK and compile release bundle
         run: |
@@ -74,8 +78,13 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     needs: verify
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - name: Require exact-commit synthetic runtime before signing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/ci_release_gate.py "$GITHUB_SHA" --repository "$GITHUB_REPOSITORY" --runtime-only
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
