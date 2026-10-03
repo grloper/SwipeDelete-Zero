@@ -291,6 +291,32 @@ class PhotosUploadWorkerAuthTest {
         } finally { db.close() }
     }
 
+    @Test fun staleSessionFailureLeavesSameOwnerSameMillisecondQueuedReplacementUnchanged() = runTest {
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(org.robolectric.RuntimeEnvironment.getApplication(), AppDatabase::class.java).build()
+        try {
+            val dao = db.cloudUploadDao()
+            val original = sampleEntity("content://media/external/images/media/905", "alice@example.com")
+            dao.upsert(original)
+            val context = mock(Context::class.java)
+            val resolver = mock(ContentResolver::class.java)
+            `when`(context.contentResolver).thenReturn(resolver)
+            val uploader = TestPhotosUploader()
+            uploader.onStartSession = {
+                // Another request replaces claimed work while the old HTTP operation is pending.
+                // Account and enqueue milliseconds deliberately remain IDENTICAL. Only the
+                // durable complete row (including claimed state) identifies the old attempt.
+                kotlinx.coroutines.runBlocking { dao.upsert(original) }
+                throw java.io.IOException("Old session request failed after queue replacement")
+            }
+            createWorker(context, dao, TestAuthClient(), uploader, db.backedUpFileDao(), db.stagedFileDao()).doWork()
+            assertEquals("The old failure must not change the replacement's state, attempts, error or timestamps", original, dao.get(original.contentUri))
+            assertEquals(1, uploader.startSessionCalls.size)
+            assertTrue(uploader.uploadChunkCalls.isEmpty())
+            assertTrue(uploader.batchCreateCalls.isEmpty())
+            assertTrue(db.backedUpFileDao().getAll().isEmpty())
+            assertTrue(db.stagedFileDao().getAll().isEmpty())
+        } finally { db.close() }
+    }
     @Test fun `stale persistence cannot overwrite requeued account or generation`() = runTest {
         val db = androidx.room.Room.inMemoryDatabaseBuilder(org.robolectric.RuntimeEnvironment.getApplication(), AppDatabase::class.java).build()
         try {
