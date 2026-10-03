@@ -40,7 +40,7 @@ class FullAppReviewJourneyTest {
             val keptBefore = rowCount("kept_files")
             repeat(30) { cycle ->
                 compose.onNodeWithText("Start reviewing").performClick()
-                compose.waitUntil(30_000) { compose.onAllNodes(hasText("swiped", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(30_000) { runCatching { progressText().substringAfter('/').substringBefore(' ').toInt() > 0 && compose.onAllNodesWithText("Loading.").fetchSemanticsNodes().isEmpty() }.getOrDefault(false) }
                 if (compose.onAllNodesWithText("Got it").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithText("Got it").performClick()
                 val initial = cursor()
                 compose.onNodeWithContentDescription("Stage").performClick()
@@ -99,12 +99,13 @@ class FullAppReviewJourneyTest {
     }
 
     private fun awaitText(text: String) = compose.waitUntil(30_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
-    private fun cursor(): Int {
+    private fun progressText(): String {
         val text = compose.onAllNodes(hasText("swiped", substring = true)).fetchSemanticsNodes()
             .flatMap { it.config.getOrElse(androidx.compose.ui.semantics.SemanticsProperties.Text) { emptyList() } }
             .map { it.text }.single { progress.matches(it) }
-        return text.substringBefore('/').toInt()
+        return text
     }
+    private fun cursor(): Int = progressText().substringBefore('/').toInt()
     private fun awaitCursor(expected: Int) = compose.waitUntil(15_000) { runCatching { cursor() == expected }.getOrDefault(false) }
     private fun shell(command: String) { instrumentation.uiAutomation.executeShellCommand(command).use { descriptor -> java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() } } }
     private fun grantPhotos() {
