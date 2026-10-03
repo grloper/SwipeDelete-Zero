@@ -128,13 +128,17 @@ fun SwipeableCard(
                 }
                 val targetY = if (direction == SwipeDirection.UP) -heightPx * 1.5f else offsetY.value
                 // Secondary axis drifts with its release velocity for a natural arc.
-                launch { offsetX.animateTo(targetX, exitSpec, initialVelocity = velocityX) }
-                offsetY.animateTo(targetY, exitSpec, initialVelocity = velocityY)
+                kotlinx.coroutines.coroutineScope {
+                    launch { offsetX.animateTo(targetX, exitSpec, initialVelocity = velocityX) }
+                    launch { offsetY.animateTo(targetY, exitSpec, initialVelocity = velocityY) }
+                }
                 if (!onSwiped(direction)) {
                     // Admission may have changed while this exit animation ran.
                     committed = 0f
-                    launch { offsetX.animateTo(0f, springBackSpec()) }
-                    offsetY.animateTo(0f, springBackSpec())
+                    kotlinx.coroutines.coroutineScope {
+                        launch { offsetX.animateTo(0f, springBackSpec()) }
+                        launch { offsetY.animateTo(0f, springBackSpec()) }
+                    }
                 }
             }
         }

@@ -135,7 +135,7 @@ class StoragePermissionManager @Inject constructor(
     /** True only on the `play` flavor when the user granted all-files access. */
     fun hasAllFilesAccess(): Boolean {
         if (!BuildConfig.ALLOW_MANAGE_STORAGE) return false
-        return sdkInt >= Build.VERSION_CODES.R &&
+        return sdkInt >= Build.VERSION_CODES.R && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
             Environment.isExternalStorageManager()
     }
 

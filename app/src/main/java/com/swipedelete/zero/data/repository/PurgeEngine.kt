@@ -111,7 +111,8 @@ class PurgeEngine @Inject constructor(
     internal var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
     internal var sdkInt: Int = Build.VERSION.SDK_INT
     internal var requestBuilder: (List<Uri>, ExecutionMode) -> IntentSender = { uris, mode ->
-        buildMediaRequest(uris, mode)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) buildMediaRequest(uris, mode)
+        else error("Grouped media confirmation requires Android 11 or newer. Android 10 uses its legacy confirmation flow.")
     }
 
     /**

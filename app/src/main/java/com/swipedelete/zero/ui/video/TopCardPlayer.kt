@@ -116,6 +116,7 @@ class TopCardPlayerState internal constructor(val player: ExoPlayer) {
  * ON_STOP, resumed on ON_START. Deliberately not ViewModel-owned — the surface
  * lifecycle maps 1:1 to the screen's, and the ViewModel stays Android-free.
  */
+@androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
 @Composable
 fun rememberTopCardPlayer(): TopCardPlayerState {
     val context = LocalContext.current
