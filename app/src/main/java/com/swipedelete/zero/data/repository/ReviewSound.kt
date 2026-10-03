@@ -48,7 +48,7 @@ class ReviewSound @Inject constructor(@ApplicationContext context: Context) {
         val now = android.os.SystemClock.elapsedRealtime()
         if (!foreground || now - lastPlayedAt < 180 || audioManager.isMusicActive ||
             audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) == 0) return
-        val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+        val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
         val focus = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
             .setAudioAttributes(attributes).setOnAudioFocusChangeListener { change ->
