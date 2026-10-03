@@ -41,6 +41,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,6 +61,7 @@ fun SettingsScreen(
     onOpenCloudManager: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val soundEnabled by viewModel.soundEnabled.collectAsStateWithLifecycle()
     val exclusions by viewModel.exclusions.collectAsStateWithLifecycle()
     val backupState by viewModel.backupState.collectAsStateWithLifecycle()
     val pendingBackupCount by viewModel.pendingBackupCount.collectAsStateWithLifecycle()
@@ -97,6 +100,16 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.titleLarge,
             )
         }
+
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Review sounds", color = SdzColor.Phosphor)
+                Text("Brief local keep, stage, queue and undo confirmations. Not proof of backup or deletion.",
+                    color = SdzColor.TextSecondary, style = MaterialTheme.typography.bodySmall)
+            }
+            androidx.compose.material3.Switch(checked = soundEnabled, onCheckedChange = viewModel::setSoundEnabled, modifier = Modifier.semantics { contentDescription = "Review sounds" })
+        }
+        Spacer(Modifier.height(16.dp))
 
         if (backupState !is BackupState.Unsupported) {
             DriveBackupSection(
@@ -137,7 +150,9 @@ fun SettingsScreen(
                     .padding(16.dp),
             ) {
                 Text(
-                    "Vault is empty. Swipe up on a card to star & exclude it.",
+                    if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
+                        "Vault is empty. Swipe up queues a Google Photos upload; it does not star or exclude the photo."
+                    else "Vault is empty. Swipe up on a card to star and exclude it.",
                     color = SdzColor.TextSecondary,
                     style = MaterialTheme.typography.bodyMedium,
                 )

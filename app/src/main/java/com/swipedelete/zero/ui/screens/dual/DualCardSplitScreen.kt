@@ -82,6 +82,7 @@ fun DualCardSplitScreen(
             subtitle = if (state.total > 0) "${state.index + 1} of ${state.total}" else null,
         )
 
+        state.actionError?.let { Text(it, color = SdzColor.TextSecondary, style = SdzType.Body) }
         val pair = state.current
         if (pair == null) {
             Box(Modifier.fillMaxSize(), Alignment.Center) {
@@ -152,7 +153,7 @@ fun DualCardSplitScreen(
                 style = SdzButtonStyle.Tertiary,
             )
             SdzButton(
-                label = "Reclaim both",
+                label = "Stage both",
                 onClick = { viewModel.act(CompareAction.TRASH_BOTH) },
                 style = SdzButtonStyle.Tertiary,
             )

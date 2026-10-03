@@ -92,15 +92,11 @@ import com.swipedelete.zero.ui.theme.SdzType
 import com.swipedelete.zero.ui.util.toReadableSize
 import kotlin.math.roundToInt
 
-private fun mediaPermissions(): Array<String> = if (Build.VERSION.SDK_INT >= 33) {
-    arrayOf(
-        android.Manifest.permission.READ_MEDIA_IMAGES,
-        android.Manifest.permission.READ_MEDIA_VIDEO,
-        android.Manifest.permission.READ_MEDIA_AUDIO,
-        android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
-    )
-} else {
-    arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+internal fun photoReviewPermissions(sdk: Int): Array<String> = when {
+    sdk >= 34 -> arrayOf(android.Manifest.permission.READ_MEDIA_IMAGES,
+        android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+    sdk >= 33 -> arrayOf(android.Manifest.permission.READ_MEDIA_IMAGES)
+    else -> arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
 }
 
 /**
@@ -122,7 +118,16 @@ fun DashboardScreen(
     stagingViewModel: StagingViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val loadError by viewModel.loadError.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) viewModel.onPermissionResult(false)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     var lensName by rememberSaveable { mutableStateOf(Lens.CONTENT.name) }
     val lens = Lens.valueOf(lensName)
@@ -224,7 +229,7 @@ fun DashboardScreen(
                     SdzSurface(level = SdzLevel.Raised, contentPadding = SdzSpace.xl) {
                         Text("Your library, your call", style = SdzType.Subtitle, color = SdzColor.Phosphor)
                         Text(
-                            "Allow access to photos and videos to find files worth reviewing. " +
+                            "Choose photos to review. Videos and audio are optional and are not requested here. " +
                                 "Review happens on this device. " +
                                 (if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
                                     "Google Photos backup is optional. Cleanup is unavailable in this test build. "
@@ -234,14 +239,42 @@ fun DashboardScreen(
                             color = SdzColor.TextSecondary,
                         )
                         SdzButton(
-                            label = "Choose media access",
-                            onClick = { permissionLauncher.launch(mediaPermissions()) },
+                            label = "Choose photos",
+                            onClick = { permissionLauncher.launch(photoReviewPermissions(Build.VERSION.SDK_INT)) },
                             style = SdzButtonStyle.Primary,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
             } else {
+            // THE ONE ACTION.
+            item("primary-action") {
+                PrimaryCallToAction(
+                    loading = state.loading,
+                    candidateCount = state.candidateCount,
+                    candidateBytes = state.headlineReclaimableBytes,
+                    onStart = { sections.suggestedDeck()?.let(onOpenDeck) },
+                    enabled = sections.suggestedDeck() != null,
+                )
+            }
+
+            item("access-scope") {
+                if (loadError != null) {
+                    Text(loadError ?: "", color = SdzColor.TextSecondary)
+                    SdzButton(label = "Retry", onClick = { viewModel.loadDecks(forceRefresh = true) }, style = SdzButtonStyle.Secondary)
+                } else if (!state.loading && state.decks.isEmpty()) {
+                    Text("No review cards in the current selection. Choose other photos or scan again.", style = SdzType.BodySmall, color = SdzColor.TextSecondary)
+                }
+                Text("${state.accessDescription}. Changing selection refreshes this review list.",
+                    style = SdzType.BodySmall, color = SdzColor.TextSecondary)
+                Row(horizontalArrangement = Arrangement.spacedBy(SdzSpace.sm)) {
+                    androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Choose photos") }
+                    androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(if (Build.VERSION.SDK_INT >= 33)
+                        arrayOf(android.Manifest.permission.READ_MEDIA_VIDEO) else photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Videos") }
+                    androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(if (Build.VERSION.SDK_INT >= 33)
+                        arrayOf(android.Manifest.permission.READ_MEDIA_AUDIO) else photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Audio") }
+                }
+            }
             if (lens == Lens.CONTENT) {
                 item("content-scan") {
                     ContentScanPanel(state = state, onScan = viewModel::scanNow)
@@ -258,17 +291,6 @@ fun DashboardScreen(
                         reclaimableBytes = state.stagedBytes,
                     )
                 }
-            }
-
-            // THE ONE ACTION.
-            item("primary-action") {
-                PrimaryCallToAction(
-                    loading = state.loading,
-                    candidateCount = state.candidateCount,
-                    candidateBytes = state.headlineReclaimableBytes,
-                    onStart = { sections.suggestedDeck()?.let(onOpenDeck) },
-                    enabled = sections.suggestedDeck() != null,
-                )
             }
 
             item("lens") {

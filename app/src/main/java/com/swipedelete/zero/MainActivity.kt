@@ -20,6 +20,10 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @javax.inject.Inject lateinit var reviewSound: com.swipedelete.zero.data.repository.ReviewSound
+    override fun onResume() { super.onResume(); reviewSound.setForeground(true) }
+    override fun onPause() { reviewSound.setForeground(false); super.onPause() }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Installed before super.onCreate so the brand mark is the first
         // thing drawn, on the same warm charcoal the app itself uses.

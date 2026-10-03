@@ -22,7 +22,11 @@ class SettingsViewModel @Inject constructor(
     private val exclusionRepository: ExclusionRepository,
     private val cloudBackup: CloudBackup,
     private val backupRepository: BackupRepository,
+    private val reviewSound: com.swipedelete.zero.data.repository.ReviewSound,
 ) : ViewModel() {
+
+    val soundEnabled = reviewSound.enabled
+    fun setSoundEnabled(enabled: Boolean) = reviewSound.setEnabled(enabled)
 
     val exclusions: StateFlow<List<ExclusionEntity>> =
         exclusionRepository.observeAll()

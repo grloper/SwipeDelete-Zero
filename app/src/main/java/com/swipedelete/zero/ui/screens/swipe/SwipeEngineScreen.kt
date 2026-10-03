@@ -81,6 +81,15 @@ fun SwipeEngineScreen(
     viewModel: SwipeEngineViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val feedbackLifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(feedbackLifecycleOwner, viewModel) {
+        viewModel.setFeedbackActive(feedbackLifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED))
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, _ ->
+            viewModel.setFeedbackActive(feedbackLifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED))
+        }
+        feedbackLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { feedbackLifecycleOwner.lifecycle.removeObserver(observer); viewModel.setFeedbackActive(false) }
+    }
     val topVideoMeta by viewModel.topVideoMeta.collectAsStateWithLifecycle()
     val backedUpUris by viewModel.backedUpUris.collectAsStateWithLifecycle()
 
@@ -155,15 +164,18 @@ fun SwipeEngineScreen(
                 when {
                     state.loading -> Text("Loading…", color = SdzColor.TextSecondary)
                     state.isComplete -> DeckCompleteCelebration(
-                        freedBytes = state.sessionReclaimedBytes,
-                        fileCount = state.sessionReclaimedCount,
+                        freedBytes = state.sessionStagedBytes,
+                        fileCount = state.sessionStagedCount,
                         onDone = onBack,
                         nextPartLabel = state.nextDeckTitle?.let { "Continue with $it" },
                         onContinueNextPart = state.nextDeckId?.let { nextId -> { viewModel.loadDeck(nextId) } },
                     )
+                    state.deck == null -> Text("This review is unavailable. Return to the library and scan again.", color = SdzColor.TextSecondary)
                     else -> CardStack(state, viewModel, topVideoMeta, backedUpUris, playerState)
                 }
             }
+
+            state.actionError?.let { Text(it, color = SdzColor.TextSecondary, style = MaterialTheme.typography.bodySmall) }
 
             // Live cloud archive status — renders nothing when the queue is
             // empty (always the case in the fdroid/play flavors).
@@ -425,6 +437,6 @@ private fun UndoToast(
 private fun undoLabel(direction: SwipeDirection, cloudArchive: Boolean): String = when (direction) {
     SwipeDirection.LEFT -> "Staged for review"
     SwipeDirection.RIGHT -> "Kept"
-    SwipeDirection.UP -> if (cloudArchive) "Uploading to Google Photos" else "Starred & excluded"
+    SwipeDirection.UP -> if (cloudArchive) "Queued for Google Photos; not backed up yet" else "Starred & excluded"
     SwipeDirection.NONE -> ""
 }

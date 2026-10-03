@@ -30,6 +30,7 @@ data class DashboardUiState(
     val totalStorageBytes: Long = 0,
     val freeStorageBytes: Long = 0,
     val hasMediaAccess: Boolean = false,
+    val accessDescription: String = "Choose photos to start",
     val analysisState: AnalysisRunState = AnalysisRunState.IDLE,
     /** True once the analysis pass has produced hash/blur data to build decks from. */
     val hasAnalysis: Boolean = false,
@@ -61,7 +62,10 @@ class DashboardViewModel @Inject constructor(
     private val candidateBytesState = MutableStateFlow(0L)
     private val candidateCountState = MutableStateFlow(0)
     private val loadingState = MutableStateFlow(true)
-    private val accessState = MutableStateFlow(false)
+    private val accessState = MutableStateFlow(false to "Choose photos to start")
+    private var loadGeneration = 0L
+    private val _loadError = MutableStateFlow<String?>(null)
+    val loadError: StateFlow<String?> = _loadError
     private val hasAnalysisState = MutableStateFlow(false)
 
     val uiState: StateFlow<DashboardUiState> =
@@ -78,7 +82,8 @@ class DashboardViewModel @Inject constructor(
                     decks = decks,
                     candidateBytes = bytes,
                     candidateCount = count,
-                    hasMediaAccess = access,
+                    hasMediaAccess = access.first,
+                    accessDescription = access.second,
                 )
             },
             stagingRepository.observeCount(),
@@ -120,21 +125,32 @@ class DashboardViewModel @Inject constructor(
 
     fun onPermissionResult(granted: Boolean) {
         val access = permissions.hasMediaAccess()
-        accessState.value = access
-        if (access) loadDecks() else loadingState.value = false
+        accessState.value = access to if (permissions.hasLimitedMediaAccessOnly()) "Selected visual media only" else "Only media allowed in Android settings"
+        loadGeneration++
+        decksState.value = emptyList()
+        candidateBytesState.value = 0L
+        candidateCountState.value = 0
+        hasAnalysisState.value = false
+        if (access) loadDecks(forceRefresh = true) else loadingState.value = false
     }
 
     fun loadDecks(forceRefresh: Boolean = false) {
+        val generation = ++loadGeneration
         viewModelScope.launch {
             loadingState.value = true
+            _loadError.value = null
+            try {
             val summary = deckRepository.getSummary(forceRefresh)
+            if (generation != loadGeneration) return@launch
             decksState.value = summary.decks
             candidateBytesState.value = summary.candidateBytes
             candidateCountState.value = summary.candidateCount
             hasAnalysisState.value = summary.decks.any { deck ->
                 deck.items.any { it.perceptualHash != null || it.sharpnessScore != null }
             }
-            loadingState.value = false
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { if (generation == loadGeneration) { decksState.value = emptyList(); candidateBytesState.value = 0L; candidateCountState.value = 0; _loadError.value = "Could not read the selected media. Check Android access and retry." } }
+            finally { if (generation == loadGeneration) loadingState.value = false }
         }
     }
 
