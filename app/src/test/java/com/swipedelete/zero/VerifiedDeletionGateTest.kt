@@ -44,13 +44,11 @@ class VerifiedDeletionGateTest {
         )
         engine.uriParser = { mock(Uri::class.java) }
 
-        if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE) {
-            val plan = engine.preparePurge(listOf(item("safe"), item("missing")), ExecutionMode.PERMANENT_PURGE)
-            assertTrue(plan is PurgeEngine.PurgePlan.Failed)
-            // Under M0-R5 immediate safety lock, verifyRemote is never touched
-            assertTrue("Provider verifyRemote must not be called when locked", archive.checked.isEmpty())
-            verifyNoInteractions(media, saf)
-        }
+        val plan = engine.preparePurge(listOf(item("safe"), item("missing")), ExecutionMode.PERMANENT_PURGE)
+        assertTrue(plan is PurgeEngine.PurgePlan.Failed)
+        // Under M0-R5 immediate safety lock, verifyRemote is never touched
+        assertTrue("Provider verifyRemote must not be called when locked", archive.checked.isEmpty())
+        verifyNoInteractions(media, saf)
     }
 
     @Test
@@ -61,10 +59,8 @@ class VerifiedDeletionGateTest {
             fakeArchive { false },
         )
         engine.uriParser = { mock(Uri::class.java) }
-        if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE) {
-            assertTrue(engine.preparePurge(listOf(item("one")), ExecutionMode.OS_TRASH_30_DAY)
-                is PurgeEngine.PurgePlan.Failed)
-        }
+        assertTrue(engine.preparePurge(listOf(item("one")), ExecutionMode.OS_TRASH_30_DAY)
+            is PurgeEngine.PurgePlan.Failed)
     }
 
     private fun fakeArchive(check: (StagedFileEntity) -> Boolean) = object : PhotosArchive {

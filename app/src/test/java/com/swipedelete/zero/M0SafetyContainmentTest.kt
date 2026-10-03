@@ -14,11 +14,9 @@ import com.swipedelete.zero.domain.model.ExecutionMode
 import com.swipedelete.zero.domain.model.MediaItem
 import com.swipedelete.zero.ui.screens.staging.StagingUiState
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.Mockito.mock
@@ -26,7 +24,7 @@ import org.mockito.Mockito.verifyNoInteractions
 
 /**
  * Regression and safety tests for M0:
- * SAFE-01: Default-deny deletion containment across all states in Play/cloud.
+ * SAFE-01: Default-deny deletion containment across all states in every edition.
  * SAFE-02: Throwing provider fake is NEVER touched by an M0 delete request.
  * SAFE-03: Staging UI eligibility reflects disabled cleanup and product explanation.
  */
@@ -69,39 +67,51 @@ class M0SafetyContainmentTest {
             override fun openInPhotosIntent(): Intent? = null
         }
 
-        val engine = PurgeEngine(
-            mock(Context::class.java), mediaStore, safBridge,
-            mock(StoragePermissionManager::class.java), throwingArchive,
+        val context = mock(Context::class.java)
+        val permissions = mock(StoragePermissionManager::class.java)
+        val engine = PurgeEngine(context, mediaStore, safBridge, permissions, throwingArchive)
+        engine.requestBuilder = { _, _ -> error("OS confirmation must not be created while locked") }
+
+        // PERMANENT_PURGE must fail immediately with product explanation
+        val permanentPlan = engine.preparePurge(
+            listOf(item("photo_1"), item("photo_2")),
+            ExecutionMode.PERMANENT_PURGE,
+        )
+        assertTrue("Permanent purge must fail under M0 lock", permanentPlan is PurgeEngine.PurgePlan.Failed)
+        val permanentReason = (permanentPlan as PurgeEngine.PurgePlan.Failed).reason
+        assertEquals(
+            "Cleanup is unavailable in this test build. Your originals stay on this device.",
+            permanentReason,
         )
 
-        if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE) {
-            // PERMANENT_PURGE must fail immediately with product explanation
-            val permanentPlan = engine.preparePurge(
-                listOf(item("photo_1"), item("photo_2")),
-                ExecutionMode.PERMANENT_PURGE,
-            )
-            assertTrue("Permanent purge must fail under M0 lock", permanentPlan is PurgeEngine.PurgePlan.Failed)
-            val permanentReason = (permanentPlan as PurgeEngine.PurgePlan.Failed).reason
-            assertEquals(
-                "Cleanup is unavailable in this test build. Your originals stay on this device.",
-                permanentReason,
-            )
+        // OS_TRASH_30_DAY must also fail immediately with product explanation
+        val trashPlan = engine.preparePurge(
+            listOf(item("photo_trash")),
+            ExecutionMode.OS_TRASH_30_DAY,
+        )
+        assertTrue("Trash mode must fail under M0 lock", trashPlan is PurgeEngine.PurgePlan.Failed)
+        val trashReason = (trashPlan as PurgeEngine.PurgePlan.Failed).reason
+        assertEquals(
+            "Cleanup is unavailable in this test build. Your originals stay on this device.",
+            trashReason,
+        )
 
-            // OS_TRASH_30_DAY must also fail immediately with product explanation
-            val trashPlan = engine.preparePurge(
-                listOf(item("photo_trash")),
-                ExecutionMode.OS_TRASH_30_DAY,
-            )
-            assertTrue("Trash mode must fail under M0 lock", trashPlan is PurgeEngine.PurgePlan.Failed)
-            val trashReason = (trashPlan as PurgeEngine.PurgePlan.Failed).reason
-            assertEquals(
-                "Cleanup is unavailable in this test build. Your originals stay on this device.",
-                trashReason,
-            )
+        // Documents would otherwise use direct-file or SAF deletion; Android 10
+        // images would otherwise take the legacy ContentResolver deletion path.
+        val document = item("document").copy(mediaType = "DOCUMENT", mimeType = "application/pdf", relativePath = "/synthetic/document.pdf")
+        for (sdk in listOf(29, 30, 36)) {
+            engine.sdkInt = sdk
+            for (mode in ExecutionMode.entries) {
+                val batch = listOf(item("image"), document)
+                assertTrue(engine.checkDeletionEligibility(batch) is PurgeEngine.DeletionEligibility.Blocked)
+                repeat(2) {
+                    assertTrue(engine.preparePurge(batch, mode) is PurgeEngine.PurgePlan.Failed)
+                }
+            }
         }
 
         // Critical safety verification: zero destructive calls made
-        verifyNoInteractions(mediaStore, safBridge)
+        verifyNoInteractions(context, mediaStore, safBridge, permissions)
     }
 
     // =========================================================================
@@ -109,30 +119,30 @@ class M0SafetyContainmentTest {
     // =========================================================================
 
     @Test
-    fun `SAFE-03 - StagingUiState enforces disabled cleanup and product explanation in Play test builds`() {
-        if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE) {
-            val uiState = StagingUiState(
-                items = listOf(item("photo_1")),
-                backupRequired = true,
-                backupConnected = true,
-                pendingBackupCount = 0, // all backed up!
-                verifiedCount = 1,
+    fun `SAFE-03 - cleanup stays disabled with or without backup requirements in every edition`() {
+        for (backupRequired in listOf(false, true)) {
+            val state = StagingUiState(
+                items = listOf(item("photo_1")), backupRequired = backupRequired,
+                backupConnected = true, pendingBackupCount = 0, verifiedCount = 1,
             )
-
-            assertFalse("Cleanup must be unavailable in Play/cloud test build", uiState.cleanupAvailable)
-            assertFalse("canDelete must remain false even when all backups are verified", uiState.canDelete)
-            assertNotNull("Product explanation must be provided", uiState.cleanupLockExplanation)
-            assertEquals(
-                "Cleanup is unavailable in this test build. Your originals stay on this device.",
-                uiState.cleanupLockExplanation,
-            )
-        } else {
-            val offlineState = StagingUiState(
-                items = listOf(item("photo_1")),
-                backupRequired = false,
-            )
-            assertTrue("Cleanup must be available in offline/F-Droid build", offlineState.cleanupAvailable)
-            assertTrue("canDelete must be true in offline build when no backup required", offlineState.canDelete)
+            assertFalse(state.cleanupAvailable)
+            assertFalse(state.canDelete)
+            assertEquals(PurgeEngine.M0_SAFETY_LOCK_MESSAGE, state.cleanupLockExplanation)
         }
+    }
+
+    @Test
+    fun `empty queues are harmless and touch no storage or provider`() = runTest {
+        val context = mock(Context::class.java)
+        val media = mock(MediaStoreRepository::class.java)
+        val saf = mock(SafStorageBridge::class.java)
+        val permissions = mock(StoragePermissionManager::class.java)
+        val archive = mock(PhotosArchive::class.java)
+        val engine = PurgeEngine(context, media, saf, permissions, archive)
+        assertEquals(PurgeEngine.DeletionEligibility.Permitted, engine.checkDeletionEligibility(emptyList()))
+        for (mode in ExecutionMode.entries) {
+            assertTrue(engine.preparePurge(emptyList(), mode) is PurgeEngine.PurgePlan.NoConfirmationNeeded)
+        }
+        verifyNoInteractions(context, media, saf, permissions, archive)
     }
 }

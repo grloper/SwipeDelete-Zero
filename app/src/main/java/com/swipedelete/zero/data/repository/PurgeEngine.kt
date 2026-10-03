@@ -89,23 +89,14 @@ class PurgeEngine @Inject constructor(
     }
 
     /**
-     * Typed domain safety check.
-     * Enforces default-deny:
-     * - In Play/cloud, local deletion of originals is unconditionally locked in this test build.
-     *   Returns immediately without making network calls or touching the backup provider fake.
-     * - In F-Droid (offline edition), deletion is permitted.
+     * Default-deny in every edition until original-byte recovery from a clean
+     * install has been independently demonstrated. Provider receipts are not
+     * recovery evidence. Empty queues are harmless; nonempty queues never reach
+     * MediaStore, SAF, direct-file deletion, or remote verification.
      */
-    suspend fun checkDeletionEligibility(staged: List<StagedFileEntity>): DeletionEligibility {
-        if (staged.isEmpty()) return DeletionEligibility.Permitted
-
-        // In Play/cloud, local deletion of originals is unconditionally locked in this test build.
-        // Return immediately without calling verifyRemote, ensuring throwing provider fakes are never touched.
-        if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE) {
-            return DeletionEligibility.Blocked(M0_SAFETY_LOCK_MESSAGE)
-        }
-
-        return DeletionEligibility.Permitted
-    }
+    suspend fun checkDeletionEligibility(staged: List<StagedFileEntity>): DeletionEligibility =
+        if (staged.isEmpty()) DeletionEligibility.Permitted
+        else DeletionEligibility.Blocked(M0_SAFETY_LOCK_MESSAGE)
 
     internal var uriParser: (String) -> Uri = { Uri.parse(it) }
     internal var ioDispatcher: CoroutineDispatcher = Dispatchers.IO

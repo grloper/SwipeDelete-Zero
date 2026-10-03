@@ -33,10 +33,12 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeFalse
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.ArgumentMatchers.anyList
+import org.mockito.Mockito.doReturn
+import org.mockito.Mockito.spy
+import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
@@ -50,7 +52,7 @@ import org.mockito.Mockito.`when`
  * 2. StagingViewModel immediately unstages confirmed ABSENT without claiming reclaimed storage bytes.
  * 3. Four-state partition (PRESENT, ABSENT, TRASHED, UNKNOWN): only confirmed ABSENT/TRASHED are unstaged without byte credit; UNKNOWN MUST REMAIN STAGED.
  * 4. User cancellation (onConfirmationResult(false)) on an actual non-empty batch clears pending state, leaves the queue fully intact, awards zero bytes, and launches no follow-on batches.
- * 5. Flavor-specific tests use explicit JUnit assumptions (Assume.assumeFalse/assumeTrue) to report accurate skips rather than silent early returns.
+ * 5. Planner tests stub eligibility on a Mockito spy only; real-engine lock tests run in every flavor.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PurgeBatchReconciliationTest {
@@ -65,6 +67,14 @@ class PurgeBatchReconciliationTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    // This override exists only inside the unit-test process, never in app code.
+    private suspend fun permittedPlanner(engine: PurgeEngine): PurgeEngine {
+        val planner = spy(engine)
+        doReturn(PurgeEngine.DeletionEligibility.Permitted).`when`(planner)
+            .checkDeletionEligibility(anyList<StagedFileEntity>())
+        return planner
     }
 
     private fun stagedItem(id: Int, sizeBytes: Long = 1024L) = StagedFileEntity(
@@ -119,14 +129,13 @@ class PurgeBatchReconciliationTest {
 
     @Test
     fun `M0-R7 - preparePurge partitions 100 missing items and plans 50 live items preventing starvation`() = runTest {
-        assumeFalse("Deletion is locked in Play/cloud builds; test starvation on offline path", BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
 
         val context = mock(Context::class.java)
         val mediaStore = mock(MediaStoreRepository::class.java)
         val saf = mock(SafStorageBridge::class.java)
         val permissions = mock(StoragePermissionManager::class.java)
 
-        val engine = PurgeEngine(context, mediaStore, saf, permissions, NoOpPhotosArchive())
+        val engine = permittedPlanner(PurgeEngine(context, mediaStore, saf, permissions, NoOpPhotosArchive()))
         engine.sdkInt = android.os.Build.VERSION_CODES.R
         engine.requestBuilder = { _, _ -> mock(IntentSender::class.java) }
         val uriCache = mutableMapOf<String, Uri>()
@@ -172,7 +181,6 @@ class PurgeBatchReconciliationTest {
 
     @Test
     fun `M0-R7 - StagingViewModel prunes alreadyMissingUris without awarding reclaimed bytes`() = runTest {
-        assumeFalse("Deletion is locked in Play/cloud builds; test on offline path", BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
 
         val stagedDao = InMemoryStagedDao()
         val stagingRepo = StagingRepository(stagedDao)
@@ -187,7 +195,7 @@ class PurgeBatchReconciliationTest {
         `when`(cloudBackup.state).thenReturn(MutableStateFlow(BackupState.Unsupported))
         `when`(statsStore.lifetimeReclaimedBytes).thenReturn(MutableStateFlow(0L))
 
-        val purgeEngine = PurgeEngine(context, mediaStore, safBridge, permissions, photosArchive)
+        val purgeEngine = permittedPlanner(PurgeEngine(context, mediaStore, safBridge, permissions, photosArchive))
         purgeEngine.ioDispatcher = testDispatcher
 
         val missing1 = stagedItem(1)
@@ -214,7 +222,6 @@ class PurgeBatchReconciliationTest {
 
     @Test
     fun `M0-V2-01 - 4-state resolution preserves UNKNOWN and reconciles only confirmed ABSENT and TRASHED`() = runTest {
-        assumeFalse("Deletion is locked in Play/cloud builds; test on offline path", BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
 
         val stagedDao = InMemoryStagedDao()
         val stagingRepo = StagingRepository(stagedDao)
@@ -229,7 +236,7 @@ class PurgeBatchReconciliationTest {
         `when`(cloudBackup.state).thenReturn(MutableStateFlow(BackupState.Unsupported))
         `when`(statsStore.lifetimeReclaimedBytes).thenReturn(MutableStateFlow(0L))
 
-        val purgeEngine = PurgeEngine(context, mediaStore, safBridge, permissions, photosArchive)
+        val purgeEngine = permittedPlanner(PurgeEngine(context, mediaStore, safBridge, permissions, photosArchive))
         purgeEngine.ioDispatcher = testDispatcher
         purgeEngine.sdkInt = android.os.Build.VERSION_CODES.R
         purgeEngine.requestBuilder = { _, _ -> mock(IntentSender::class.java) }
@@ -283,7 +290,6 @@ class PurgeBatchReconciliationTest {
 
     @Test
     fun `M0-V2-04 - cancellation of actual non-empty batch preserves queue, clears pending, and launches no follow-on batches`() = runTest {
-        assumeFalse("Deletion is locked in Play/cloud builds; test cancellation on offline path", BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
 
         val stagedDao = InMemoryStagedDao()
         val stagingRepo = StagingRepository(stagedDao)
@@ -302,7 +308,7 @@ class PurgeBatchReconciliationTest {
         val stagedItems = (1..5).map { stagedItem(it) }
         stagedItems.forEach { stagedDao.stage(it) }
 
-        val purgeEngine = PurgeEngine(context, mediaStore, safBridge, permissions, photosArchive)
+        val purgeEngine = permittedPlanner(PurgeEngine(context, mediaStore, safBridge, permissions, photosArchive))
         purgeEngine.ioDispatcher = testDispatcher
         purgeEngine.sdkInt = android.os.Build.VERSION_CODES.R
         var confirmationRequestCount = 0
@@ -356,8 +362,7 @@ class PurgeBatchReconciliationTest {
     }
 
     @Test
-    fun `M0-R5 - StagingViewModel purge is blocked in Play cloud builds`() = runTest {
-        assumeTrue("Deletion lock only applies to Play/cloud builds", BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
+    fun `M0-R5 - real StagingViewModel purge is blocked in every edition`() = runTest {
 
         val stagedDao = InMemoryStagedDao()
         val stagingRepo = StagingRepository(stagedDao)
@@ -379,7 +384,9 @@ class PurgeBatchReconciliationTest {
         vm.purge()
         advanceUntilIdle()
 
-        assertTrue("No items removed in Play build", stagedDao.removedUris.isEmpty())
+        assertTrue("No items removed in any edition", stagedDao.removedUris.isEmpty())
+        assertEquals(listOf(stagedItem(1).contentUri), stagedDao.items.map { it.contentUri })
+        verifyNoInteractions(context, mediaStore, safBridge, permissions)
         assertFalse("Purging state reset after blocked plan", vm.uiState.value.purging)
         verify(statsStore, never()).addReclaimed(org.mockito.ArgumentMatchers.anyLong())
     }

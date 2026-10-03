@@ -45,9 +45,8 @@ data class StagingUiState(
     val verifiedCount: Int = 0,
     val pendingBackupCount: Int = 0,
     val failedBackupCount: Int = 0,
-    val cleanupAvailable: Boolean = !com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE,
-    val cleanupLockExplanation: String? = if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
-        "Cleanup is unavailable in this test build. Your originals stay on this device." else null,
+    val cleanupAvailable: Boolean = false,
+    val cleanupLockExplanation: String? = PurgeEngine.M0_SAFETY_LOCK_MESSAGE,
 ) {
     val count: Int get() = items.size
     val canDelete: Boolean get() = cleanupAvailable && (!backupRequired || (backupConnected && pendingBackupCount == 0))
