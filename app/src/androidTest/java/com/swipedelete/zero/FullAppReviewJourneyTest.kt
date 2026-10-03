@@ -146,7 +146,8 @@ class FullAppReviewJourneyTest {
     private fun assertOriginalHashes() { originals.forEach { (uri, before) -> assertEquals("Original changed/disappeared: $uri", before, hash(uri)) } }
     private fun evidence(name: String) {
         val directory = File(context.getExternalFilesDir(null), "journey-evidence").apply { mkdirs() }
-        File(directory, "$name.txt").writeText(compose.onRoot().printToString())
+        val roots = compose.onAllNodes(isRoot()).fetchSemanticsNodes().size
+        File(directory, "$name.txt").writeText((0 until roots).joinToString("\n") { compose.onAllNodes(isRoot())[it].printToString() })
         instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
             try { File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
         }
