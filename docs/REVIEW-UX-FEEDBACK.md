@@ -40,3 +40,14 @@ a 900-second bounded instrumentation deadline and the CI job a 35-minute budget.
 
 These new tests must compile and pass on exact-head CI before claiming endurance
 or permission runtime evidence. Authoring and static review are not a runtime pass.
+
+Permission regrant phases additionally load the durable full-journey checkpoint,
+assert unchanged staged/kept counts, reopen a nonempty deck with enabled Stage
+and Keep controls, return without making another decision, and recompute the
+SHA256 of every owned synthetic original. The manifest is retained across the
+separate instrumentation processes; denial screenshots cannot overwrite it
+with an empty manifest. Each URI is checked against the fixture naming prefix
+before reading its bytes.
+
+The emulator action invokes one checked-in `ci_review_journey.sh` script so its
+multiline failure gate runs in one shell, rather than separate action script lines.

@@ -69,6 +69,7 @@ class FullAppReviewJourneyTest {
             compose.onAllNodes(hasText("Cleanup is unavailable", substring = true)).onFirst().assertIsDisplayed()
             assertEquals(stagedBefore + 15, rowCount("staged_files"))
             assertEquals(keptBefore + 15, rowCount("kept_files"))
+            saveCheckpoint(stagedBefore + 15, keptBefore + 15)
             evidence("cleanup-locked")
             assertOriginalHashes()
         }
@@ -93,8 +94,22 @@ class FullAppReviewJourneyTest {
         org.junit.Assume.assumeTrue(InstrumentationRegistry.getArguments().getString("permissionJourney") == "granted")
         grantPhotos()
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use {
-            compose.waitUntil(30_000) { compose.onAllNodesWithText("Your library, your call").fetchSemanticsNodes().isEmpty() && compose.onAllNodesWithText("Choose photos").fetchSemanticsNodes().isNotEmpty() }
+            awaitText("Start reviewing")
+            restoreAndAssertCheckpoint()
+            compose.onNodeWithText("Start reviewing").assertIsEnabled().performClick()
+            compose.waitUntil(30_000) {
+                runCatching {
+                    val total = progressText().substringAfter('/').substringBefore(' ').toInt()
+                    total > cursor() && compose.onAllNodesWithText("Loading.").fetchSemanticsNodes().isEmpty()
+                }.getOrDefault(false)
+            }
+            if (compose.onAllNodesWithText("Got it").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithText("Got it").performClick()
+            compose.onNodeWithContentDescription("Stage").assertIsEnabled()
+            compose.onNodeWithContentDescription("Keep").assertIsEnabled()
             evidence("permission-regranted")
+            compose.onNodeWithContentDescription("Back").performClick()
+            awaitText("Start reviewing")
+            restoreAndAssertCheckpoint()
         }
     }
 
@@ -137,6 +152,28 @@ class FullAppReviewJourneyTest {
         while (true) { val size = input.read(buffer); if (size < 0) break; digest.update(buffer, 0, size) }
         digest.digest().joinToString("") { "%02x".format(it) }
     }
+    private fun saveCheckpoint(staged: Int, kept: Int) {
+        File(context.filesDir, "synthetic-journey-counts.txt").writeText("$staged\n$kept")
+        File(context.filesDir, "synthetic-journey-originals.txt").writeText(originals.entries.joinToString("\n") { "${it.value} ${it.key}" })
+    }
+    private fun restoreAndAssertCheckpoint() {
+        val expected = File(context.filesDir, "synthetic-journey-counts.txt").readLines().map { it.toInt() }
+        assertEquals(expected[0], rowCount("staged_files"))
+        assertEquals(expected[1], rowCount("kept_files"))
+        originals.clear()
+        val lines = File(context.filesDir, "synthetic-journey-originals.txt").readLines()
+        assertTrue("The full journey's original manifest must survive UID restart", lines.size >= 100)
+        for (line in lines) {
+            val uri = Uri.parse(line.substringAfter(' '))
+            require(uri.scheme == "content" && uri.authority == "media")
+            context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)!!.use { row ->
+                assertTrue(row.moveToFirst())
+                assertTrue("Only our synthetic originals may be inspected", row.getString(0).startsWith("Screenshot_endurance_"))
+            }
+            originals[uri] = line.substringBefore(' ')
+        }
+        assertOriginalHashes()
+    }
     private fun rowCount(table: String): Int {
         require(table in setOf("staged_files", "kept_files"))
         return android.database.sqlite.SQLiteDatabase.openDatabase(context.getDatabasePath("swipedelete-zero.db").path, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY).use { db ->
@@ -151,6 +188,6 @@ class FullAppReviewJourneyTest {
         instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
             try { File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
         }
-        File(directory, "original-sha256.txt").writeText(originals.entries.joinToString("\n") { "${it.value} ${it.key}" })
+        if (originals.isNotEmpty()) File(directory, "original-sha256.txt").writeText(originals.entries.joinToString("\n") { "${it.value} ${it.key}" })
     }
 }
