@@ -11,10 +11,10 @@
 
 Review your photo library one card at a time: swipe left to stage, right to
 keep, or up to archive to Photos in the Play build. The F-Droid build works
-offline. The Play test build offers optional Google backup, but local cleanup
+offline. The Play test build offers optional Google backup, but cleanup in every edition
 remains locked until the complete safety path is validated live.
 
-### [⬇️ Test the current Play APK](../../pull/16)
+### [⬇️ Test the current Play APK](../../pull/20)
 
 The pull request's **Play release bundle** workflow attaches an
 `evidence-archive` artifact with a debug APK after the checks pass. Extract
@@ -29,7 +29,7 @@ the APK and install it on an Android device. This is not a signed Play release.
 The **fdroid** build of SwipeRise is architecturally incapable of phoning
 home. Its manifest **does not declare `android.permission.INTERNET`** — so the
 OS itself blocks every socket. All scanning, perceptual hashing, blur detection
-and deletion happen locally.
+and review happen locally. Cleanup is currently locked in every edition.
 
 - ✅ Zero telemetry, zero analytics, zero ads
 - ✅ No cloud, no accounts, no background uploads
@@ -182,3 +182,7 @@ Requirements: JDK 17, Android SDK 36.
 <div align="center">
 <sub>SwipeRise · review with care</sub>
 </div>
+
+## Validation boundaries
+
+PR20 consolidates the independently reviewed backup and session work. Final local checks cover Play, F-Droid and Cloud with 501 unit tests, lint and development packages; exact-head emulator evidence remains mandatory before merge. No live original-byte clean-install cloud restore or physical pose/device qualification is claimed. iCloud is unimplemented. The earlier PR16/36310543845 evidence belongs only to its archived ca1f457 APK and cannot certify this snapshot.
