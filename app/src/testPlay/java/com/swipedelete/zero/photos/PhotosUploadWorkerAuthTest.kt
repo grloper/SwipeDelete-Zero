@@ -124,9 +124,19 @@ class PhotosUploadWorkerAuthTest {
         override suspend fun verifiedWithoutLedger(): List<CloudUploadEntity> =
             map.values.filter { it.state == CloudUploadEntity.STATE_VERIFIED }
         override suspend fun upsert(entity: CloudUploadEntity) { map[entity.contentUri] = entity }
-        override suspend fun deleteIfQueued(uri: String): Int = 0
+        override suspend fun updateExisting(entity: CloudUploadEntity): Int {
+            if (!map.containsKey(entity.contentUri)) return 0
+            map[entity.contentUri] = entity; return 1
+        }
+        override suspend fun deleteIfQueued(uri: String): Int {
+            if (map[uri]?.state != CloudUploadEntity.STATE_QUEUED) return 0
+            map.remove(uri); return 1
+        }
         override suspend fun delete(uri: String) { map.remove(uri) }
-        override suspend fun deleteIfCancelable(uri: String): Int = 0
+        override suspend fun deleteIfCancelable(uri: String): Int {
+            if (map[uri]?.state !in listOf(CloudUploadEntity.STATE_QUEUED, CloudUploadEntity.STATE_FAILED)) return 0
+            map.remove(uri); return 1
+        }
         override suspend fun retryAllFailed(nowMillis: Long): Int = 0
         override suspend fun clearCompleted(): Int = 0
         override fun observeCountByState(state: String): Flow<Int> = emptyFlow()
@@ -207,6 +217,102 @@ class PhotosUploadWorkerAuthTest {
     // M0-R1: Durable Account Ownership Across Worker Restarts and Disconnects
     // =========================================================================
 
+    @Test fun `queued cancellation after selection wins atomic claim and sends no request`() = runTest {
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(org.robolectric.RuntimeEnvironment.getApplication(), AppDatabase::class.java).build()
+        try {
+            val dao = db.cloudUploadDao()
+            val item = sampleEntity("content://media/external/images/media/901", "alice@example.com")
+            dao.upsert(item)
+            val selectedThenCanceled = object : CloudUploadDao by dao {
+                override suspend fun nextPending(): CloudUploadEntity? {
+                    val selected = dao.nextPending() ?: return null
+                    assertEquals(1, dao.deleteIfQueued(selected.contentUri))
+                    return selected // The production worker holds the stale selected snapshot.
+                }
+            }
+            val uploader = TestPhotosUploader()
+            createWorker(mock(Context::class.java), selectedThenCanceled, TestAuthClient(), uploader,
+                db.backedUpFileDao(), db.stagedFileDao()).doWork()
+            assertTrue(uploader.startSessionCalls.isEmpty())
+            assertTrue(uploader.uploadChunkCalls.isEmpty())
+            assertEquals(null, dao.get(item.contentUri))
+            assertTrue(db.backedUpFileDao().getAll().isEmpty())
+            assertTrue(db.stagedFileDao().getAll().isEmpty())
+        } finally { db.close() }
+    }
+
+    @Test fun `delayed session start is already claimed so queued Undo cannot cancel running work`() = runTest {
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(org.robolectric.RuntimeEnvironment.getApplication(), AppDatabase::class.java).build()
+        try {
+            val dao = db.cloudUploadDao()
+            val item = sampleEntity("content://media/external/images/media/902", "alice@example.com")
+            dao.upsert(item)
+            val context = mock(Context::class.java)
+            val resolver = mock(ContentResolver::class.java)
+            `when`(context.contentResolver).thenReturn(resolver)
+            `when`(resolver.openInputStream(org.mockito.ArgumentMatchers.any())).thenReturn(ByteArrayInputStream(ByteArray(100)))
+            val uploader = TestPhotosUploader()
+            uploader.onStartSession = {
+                kotlinx.coroutines.runBlocking {
+                    assertEquals(CloudUploadEntity.STATE_UPLOADING, dao.get(item.contentUri)?.state)
+                    assertEquals(0, dao.deleteIfQueued(item.contentUri))
+                    assertEquals(0, dao.deleteIfCancelable(item.contentUri))
+                }
+            }
+            createWorker(context, dao, TestAuthClient(), uploader, db.backedUpFileDao(), db.stagedFileDao()).doWork()
+            assertEquals(CloudUploadEntity.STATE_VERIFIED, dao.get(item.contentUri)?.state)
+            assertEquals(1, db.backedUpFileDao().getAll().size)
+            assertEquals(1, db.stagedFileDao().getAll().size)
+        } finally { db.close() }
+    }
+
+    @Test fun `actual row removal during delayed session start cannot resurrect send chunks or stage`() = runTest {
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(org.robolectric.RuntimeEnvironment.getApplication(), AppDatabase::class.java).build()
+        try {
+            val dao = db.cloudUploadDao()
+            val item = sampleEntity("content://media/external/images/media/903", "alice@example.com")
+            dao.upsert(item)
+            val context = mock(Context::class.java)
+            val resolver = mock(ContentResolver::class.java)
+            `when`(context.contentResolver).thenReturn(resolver)
+            val uploader = TestPhotosUploader()
+            // A deterministic gate inside the synchronous transport start: before it returns,
+            // another path removes the actual Room row. The old unconditional upsert revived it.
+            uploader.onStartSession = { kotlinx.coroutines.runBlocking { dao.delete(item.contentUri) } }
+            var stopped = false
+            try { createWorker(context, dao, TestAuthClient(), uploader, db.backedUpFileDao(), db.stagedFileDao()).doWork() }
+            catch (_: CancellationException) { stopped = true }
+            assertTrue("Removed work must stop", stopped)
+            assertEquals(null, dao.get(item.contentUri))
+            assertTrue(uploader.uploadChunkCalls.isEmpty())
+            assertTrue(uploader.batchCreateCalls.isEmpty())
+            assertTrue(db.backedUpFileDao().getAll().isEmpty())
+            assertTrue(db.stagedFileDao().getAll().isEmpty())
+        } finally { db.close() }
+    }
+
+    @Test fun `stale persistence cannot overwrite requeued account or generation`() = runTest {
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(org.robolectric.RuntimeEnvironment.getApplication(), AppDatabase::class.java).build()
+        try {
+            val dao = db.cloudUploadDao()
+            val original = sampleEntity("content://media/external/images/media/904", "alice@example.com")
+            dao.upsert(original)
+            val claimed = requireNotNull(dao.claimForProcessing(original))
+            // Even a replacement within the same millisecond cannot be overwritten:
+            // the expected complete row includes the durable claimed state.
+            dao.upsert(original)
+            assertFalse(dao.updateOwned(claimed.copy(uploadUrl = "https://stale"), claimed))
+            assertEquals(original, dao.get(original.contentUri))
+            val replacement = original.copy(enqueuedAtMillis = original.enqueuedAtMillis + 1)
+            dao.upsert(replacement)
+            assertFalse(dao.updateOwned(claimed.copy(uploadUrl = "https://stale"), claimed))
+            assertEquals(replacement, dao.get(original.contentUri))
+            val otherOwner = original.copy(accountName = "bob@example.com")
+            dao.upsert(otherOwner)
+            assertFalse(dao.updateOwned(claimed, claimed))
+            assertEquals(otherOwner, dao.get(original.contentUri))
+        } finally { db.close() }
+    }
     @Test
     fun `M0-R1 - worker restarted under Account B quarantines pending item authorized under Account A`() = runTest {
         val context = mock(Context::class.java)

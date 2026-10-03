@@ -5,6 +5,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
+import androidx.room.Update
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -211,6 +213,27 @@ interface CloudUploadDao {
 
     @Upsert
     suspend fun upsert(entity: CloudUploadEntity)
+    @Update
+    suspend fun updateExisting(entity: CloudUploadEntity): Int
+
+    /** Cancellation and claim serialize in Room: canceled queued work cannot be revived. */
+    @Transaction
+    suspend fun claimForProcessing(candidate: CloudUploadEntity): CloudUploadEntity? {
+        val current = get(candidate.contentUri) ?: return null
+        if (current != candidate) return null
+        if (current.state !in listOf(CloudUploadEntity.STATE_QUEUED, CloudUploadEntity.STATE_UPLOADING, CloudUploadEntity.STATE_VERIFYING)) return null
+        val claimed = if (current.state == CloudUploadEntity.STATE_QUEUED)
+            current.copy(state = CloudUploadEntity.STATE_UPLOADING) else current
+        return if (updateExisting(claimed) == 1) claimed else null
+    }
+
+    /** Worker updates never insert deleted work or overwrite a newer queue generation. */
+    @Transaction
+    suspend fun updateOwned(entity: CloudUploadEntity, expected: CloudUploadEntity): Boolean {
+        val current = get(entity.contentUri) ?: return false
+        if (current != expected || current.enqueuedAtMillis != entity.enqueuedAtMillis || current.accountName != entity.accountName) return false
+        return updateExisting(entity) == 1
+    }
 
     /** Cancel an up-swipe that hasn't started uploading yet (Undo path). */
     @Query("DELETE FROM cloud_uploads WHERE contentUri = :uri AND state = 'QUEUED'")

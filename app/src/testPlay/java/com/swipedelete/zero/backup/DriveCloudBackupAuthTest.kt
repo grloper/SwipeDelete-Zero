@@ -59,6 +59,7 @@ class DriveCloudBackupAuthTest {
         override suspend fun nextPending(): CloudUploadEntity? = null
         override suspend fun verifiedWithoutLedger(): List<CloudUploadEntity> = emptyList()
         override suspend fun upsert(entity: CloudUploadEntity) {}
+        override suspend fun updateExisting(entity: CloudUploadEntity): Int = 0
         override suspend fun deleteIfQueued(uri: String): Int = 0
         override suspend fun delete(uri: String) {}
         override suspend fun deleteIfCancelable(uri: String): Int = 0

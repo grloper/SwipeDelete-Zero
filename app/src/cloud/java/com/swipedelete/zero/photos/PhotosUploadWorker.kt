@@ -99,7 +99,8 @@ class PhotosUploadWorker @AssistedInject constructor(
                 return@withContext Result.retry()
             }
 
-            val row = uploadDao.nextPending() ?: break
+            val candidate = uploadDao.nextPending() ?: break
+            val row = uploadDao.claimForProcessing(candidate) ?: continue
 
             // M0-R1: Enforce durable account ownership.
             // Legacy items without an account owner or items belonging to another account are quarantined.
@@ -175,10 +176,11 @@ class PhotosUploadWorker @AssistedInject constructor(
     /** Reduce a failure into Room; retryable rows trigger WorkManager backoff. */
     private suspend fun applyFailure(row: CloudUploadEntity, code: Int?, message: String): RowOutcome {
         val fresh = uploadDao.get(row.contentUri) ?: return RowOutcome.DONE
+        if (fresh.enqueuedAtMillis != row.enqueuedAtMillis || fresh.accountName != row.accountName) return RowOutcome.DONE
         val reduced = UploadReducer.reduce(
             fresh, UploadEvent.Failed(code, message), System.currentTimeMillis()
         )
-        uploadDao.upsert(reduced)
+        if (!uploadDao.updateOwned(reduced, fresh)) return RowOutcome.DONE
         return if (reduced.state == CloudUploadEntity.STATE_QUEUED) RowOutcome.BACKOFF else RowOutcome.DONE
     }
 
@@ -201,8 +203,9 @@ class PhotosUploadWorker @AssistedInject constructor(
         val actualSize = appContext.contentResolver.openAssetFileDescriptor(uri, "r")
             ?.use { it.length } ?: row.sizeBytes
         if (actualSize > 0 && actualSize != row.sizeBytes) {
+            val previous = row
             row = row.copy(sizeBytes = actualSize)
-            uploadDao.upsert(row)
+            persistOwned(row, previous)
         }
         if (row.sizeBytes <= 0) throw IOException("Cannot back up an empty or unreadable file")
         chunkGranularity = 0
@@ -377,7 +380,7 @@ class PhotosUploadWorker @AssistedInject constructor(
         transactionRunner {
             checkAccountActive()
             val verifiedRow = UploadReducer.reduce(row, UploadEvent.RemoteVerified, now)
-            uploadDao.upsert(verifiedRow)
+            persistOwned(verifiedRow, row)
             backedUpFileDao.insert(
                 BackedUpFileEntity(
                     contentUri = verifiedRow.contentUri,
@@ -405,8 +408,12 @@ class PhotosUploadWorker @AssistedInject constructor(
 
     private suspend fun reduceAndSave(row: CloudUploadEntity, event: UploadEvent): CloudUploadEntity {
         val reduced = UploadReducer.reduce(row, event, System.currentTimeMillis())
-        uploadDao.upsert(reduced)
+        persistOwned(reduced, row)
         return reduced
+    }
+
+    private suspend fun persistOwned(row: CloudUploadEntity, expected: CloudUploadEntity) {
+        if (!uploadDao.updateOwned(row, expected)) throw CancellationException("Upload was removed or replaced; stale work stopped")
     }
 
     internal var transactionRunner: suspend (suspend () -> Unit) -> Unit = { block ->
@@ -417,6 +424,8 @@ class PhotosUploadWorker @AssistedInject constructor(
     private suspend fun onVerified(row: CloudUploadEntity) {
         val now = System.currentTimeMillis()
         transactionRunner {
+            val current = uploadDao.get(row.contentUri)
+            if (current != row) throw CancellationException("Verified upload was removed or replaced")
             val active = authClient.getSignedInAccountName(appContext)
             if (active == null || active != row.accountName) {
                 throw CancellationException("Account disconnected or changed before ledger write")
