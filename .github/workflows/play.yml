@@ -17,6 +17,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install pinned workflow validators
+        run: bash scripts/install_validation_tools.sh
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -30,7 +34,7 @@ jobs:
       - name: Test, lint and assemble all supported debug editions
         run: |
           python scripts/ci_record.py audit-self-tests python -m unittest discover -s tools -p 'test_*.py'
-          python scripts/ci_record.py unit-build ./gradlew :app:testPlayDebugUnitTest :app:testFdroidDebugUnitTest :app:testCloudDebugUnitTest :app:lintPlayDebug :app:lintFdroidDebug :app:lintCloudDebug :app:assembleFdroidDebug :app:assembleCloudDebug :app:assemblePlayDebug :app:assemblePlayDebugAndroidTest --rerun-tasks --no-build-cache --no-daemon
+          python scripts/ci_record.py unit-build python scripts/prepush_gate.py --app swipe
           mkdir -p ci-evidence/apk ci-evidence/test-results/play ci-evidence/test-results/fdroid ci-evidence/test-results/cloud
           cp app/build/outputs/apk/play/debug/app-play-debug.apk ci-evidence/apk/
           cp app/build/outputs/apk/androidTest/play/debug/app-play-debug-androidTest.apk ci-evidence/apk/

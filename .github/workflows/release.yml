@@ -92,13 +92,17 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-            echo "name=SwipeDelete Zero ${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "tag=${GITHUB_REF_NAME}"
+              echo "name=SwipeDelete Zero ${GITHUB_REF_NAME}"
+              echo "prerelease=false"
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "tag=rolling" >> "$GITHUB_OUTPUT"
-            echo "name=SwipeDelete Zero — rolling build" >> "$GITHUB_OUTPUT"
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "tag=rolling"
+              echo "name=SwipeDelete Zero - rolling build"
+              echo "prerelease=true"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish GitHub Release
