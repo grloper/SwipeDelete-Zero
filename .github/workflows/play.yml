@@ -78,6 +78,19 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+      - name: Package small validation evidence for delivery
+        if: always()
+        run: |
+          mkdir -p ci-evidence
+          python scripts/ci_compact_evidence.py validation ci-evidence swiperise-validation-compact.zip
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: SwipeRise-validation-evidence
+          path: swiperise-validation-compact.zip
+          retention-days: 7
+          if-no-files-found: error
+
   bundle:
     if: github.event_name == 'workflow_dispatch'
     needs: verify

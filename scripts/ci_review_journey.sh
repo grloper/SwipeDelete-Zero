@@ -30,6 +30,8 @@ if ! grep -Eq 'OK \(([3-9]|[1-9][0-9]+) tests\)' smoke/instrumentation.txt || gr
   exit 1
 fi
 bash scripts/ci_permission_journey.sh
+# Debug-only persisted synthetic journey counts; no personal account or media.
+timeout --kill-after=5s 10 adb shell run-as com.swipedelete.zero.debug cat files/synthetic-journey-counts.txt > smoke/staged-kept-counts.txt
 adb shell am start -W -n com.swipedelete.zero.debug/com.swipedelete.zero.MainActivity
 sleep 5
 adb shell pidof com.swipedelete.zero.debug
