@@ -4,12 +4,15 @@ set -euo pipefail
 adb install -r app/build/outputs/apk/play/debug/app-play-debug.apk
 adb install -r app/build/outputs/apk/androidTest/play/debug/app-play-debug-androidTest.apk
 mkdir -p smoke
-adb shell screenrecord --time-limit 180 /sdcard/review-journey.mp4 > smoke/screenrecord.txt 2>&1 &
+timeout --kill-after=5s 190 adb shell screenrecord --time-limit 180 /sdcard/review-journey.mp4 > smoke/screenrecord.txt 2>&1 &
 recorder_pid=$!
 collect_evidence() {
   local status=$?
   trap - EXIT
-  kill "$recorder_pid" 2>/dev/null || true
+  # This fresh CI emulator owns the only recorder. Interrupt the device process,
+  # then wait for MP4 finalization; killing its host adb client leaves no moov atom.
+  timeout --kill-after=5s 10 adb shell pkill -2 -x screenrecord || true
+  wait "$recorder_pid" || true
   timeout --kill-after=5s 20 adb pull /sdcard/review-journey.mp4 smoke/review-journey.mp4 || true
   timeout --kill-after=5s 20 adb pull /sdcard/Android/data/com.swipedelete.zero.debug/files smoke/runtime-files || true
   exit "$status"
