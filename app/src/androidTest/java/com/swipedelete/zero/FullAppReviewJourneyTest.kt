@@ -9,7 +9,6 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.compose.ui.test.*
-import androidx.compose.ui.semantics.getOrElse
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
@@ -116,7 +115,7 @@ class FullAppReviewJourneyTest {
     private fun awaitText(text: String) = compose.waitUntil(30_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     private fun progressText(): String {
         val text = compose.onAllNodes(hasText("swiped", substring = true)).fetchSemanticsNodes()
-            .flatMap { it.config.getOrElse(androidx.compose.ui.semantics.SemanticsProperties.Text) { emptyList() } }
+            .flatMap { if (it.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Text)) it.config[androidx.compose.ui.semantics.SemanticsProperties.Text] else emptyList() }
             .map { it.text }.single { progress.matches(it) }
         return text
     }
