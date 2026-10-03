@@ -84,7 +84,7 @@ fun StagingDrawerScreen(
     // The staged file currently opened in the full-screen preview, if any.
     var previewItem by remember { mutableStateOf<StagedFileEntity?>(null) }
 
-    // Keep the preview in sync with the queue: if the shown file is restored or
+    // Keep the preview in sync with the queue: if the shown file is unstaged or
     // purged elsewhere, close the overlay instead of previewing a ghost.
     LaunchedEffect(state.items, previewItem) {
         val shown = previewItem ?: return@LaunchedEffect
@@ -321,8 +321,8 @@ internal fun StagedRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Icon(Icons.Rounded.Restore, contentDescription = "Restore", tint = SdzColor.Azure, modifier = Modifier.size(20.dp))
-            Text("Restore", color = SdzColor.Azure, style = MaterialTheme.typography.labelMedium)
+            Icon(Icons.Rounded.Restore, contentDescription = "Unstage", tint = SdzColor.Azure, modifier = Modifier.size(20.dp))
+            Text("Unstage", color = SdzColor.Azure, style = MaterialTheme.typography.labelMedium)
         }
     }
 }
@@ -499,7 +499,7 @@ internal fun StagedPreviewOverlay(
                 Box(Modifier.weight(1f)) {}
                 Icon(Icons.Rounded.Restore, contentDescription = null, tint = SdzColor.Azure, modifier = Modifier.size(20.dp))
                 Text(
-                    "Restore",
+                    "Unstage",
                     color = SdzColor.Azure,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.labelLarge,

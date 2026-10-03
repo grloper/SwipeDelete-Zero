@@ -19,6 +19,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -110,6 +112,7 @@ internal fun photoReviewPermissions(sdk: Int): Array<String> = when {
  * Buckets and sprints are no longer two unrelated stacked sections: they are
  * two *lenses* on the same library, stated as such and switched with a toggle.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DashboardScreen(
     onOpenDeck: (Deck) -> Unit,
@@ -267,12 +270,16 @@ fun DashboardScreen(
                 }
                 Text("${state.accessDescription}. Changing selection refreshes this review list.",
                     style = SdzType.BodySmall, color = SdzColor.TextSecondary)
-                Row(horizontalArrangement = Arrangement.spacedBy(SdzSpace.sm)) {
-                    androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Choose photos") }
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(SdzSpace.sm),
+                    verticalArrangement = Arrangement.spacedBy(SdzSpace.sm),
+                ) {
+                    androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Choose photos", maxLines = 1) }
                     androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(if (Build.VERSION.SDK_INT >= 33)
-                        arrayOf(android.Manifest.permission.READ_MEDIA_VIDEO) else photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Videos") }
+                        arrayOf(android.Manifest.permission.READ_MEDIA_VIDEO) else photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Videos", maxLines = 1) }
                     androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(if (Build.VERSION.SDK_INT >= 33)
-                        arrayOf(android.Manifest.permission.READ_MEDIA_AUDIO) else photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Audio") }
+                        arrayOf(android.Manifest.permission.READ_MEDIA_AUDIO) else photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Audio", maxLines = 1) }
                 }
             }
             if (lens == Lens.CONTENT) {
