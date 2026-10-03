@@ -13,6 +13,7 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
@@ -28,6 +29,12 @@ class FullAppReviewJourneyTest {
     private val context get() = instrumentation.targetContext
     private val originals = linkedMapOf<Uri, String>()
     private val progress = Regex("\\d+/\\d+ swiped")
+
+    @Before fun requireSyntheticEmulator() {
+        check(Build.HARDWARE in setOf("ranchu", "goldfish")) {
+            "Full-library permission journeys are restricted to a fresh synthetic Android emulator"
+        }
+    }
 
     @Test fun syntheticThirtySessionsPreserveOriginalsAndPersistUndo() {
         assertTrue("This journey must run in the cleanup-locked Photos test flavor", BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
