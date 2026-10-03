@@ -19,7 +19,11 @@ class MediaFixtureInstrumentedTest {
         val resolver = InstrumentationRegistry.getInstrumentation().targetContext.contentResolver
         val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val colors = intArrayOf(Color.rgb(80, 170, 230), Color.rgb(170, 90, 220), Color.rgb(30, 210, 180))
-        for ((index, color) in colors.withIndex()) {
+        // The normal CI run stays tiny. An isolated device can opt into the large-library journey.
+        val count = InstrumentationRegistry.getArguments().getString("fixtureCount")
+            ?.toIntOrNull()?.coerceIn(3, 1000) ?: 3
+        repeat(count) { index ->
+            val color = colors[index % colors.size]
             val name = "Screenshot_fixture_$index.png"
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, name)
@@ -45,5 +49,6 @@ class MediaFixtureInstrumentedTest {
                 assertEquals(0, it.getInt(1))
             }
         }
+        println("Committed $count synthetic screenshot rows with positive sizes and IS_PENDING=0")
     }
 }
