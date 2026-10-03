@@ -45,10 +45,19 @@ class DualCardViewModel @Inject constructor(
     private val _state = MutableStateFlow(DualCardUiState())
     val state: StateFlow<DualCardUiState> = _state.asStateFlow()
 
-    init {
+    init { retryLoad() }
+
+    fun retryLoad() {
+        if (!actionGate.enter()) return
+        _state.update { it.copy(loading = true, actionError = null) }
         viewModelScope.launch {
-            val pairs = deckRepository.getComparisonPairs(deckId)
-            _state.update { it.copy(loading = false, pairs = pairs) }
+            try {
+                val pairs = deckRepository.getComparisonPairs(deckId)
+                _state.update { it.copy(loading = false, pairs = pairs, index = 0) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { _state.update { it.copy(loading = false, pairs = emptyList(),
+                actionError = "Could not load comparisons. Check media access and retry.") } }
+            finally { actionGate.leave() }
         }
     }
 

@@ -80,8 +80,11 @@ class ReviewViewModelConcurrencyTest {
             assertEquals(0, vm.state.value.cursor)
             verify(staging, never()).restore(first.items[0].contentUri.toString())
             doThrow(IllegalStateException("stage failed")).`when`(staging).stage(next.items[0], "next")
+            val priorResetToken = vm.state.value.cardResetToken
             vm.onSwipe(SwipeDirection.LEFT)
             runCurrent()
+            assertTrue(vm.state.value.cardResetToken > priorResetToken)
+            assertFalse(vm.state.value.actionInProgress)
             assertEquals(0, vm.state.value.cursor)
             assertEquals(0L, vm.state.value.sessionStagedBytes)
             assertNotNull(vm.state.value.actionError)
@@ -122,4 +125,24 @@ class ReviewViewModelConcurrencyTest {
             verify(staging, never()).stage(first.primary, "duplicates")
         } finally { Dispatchers.resetMain() }
     }
+    @Test fun `failed initial comparison load exits loading and retry works`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val decks = mock(DeckRepository::class.java)
+            `when`(decks.getComparisonPairs("duplicates")).thenThrow(IllegalStateException("scan failed"))
+            val vm = DualCardViewModel(decks, mock(StagingRepository::class.java), mock(BackupRepository::class.java),
+                SavedStateHandle(mapOf(Routes.ARG_DECK_ID to "duplicates")))
+            runCurrent()
+            assertFalse(vm.state.value.loading)
+            assertNotNull(vm.state.value.actionError)
+            val pair = ComparisonPair(item(20), item(21))
+            doReturn(listOf(pair)).`when`(decks).getComparisonPairs("duplicates")
+            vm.retryLoad()
+            runCurrent()
+            assertFalse(vm.state.value.loading)
+            assertNull(vm.state.value.actionError)
+            assertEquals(pair, vm.state.value.current)
+        } finally { Dispatchers.resetMain() }
+    }
+
 }

@@ -59,7 +59,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SwipeableCard(
     item: MediaItem,
-    onSwiped: (SwipeDirection) -> Unit,
+    onSwiped: (SwipeDirection) -> Boolean,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     /** Live 0..1 drag progress toward any commit threshold (drives peek-card scale). */
@@ -130,7 +130,12 @@ fun SwipeableCard(
                 // Secondary axis drifts with its release velocity for a natural arc.
                 launch { offsetX.animateTo(targetX, exitSpec, initialVelocity = velocityX) }
                 offsetY.animateTo(targetY, exitSpec, initialVelocity = velocityY)
-                onSwiped(direction)
+                if (!onSwiped(direction)) {
+                    // Admission may have changed while this exit animation ran.
+                    committed = 0f
+                    launch { offsetX.animateTo(0f, springBackSpec()) }
+                    offsetY.animateTo(0f, springBackSpec())
+                }
             }
         }
 
@@ -190,7 +195,7 @@ fun SwipeableCard(
                             hapticStage = 0
                         },
                         onDragEnd = onEnd,
-                        onDragCancel = onEnd,
+                        onDragCancel = { springBack() },
                         onDrag = { change, dragAmount ->
                             change.consume()
                             velocityTracker.addPosition(change.uptimeMillis, change.position)

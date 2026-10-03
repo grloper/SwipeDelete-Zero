@@ -40,6 +40,8 @@ enum class DeckSortOrder {
 data class SwipeUiState(
     val loading: Boolean = true,
     val actionError: String? = null,
+    val actionInProgress: Boolean = false,
+    val cardResetToken: Long = 0,
     val deck: Deck? = null,
     val cursor: Int = 0,
     val sortOrder: DeckSortOrder = DeckSortOrder.NEWEST_FIRST,
@@ -154,7 +156,7 @@ class SwipeEngineViewModel @Inject constructor(
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
             catch (_: Exception) { _state.update { it.copy(loading = false, deck = null,
                 actionError = "Could not load this review. Return to the library and try again.") } }
-            finally { actionBusy.leave() }
+            finally { actionBusy.leave(); _state.update { it.copy(actionInProgress = false) } }
         }
     }
 
@@ -179,12 +181,13 @@ class SwipeEngineViewModel @Inject constructor(
         }
     }
 
-    fun onSwipe(direction: SwipeDirection) {
+    fun onSwipe(direction: SwipeDirection): Boolean {
         val current = _state.value
-        val deck = current.deck ?: return
+        val deck = current.deck ?: return false
         val index = current.cursor
-        if (direction == SwipeDirection.NONE || index >= deck.totalCount || !actionBusy.enter()) return
+        if (direction == SwipeDirection.NONE || index >= deck.totalCount || !actionBusy.enter()) return false
         val item = deck.items[index]
+        _state.update { it.copy(actionInProgress = true) }
 
         viewModelScope.launch {
             try {
@@ -226,9 +229,10 @@ class SwipeEngineViewModel @Inject constructor(
             }
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
             catch (_: Exception) {
-                _state.update { it.copy(actionError = "Could not finish this review action. Some local changes may be saved. Nothing was deleted. Retry or return to your library.") }
-            } finally { actionBusy.leave() }
+                _state.update { it.copy(cardResetToken = it.cardResetToken + 1, actionError = "Could not finish this review action. Some local changes may be saved. Nothing was deleted. Retry or return to your library.") }
+            } finally { actionBusy.leave(); _state.update { it.copy(actionInProgress = false) } }
         }
+        return true
     }
 
     /** Reverse the last swipe within the 5-second window. */
@@ -236,6 +240,7 @@ class SwipeEngineViewModel @Inject constructor(
         val last = _state.value.lastAction ?: return
         val deck = _state.value.deck ?: return
         if (last.deckId != deck.id || !actionBusy.enter()) return
+        _state.update { it.copy(actionInProgress = true) }
         viewModelScope.launch {
             try {
             _state.update { it.copy(actionError = null) }
@@ -271,7 +276,7 @@ class SwipeEngineViewModel @Inject constructor(
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
             catch (_: Exception) {
                 _state.update { it.copy(actionError = "Undo could not finish. Nothing was deleted. Check the staged list before trying again.") }
-            } finally { actionBusy.leave() }
+            } finally { actionBusy.leave(); _state.update { it.copy(actionInProgress = false) } }
         }
     }
 

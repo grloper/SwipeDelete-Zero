@@ -54,6 +54,7 @@ fun DecisionActionRow(
     onArchive: () -> Unit,
     onKeep: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     undoEnabled: Boolean = false,
     archiveEnabled: Boolean = true,
     archiveLabel: String = "Archive",
@@ -72,7 +73,7 @@ fun DecisionActionRow(
             accent = SdzColor.TextSecondary,
             onClick = onUndo,
             diameter = SdzTouch.minTarget,
-            enabled = undoEnabled,
+            enabled = enabled && undoEnabled,
         )
         SdzCircleAction(
             icon = SdzIcons.Delete,
@@ -80,6 +81,7 @@ fun DecisionActionRow(
             accent = SdzColor.Red,
             onClick = onReclaim,
             diameter = SdzTouch.primaryAction,
+            enabled = enabled,
         )
         SdzCircleAction(
             icon = SdzIcons.Archive,
@@ -87,7 +89,7 @@ fun DecisionActionRow(
             accent = SdzColor.Teal,
             onClick = onArchive,
             diameter = SdzTouch.secondaryAction,
-            enabled = archiveEnabled,
+            enabled = enabled && archiveEnabled,
         )
         SdzCircleAction(
             icon = SdzIcons.Keep,
@@ -95,6 +97,7 @@ fun DecisionActionRow(
             accent = SdzColor.Azure,
             onClick = onKeep,
             diameter = SdzTouch.primaryAction,
+            enabled = enabled,
             filled = true,
         )
     }

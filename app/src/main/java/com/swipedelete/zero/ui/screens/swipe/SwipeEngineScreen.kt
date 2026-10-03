@@ -193,7 +193,9 @@ fun SwipeEngineScreen(
                     onReclaim = { viewModel.onSwipe(SwipeDirection.LEFT) },
                     onArchive = { viewModel.onSwipe(SwipeDirection.UP) },
                     onKeep = { viewModel.onSwipe(SwipeDirection.RIGHT) },
-                    undoEnabled = state.lastAction != null,
+                    undoEnabled = state.lastAction != null && !state.actionInProgress,
+                    enabled = !state.actionInProgress,
+                    archiveEnabled = !state.actionInProgress,
                     archiveLabel = if (viewModel.cloudArchiveEnabled) "Archive" else "Star",
                 )
             }
@@ -274,9 +276,10 @@ private fun CardStack(
             }
         }
         // key on the item so a fresh Animatable is created per card.
-        key(topItem.id) {
+        key(topItem.id, state.cardResetToken) {
             SwipeableCard(
                 item = topItem,
+                enabled = !state.actionInProgress,
                 onSwiped = viewModel::onSwipe,
                 modifier = Modifier.fillMaxSize(),
                 onDragProgress = { dragProgress = it },
