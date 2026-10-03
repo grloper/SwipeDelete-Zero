@@ -119,22 +119,22 @@ class PhotosUploadWorker @AssistedInject constructor(
 
             updateForeground(row.displayName)
 
+            var ownedSnapshot = row
             val outcome = try {
-                processRow(row, authToken, currentAccountName)
+                processRow(row, authToken, currentAccountName) { ownedSnapshot = it }
                 authRetries = 0
                 RowOutcome.DONE
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ReadAuthException) {
                 // M0-R2: Read auth failure is isolated to read scope, does NOT clear/refresh append token!
-                applyFailure(row, 401, e.message ?: "Read authentication failed")
-                RowOutcome.DONE
+                applyFailure(ownedSnapshot, 401, e.message ?: "Read authentication failed")
             } catch (e: PhotosUploader.HttpStatusException) {
                 if (e.code == 401) {
+                    if (uploadDao.get(ownedSnapshot.contentUri) != ownedSnapshot) return@withContext Result.retry()
                     authRetries++
                     if (authRetries > maxAuthRetries) {
-                        applyFailure(row, 401, "Authentication failed after token refresh")
-                        RowOutcome.DONE
+                        applyFailure(ownedSnapshot, 401, "Authentication failed after token refresh")
                     } else {
                         // Append token expired mid-run: clear, refresh, let the loop retry the row.
                         currentCoroutineContext().ensureActive()
@@ -155,15 +155,15 @@ class PhotosUploadWorker @AssistedInject constructor(
                     }
                 } else {
                     applyFailure(
-                        row,
-                        if (e.code == 404 && row.mediaItemId != null) null else e.code,
+                        ownedSnapshot,
+                        if (e.code == 404 && ownedSnapshot.mediaItemId != null) null else e.code,
                         e.message ?: "HTTP ${e.code}"
                     )
                 }
             } catch (e: IOException) {
-                applyFailure(row, null, e.message ?: "network error")
+                applyFailure(ownedSnapshot, null, e.message ?: "network error")
             } catch (e: Exception) {
-                applyFailure(row, 400, e.message ?: e.javaClass.simpleName)
+                applyFailure(ownedSnapshot, 400, e.message ?: e.javaClass.simpleName)
             }
 
             if (outcome == RowOutcome.BACKOFF) return@withContext Result.retry()
@@ -176,15 +176,26 @@ class PhotosUploadWorker @AssistedInject constructor(
     /** Reduce a failure into Room; retryable rows trigger WorkManager backoff. */
     private suspend fun applyFailure(row: CloudUploadEntity, code: Int?, message: String): RowOutcome {
         val fresh = uploadDao.get(row.contentUri) ?: return RowOutcome.DONE
-        if (fresh.enqueuedAtMillis != row.enqueuedAtMillis || fresh.accountName != row.accountName) return RowOutcome.DONE
+        // A delayed error belongs only to the complete snapshot last saved by this attempt.
+        // Do not immediately claim a replacement in this same run.
+        if (fresh != row) return RowOutcome.BACKOFF
         val reduced = UploadReducer.reduce(
-            fresh, UploadEvent.Failed(code, message), System.currentTimeMillis()
+            row, UploadEvent.Failed(code, message), System.currentTimeMillis()
         )
-        if (!uploadDao.updateOwned(reduced, fresh)) return RowOutcome.DONE
+        if (!uploadDao.updateOwned(reduced, row)) return RowOutcome.BACKOFF
         return if (reduced.state == CloudUploadEntity.STATE_QUEUED) RowOutcome.BACKOFF else RowOutcome.DONE
     }
 
-    private suspend fun processRow(start: CloudUploadEntity, authToken: String, accountName: String) {
+    private suspend fun processRow(
+        start: CloudUploadEntity, authToken: String, accountName: String,
+        onPersisted: (CloudUploadEntity) -> Unit,
+    ) {
+        suspend fun reduceAndSave(row: CloudUploadEntity, event: UploadEvent): CloudUploadEntity {
+            val reduced = UploadReducer.reduce(row, event, System.currentTimeMillis())
+            persistOwned(reduced, row)
+            onPersisted(reduced)
+            return reduced
+        }
         val ownerContext = currentCoroutineContext()
         fun checkAccountActive() {
             ownerContext.ensureActive()
@@ -206,6 +217,7 @@ class PhotosUploadWorker @AssistedInject constructor(
             val previous = row
             row = row.copy(sizeBytes = actualSize)
             persistOwned(row, previous)
+            onPersisted(row)
         }
         if (row.sizeBytes <= 0) throw IOException("Cannot back up an empty or unreadable file")
         chunkGranularity = 0
@@ -377,9 +389,9 @@ class PhotosUploadWorker @AssistedInject constructor(
         // disconnects; this does not make Google sign-out atomic with Room or undo in-flight bytes.
         checkAccountActive()
         val now = System.currentTimeMillis()
+        val verifiedRow = UploadReducer.reduce(row, UploadEvent.RemoteVerified, now)
         transactionRunner {
             checkAccountActive()
-            val verifiedRow = UploadReducer.reduce(row, UploadEvent.RemoteVerified, now)
             persistOwned(verifiedRow, row)
             backedUpFileDao.insert(
                 BackedUpFileEntity(
@@ -402,15 +414,10 @@ class PhotosUploadWorker @AssistedInject constructor(
                 )
             )
         }
+        onPersisted(verifiedRow)
     }
 
     private var chunkGranularity: Long = 0
-
-    private suspend fun reduceAndSave(row: CloudUploadEntity, event: UploadEvent): CloudUploadEntity {
-        val reduced = UploadReducer.reduce(row, event, System.currentTimeMillis())
-        persistOwned(reduced, row)
-        return reduced
-    }
 
     private suspend fun persistOwned(row: CloudUploadEntity, expected: CloudUploadEntity) {
         if (!uploadDao.updateOwned(row, expected)) throw CancellationException("Upload was removed or replaced; stale work stopped")
