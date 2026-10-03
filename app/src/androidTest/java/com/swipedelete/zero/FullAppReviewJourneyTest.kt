@@ -185,9 +185,8 @@ class FullAppReviewJourneyTest {
         val directory = File(context.getExternalFilesDir(null), "journey-evidence").apply { mkdirs() }
         val roots = compose.onAllNodes(isRoot()).fetchSemanticsNodes().size
         File(directory, "$name.txt").writeText((0 until roots).joinToString("\n") { compose.onAllNodes(isRoot())[it].printToString() })
-        instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
-            try { File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
-        }
+        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot()) { "Runtime screenshot unavailable" }
+        try { File(directory, "$name.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) } } finally { bitmap.recycle() }
         if (originals.isNotEmpty()) File(directory, "original-sha256.txt").writeText(originals.entries.joinToString("\n") { "${it.value} ${it.key}" })
     }
 }
