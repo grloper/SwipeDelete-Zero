@@ -24,6 +24,7 @@ RUNTIME = (
 VALIDATION = (
     "checkout.json", "build_identity.json", "handoff.json", "junit_audit.json", "HANDOFF.md",
     "SHA256SUMS.txt", "smoke.json", "media-fixtures.txt",
+    "queue-viewport.json", "queue-scroll-trace.json",
     *[f"screens/{name}.{suffix}" for name in
       ("01-dashboard", "02-review", "03-staging", "04-lock-permanent", "04-lock-trash")
       for suffix in ("png", "xml")],

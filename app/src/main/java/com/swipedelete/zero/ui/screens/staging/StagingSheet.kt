@@ -72,7 +72,9 @@ fun StagingSheet(
                 }
         }
         LazyColumn(
-            modifier = Modifier.fillMaxWidth()
+            // Keep the expanded anchor stable while the initial empty Room
+            // snapshot becomes the populated queue, including at motion scale 0.
+            modifier = Modifier.fillMaxWidth().fillMaxHeight()
                 .heightIn(max = LocalConfiguration.current.screenHeightDp.dp)
                 .navigationBarsPadding().testTag("queue-list"),
             contentPadding = PaddingValues(start = gutter, end = gutter, top = 8.dp, bottom = 24.dp),
