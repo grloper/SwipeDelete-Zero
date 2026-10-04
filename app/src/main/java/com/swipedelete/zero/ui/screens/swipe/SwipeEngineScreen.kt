@@ -54,6 +54,9 @@ fun SwipeEngineScreen(
     val topVideoMeta by viewModel.topVideoMeta.collectAsStateWithLifecycle()
     val backedUpUris by viewModel.backedUpUris.collectAsStateWithLifecycle()
     val playerState = rememberTopCardPlayer()
+    val statusOptions = remember(viewModel.cloudArchiveEnabled) {
+        listOf("Originals stay on this device") + SwipeDirection.entries.map { undoLabel(it, viewModel.cloudArchiveEnabled) }
+    }
     LaunchedEffect(state.topItem?.id) { playerState.showItem(state.topItem) }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(SdzColor.Surface0).testTag("review-screen")) {
@@ -98,6 +101,7 @@ fun SwipeEngineScreen(
                 archiveEnabled = !state.actionInProgress,
                 archiveLabel = if (viewModel.cloudArchiveEnabled) "Archive" else "Star",
                 status = state.lastAction?.let { undoLabel(it.direction, viewModel.cloudArchiveEnabled) } ?: "Originals stay on this device",
+                statusOptions = statusOptions,
                 sortLabel = if (state.sortOrder == DeckSortOrder.LARGEST_FIRST) "Largest first" else "Newest first",
                 onSort = { if (canInteract()) viewModel.setSortOrder(if (state.sortOrder == DeckSortOrder.LARGEST_FIRST) DeckSortOrder.NEWEST_FIRST else DeckSortOrder.LARGEST_FIRST) },
             )

@@ -33,6 +33,7 @@ import com.swipedelete.zero.ui.components.PurgeConfirmSheet
 import com.swipedelete.zero.ui.components.FreedCelebration
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -170,7 +171,7 @@ fun StagingSheet(
                 state.cleanupLockExplanation?.let { explanation ->
                     Text(explanation, color = SdzColor.TextSecondary,
                         style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp))
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).testTag("queue-lock"))
                 }
                 PurgeCta(
                     bytes = state.totalBytes,
@@ -225,6 +226,7 @@ private fun SheetHeader(state: StagingUiState, onClear: () -> Unit) {
                 color = SdzColor.Phosphor,
                 fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.testTag("queue-sheet-title"),
             )
             Text(
                 "${state.count} ${if (state.count == 1) "file" else "files"} • ${state.totalBytes.toReadableSize()} staged for review",

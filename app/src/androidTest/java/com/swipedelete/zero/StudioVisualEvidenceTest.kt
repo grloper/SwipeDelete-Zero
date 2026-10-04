@@ -23,10 +23,28 @@ class StudioVisualEvidenceTest {
     private fun await(tag: String) = compose.waitUntil(30_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     private fun cursor(): Int = compose.onNodeWithTag("review-progress", useUnmergedTree = true).fetchSemanticsNode().config[SemanticsProperties.Text].single().text.substringBefore('/').toInt()
     private fun awaitCursor(value: Int) = compose.waitUntil(15_000) { runCatching { cursor() == value }.getOrDefault(false) }
+    private fun decisionPositions(): Map<String, androidx.compose.ui.geometry.Rect> = listOf("stage-action", "keep-action", "undo-action").associateWith { tag ->
+        val node = compose.onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode()
+        node.boundsInRoot.translate(node.positionOnScreen - node.positionInRoot)
+    }
+    private fun assertStableDecisions(reference: Map<String, androidx.compose.ui.geometry.Rect>, state: String): Map<String, androidx.compose.ui.geometry.Rect> {
+        compose.waitForIdle()
+        return decisionPositions().also { positions ->
+            reference.forEach { (tag, before) ->
+                val after = positions.getValue(tag)
+                assertEquals("$tag left stable after $state", before.left, after.left, 1f)
+                assertEquals("$tag top stable after $state", before.top, after.top, 1f)
+                assertEquals("$tag right stable after $state", before.right, after.right, 1f)
+                assertEquals("$tag bottom stable after $state", before.bottom, after.bottom, 1f)
+            }
+        }
+    }
     private fun capture(label: String, screen: String, vararg tags: String) {
         compose.waitForIdle()
         capturePracticeEvidence("swipe-$label-$screen", tags.map { tag ->
-            contrastRegion(tag, compose.onNodeWithTag(tag, useUnmergedTree = true), foreground = if (tag == "review-progress" || tag == "access-label") Color.rgb(181,186,180) else Color.rgb(244,245,242))
+            contrastRegion(tag, compose.onNodeWithTag(tag, useUnmergedTree = true),
+                background = when (tag) { "queue-label" -> Color.rgb(37,41,37); "queue-sheet-title", "queue-lock" -> Color.rgb(26,29,27); else -> Color.rgb(16,18,17) },
+                foreground = if (tag in setOf("review-progress", "access-label", "queue-lock")) Color.rgb(181,186,180) else Color.rgb(244,245,242))
         })
     }
     @Test fun dashboardReviewQueueAndRecreation() {
@@ -36,6 +54,13 @@ class StudioVisualEvidenceTest {
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
             await("start-review")
             compose.waitUntil(30_000) { compose.onNodeWithTag("start-review").isEnabled() }
+            compose.onNodeWithTag("all-groups-tab").performScrollTo().assertIsSelected()
+            compose.onNodeWithTag("date-groups-tab").assertIsNotSelected().performClick().assertIsSelected()
+            compose.onNodeWithTag("all-groups-tab").assertIsNotSelected()
+            compose.onAllNodesWithText("Duplicates & near-shots").assertCountEquals(0)
+            compose.onNodeWithTag("all-groups-tab").performClick().assertIsSelected()
+            compose.onNodeWithTag("date-groups-tab").assertIsNotSelected()
+            compose.onNodeWithTag("dashboard-list").performScrollToIndex(0)
             val access = compose.onNodeWithTag("manage-access").assertIsDisplayed().getUnclippedBoundsInRoot()
             val accessLabel = compose.onNodeWithTag("access-label", useUnmergedTree = true).assertIsDisplayed()
             val labelBounds = accessLabel.getUnclippedBoundsInRoot()
@@ -66,21 +91,27 @@ class StudioVisualEvidenceTest {
             assertTrue("Decision dock follows metadata", stage.top >= metadata.bottom)
             assertTrue("Photograph retains usable height", photo.bottom.value - photo.top.value >= 100f)
             capture(label, "review", "review-progress")
+            val positions = linkedMapOf("default" to decisionPositions())
             // Repeated callbacks in the same frame must only admit one repository decision.
             val action = compose.onNodeWithTag("stage-action").fetchSemanticsNode().config[SemanticsActions.OnClick].action!!
             compose.runOnUiThread { repeat(10) { action.invoke() } }
             awaitCursor(initial + 1)
             compose.onNodeWithTag("undo-action").assertIsEnabled()
+            positions["staged"] = assertStableDecisions(positions.getValue("default"), "Stage")
             capture(label, "staged", "review-progress")
             scenario.recreate()
             await("review-progress")
             awaitCursor(initial + 1)
             compose.onNodeWithTag("undo-action").performClick()
             awaitCursor(initial)
+            positions["undo-stage"] = assertStableDecisions(positions.getValue("default"), "Undo Stage")
             compose.onNodeWithTag("keep-action").performClick()
             awaitCursor(initial + 1)
+            positions["kept"] = assertStableDecisions(positions.getValue("default"), "Keep")
+            capture(label, "kept", "review-progress")
             compose.onNodeWithTag("undo-action").performClick()
             awaitCursor(initial)
+            positions["undo-keep"] = assertStableDecisions(positions.getValue("default"), "Undo Keep")
             compose.onNodeWithTag("more-action").performClick()
             compose.onNodeWithText("More actions").assertIsDisplayed()
             compose.onNodeWithText("Archive", useUnmergedTree = true).assertExists()
@@ -97,10 +128,18 @@ class StudioVisualEvidenceTest {
             val list = compose.onNodeWithTag("dashboard-list").getUnclippedBoundsInRoot()
             val queue = compose.onNodeWithTag("queue-bar").getUnclippedBoundsInRoot()
             assertTrue("Queue reserves space below the scroll region", list.bottom <= queue.top)
-            capture(label, "dashboard-queue", "dashboard-title")
+            capture(label, "dashboard-queue", "dashboard-title", "queue-label")
+            compose.onNodeWithTag("dashboard-list").performScrollToKey("content-scan")
+            compose.onNodeWithTag("dashboard-end").performScrollTo().assertIsDisplayed()
+            val finalRow = compose.onNodeWithTag("dashboard-end-action").assertIsDisplayed().getUnclippedBoundsInRoot()
+            val finalNote = compose.onNodeWithTag("dashboard-end").getUnclippedBoundsInRoot()
+            assertTrue("Final dashboard action is fully inside the reserved scroll viewport", finalRow.top >= list.top && finalRow.bottom <= list.bottom)
+            assertTrue("Last dashboard note clears the queue bar", finalNote.bottom <= queue.top)
+            capture(label, "dashboard-end", "queue-label")
             compose.onNodeWithTag("queue-bar").performClick()
             compose.onNodeWithText("Review queue").assertIsDisplayed()
             compose.onAllNodes(hasText("Cleanup is unavailable", substring = true)).onLast().assertIsDisplayed()
+            capture(label, "queue-sheet", "queue-sheet-title", "queue-lock")
             compose.onNodeWithText("Unstage all").performClick()
             val output = File(context.getExternalFilesDir(null), "practice-evidence").apply { mkdirs() }
             File(output, "swipe-$label-geometry.json").writeText(JSONObject().apply {
@@ -112,6 +151,13 @@ class StudioVisualEvidenceTest {
                 put("keep_width_dp", keep.right.value - keep.left.value)
                 put("decision_gap_dp", keep.left.value - stage.right.value)
                 put("photo_height_dp", photo.bottom.value - photo.top.value)
+                put("queue_height_dp", queue.bottom.value - queue.top.value)
+                put("group_selection_semantics", true); put("final_dashboard_row_clear", true)
+                put("decision_positions_px", JSONObject().apply {
+                    positions.forEach { (state, rects) -> put(state, JSONObject().apply {
+                        rects.forEach { (tag, rect) -> put(tag, org.json.JSONArray(listOf(rect.left, rect.top, rect.right, rect.bottom))) }
+                    }) }
+                })
                 put("queue_reserved", true); put("rapid_callbacks", 10); put("admitted", 1)
                 put("recreation_persisted", true); put("stage_keep_undo", true)
             }.toString(2))

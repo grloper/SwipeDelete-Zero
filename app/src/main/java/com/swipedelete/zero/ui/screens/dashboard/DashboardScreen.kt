@@ -243,8 +243,8 @@ fun DashboardScreen(
                     }
                     item("lens") {
                         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SdzChip("By content", lens == Lens.CONTENT, Modifier.weight(1f).fillMaxHeight()) { lensName = Lens.CONTENT.name }
-                            SdzChip("By date", lens == Lens.DATE, Modifier.weight(1f).fillMaxHeight()) { lensName = Lens.DATE.name }
+                            SdzChip("All groups", lens == Lens.CONTENT, Modifier.weight(1f).fillMaxHeight().testTag("all-groups-tab")) { lensName = Lens.CONTENT.name }
+                            SdzChip("By date", lens == Lens.DATE, Modifier.weight(1f).fillMaxHeight().testTag("date-groups-tab")) { lensName = Lens.DATE.name }
                         }
                     }
                     if (state.loading) items(3) { SkeletonRow() }
@@ -419,7 +419,7 @@ private fun ContentScanPanel(state: DashboardUiState, onScan: () -> Unit) {
             text = when {
                 state.isScanning -> "Checking accessible photos and videos for duplicates, blur and text. You can keep browsing."
                 state.analysisState == AnalysisRunState.FAILED -> "The scan did not finish. Tap below to try again."
-                state.analysisState == AnalysisRunState.DONE -> "Review the results in By content below. Scan again after adding photos or changing media access."
+                state.analysisState == AnalysisRunState.DONE -> "Review the results in All groups. Scan again after adding photos or changing media access."
                 else -> "Find duplicates, blurry photos and text across the media you allow. One tap checks all content categories on this device."
             },
             style = SdzType.BodySmall,
@@ -442,9 +442,9 @@ private fun ContentScanPanel(state: DashboardUiState, onScan: () -> Unit) {
             onClick = onScan,
             style = SdzButtonStyle.Secondary,
             enabled = !state.isScanning && !state.loading,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("dashboard-end-action"),
         )
-        Text("Scanning does not delete files.", style = SdzType.LabelSmall, color = SdzColor.TextTertiary)
+        Text("Scanning does not delete files.", style = SdzType.LabelSmall, color = SdzColor.TextTertiary, modifier = Modifier.testTag("dashboard-end"))
     }
 }
 
@@ -583,11 +583,7 @@ private fun SkeletonRow() {
     }
 }
 
-/**
- * The staging bar. Amber, because it is reclaimable space — not red. It is a
- * safe, reversible review queue, and dressing it as danger was one of the
- * clearest colour-meaning collisions in the old build.
- */
+/** One full-width queue action keeps large text out of narrow side columns. */
 @Composable
 private fun StagingBar(
     stagedCount: Int,
@@ -595,38 +591,23 @@ private fun StagingBar(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
+            .heightIn(min = 52.dp)
             .clip(RoundedCornerShape(SdzRadius.lg))
             .background(SdzColor.Surface4)
-            .clickable(onClick = onClick)
-            .padding(horizontal = SdzSpace.xl, vertical = SdzSpace.lg)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
             .semantics {
                 contentDescription =
                     "Review $stagedCount staged files, ${stagedBytes.toReadableSize()} kept locally"
             },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(SdzSpace.md),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Icon(
-            painter = SdzIcons.Reclaim,
-            contentDescription = null,
-            tint = SdzColor.Amber,
-            modifier = Modifier.size(22.dp),
-        )
-        Column(Modifier.weight(1f)) {
-            Text(
-                "$stagedCount in review queue",
-                style = SdzType.Label,
-                color = SdzColor.Phosphor,
-            )
-            Text(
-                "Originals kept on this device",
-                style = SdzType.BodySmall,
-                color = SdzColor.TextSecondary,
-            )
-        }
-        Text("Open", style = SdzType.Label, color = SdzColor.Phosphor, textAlign = TextAlign.End)
+        Text("Review queue · $stagedCount", style = SdzType.Label, color = SdzColor.Phosphor,
+            modifier = Modifier.fillMaxWidth().testTag("queue-label"))
+        Text("Originals kept", style = SdzType.BodySmall, color = SdzColor.TextSecondary,
+            modifier = Modifier.fillMaxWidth())
     }
 }

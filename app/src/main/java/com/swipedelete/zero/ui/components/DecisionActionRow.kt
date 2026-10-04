@@ -18,6 +18,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -38,6 +41,7 @@ fun DecisionActionRow(
     archiveEnabled: Boolean = true,
     archiveLabel: String = "Archive",
     status: String = "Originals stay on this device",
+    statusOptions: List<String> = listOf(status),
     onSort: (() -> Unit)? = null,
     sortLabel: String = "Newest first",
 ) {
@@ -58,7 +62,17 @@ fun DecisionActionRow(
                 Text("More", style = SdzType.Label)
             }
         }
-        Text(status, style = SdzType.Numeric, color = SdzColor.TextSecondary, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("decision-status"), textAlign = TextAlign.Center)
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+            val measurer = rememberTextMeasurer()
+            val density = LocalDensity.current
+            // Reserve every possible message at this width/font scale before the first decision.
+            val reservedPixels = (statusOptions + status).maxOf { message ->
+                measurer.measure(message, style = SdzType.Numeric, constraints = Constraints(maxWidth = constraints.maxWidth)).size.height
+            }
+            val reservedHeight = with(density) { reservedPixels.toDp() }
+            Text(status, style = SdzType.Numeric, color = SdzColor.TextSecondary,
+                modifier = Modifier.fillMaxWidth().heightIn(min = reservedHeight).testTag("decision-status"), textAlign = TextAlign.Center)
+        }
     }
     if (showMore) {
         ModalBottomSheet(onDismissRequest = { showMore = false }, containerColor = SdzColor.Surface1, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
