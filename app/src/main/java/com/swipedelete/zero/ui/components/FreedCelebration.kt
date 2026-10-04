@@ -3,6 +3,8 @@ package com.swipedelete.zero.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -160,7 +162,8 @@ fun FreedCelebration(
     }
 }
 
-/** Full-screen variant shown when a deck is finished. */
+
+/** Summary of decisions only. Staging has not freed storage or deleted originals. */
 @Composable
 fun DeckCompleteCelebration(
     freedBytes: Long,
@@ -170,40 +173,13 @@ fun DeckCompleteCelebration(
     onContinueNextPart: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(SdzColor.Surface0),
-        contentAlignment = Alignment.Center,
+    Column(
+        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(SdzSpace.xl),
-        ) {
-            FreedCelebration(freedBytes = freedBytes, fileCount = fileCount, stagedOnly = true)
-            Text(
-                text = "Deck complete",
-                style = SdzType.Subtitle,
-                color = SdzColor.Phosphor,
-            )
-            if (onContinueNextPart != null) {
-                SdzButton(
-                    label = nextPartLabel ?: "Continue with next cards",
-                    onClick = onContinueNextPart,
-                    style = SdzButtonStyle.Primary,
-                )
-                SdzButton(
-                    label = "Back to library",
-                    onClick = onDone,
-                    style = SdzButtonStyle.Secondary,
-                )
-            } else {
-                SdzButton(
-                    label = "Back to library",
-                    onClick = onDone,
-                    style = SdzButtonStyle.Primary,
-                )
-            }
-        }
+        Text("Review complete", style = SdzType.Title, color = SdzColor.Phosphor)
+        Text("$fileCount files staged. Originals stay on this device.", style = SdzType.Body, color = SdzColor.TextSecondary)
+        if (onContinueNextPart != null) SdzButton(nextPartLabel ?: "Continue reviewing", onContinueNextPart, Modifier.fillMaxWidth())
+        SdzButton("Back to library", onDone, Modifier.fillMaxWidth(), style = if (onContinueNextPart == null) SdzButtonStyle.Primary else SdzButtonStyle.Secondary)
     }
 }

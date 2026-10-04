@@ -71,7 +71,7 @@ fun StagingSheet(
         sheetState = sheetState,
         containerColor = SdzColor.Surface1,
         contentColor = SdzColor.Phosphor,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
         // A single bounded lazy list makes every control reachable on compact
         // phones. The disabled execution action stays pinned at the bottom.
@@ -167,6 +167,11 @@ fun StagingSheet(
                 }
             }
             if (state.count > 0) {
+                state.cleanupLockExplanation?.let { explanation ->
+                    Text(explanation, color = SdzColor.TextSecondary,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp))
+                }
                 PurgeCta(
                     bytes = state.totalBytes,
                     mode = state.mode,
@@ -216,9 +221,9 @@ private fun SheetHeader(state: StagingUiState, onClear: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                "Safety Staging",
+                "Review queue",
                 color = SdzColor.Phosphor,
-                fontWeight = FontWeight.Black,
+                fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.titleLarge,
             )
             Text(
@@ -226,7 +231,6 @@ private fun SheetHeader(state: StagingUiState, onClear: () -> Unit) {
                 color = SdzColor.TextSecondary,
                 style = MaterialTheme.typography.labelMedium,
             )
-            ReclaimedCounter(state.lifetimeReclaimedBytes)
         }
         if (state.count > 0) {
             Text(
@@ -234,6 +238,7 @@ private fun SheetHeader(state: StagingUiState, onClear: () -> Unit) {
                 color = SdzColor.TextSecondary,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
+                    .heightIn(min = 48.dp)
                     .clickable(onClick = onClear)
                     .padding(4.dp),
             )

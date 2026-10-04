@@ -181,7 +181,16 @@ class SwipeEngineViewModel @Inject constructor(
         }
     }
 
+    // An admitted decision is a small local write sequence. Complete it even if navigation
+    // clears this ViewModel, while normal screen loading remains lifecycle-cancellable.
+    private fun launchAcceptedDecision(block: suspend () -> Unit) {
+        viewModelScope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { block() }
+        }
+    }
+
     fun onSwipe(direction: SwipeDirection): Boolean {
+        if (viewModelScope.coroutineContext[kotlinx.coroutines.Job]?.isActive != true) return false
         val current = _state.value
         val deck = current.deck ?: return false
         val index = current.cursor
@@ -189,7 +198,7 @@ class SwipeEngineViewModel @Inject constructor(
         val item = deck.items[index]
         _state.update { it.copy(actionInProgress = true) }
 
-        viewModelScope.launch {
+        launchAcceptedDecision {
             try {
             _state.update { it.copy(actionError = null) }
             reviewSound.afterCommit(when (direction) {
@@ -235,13 +244,14 @@ class SwipeEngineViewModel @Inject constructor(
         return true
     }
 
-    /** Reverse the last swipe within the 5-second window. */
+    /** Reverse the last decision while it remains available in the reserved Undo row. */
     fun undo() {
+        if (viewModelScope.coroutineContext[kotlinx.coroutines.Job]?.isActive != true) return
         val last = _state.value.lastAction ?: return
         val deck = _state.value.deck ?: return
         if (last.deckId != deck.id || !actionBusy.enter()) return
         _state.update { it.copy(actionInProgress = true) }
-        viewModelScope.launch {
+        launchAcceptedDecision {
             try {
             _state.update { it.copy(actionError = null) }
             reviewSound.afterCommit(com.swipedelete.zero.domain.feedback.ReviewFeedback.UNDONE, { feedbackActive }) {
@@ -260,6 +270,9 @@ class SwipeEngineViewModel @Inject constructor(
                 it.copy(
                     cursor = last.deckIndex,
                     lastAction = null,
+                    // AnimatedContent can still retain the old item during a rapid Undo.
+                    // Recreate its gesture state instead of reusing an already committed drag.
+                    cardResetToken = it.cardResetToken + 1,
                     // Undo must also unwind the session tally, or the
                     // celebration would claim space the user just took back.
                     sessionStagedBytes = (it.sessionStagedBytes -

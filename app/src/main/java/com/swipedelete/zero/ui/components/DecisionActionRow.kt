@@ -5,48 +5,27 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.swipedelete.zero.ui.theme.SdzColor
-import com.swipedelete.zero.ui.theme.SdzRadius
-import com.swipedelete.zero.ui.theme.SdzSpace
-import com.swipedelete.zero.ui.theme.SdzTouch
-import com.swipedelete.zero.ui.theme.SdzType
+import com.swipedelete.zero.ui.theme.*
 
-/**
- * The deck's decision row.
- *
- * Every control carries a **visible** text label, not just an accessible name.
- * The previous row was four unlabelled circles, and the cloud one in particular
- * was genuinely unguessable — "archive to the cloud, then remove the local
- * copy" is not something an icon can say on its own.
- *
- * Left-to-right order mirrors the gestures exactly: Reclaim sits left because
- * you swipe left, Keep sits right because you swipe right, Archive sits between
- * them because you swipe up. That positional mapping is a second, non-colour
- * channel for the decision, and the icon silhouettes are a third.
- *
- * The row applies [navigationBarsPadding] so it always clears the gesture
- * inset, and every target is at least [SdzTouch.minTarget].
- */
+/** A reserved dock: equal decisions, then Undo and secondary actions. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DecisionActionRow(
     onUndo: () -> Unit,
@@ -58,51 +37,40 @@ fun DecisionActionRow(
     undoEnabled: Boolean = false,
     archiveEnabled: Boolean = true,
     archiveLabel: String = "Archive",
+    status: String = "Originals stay on this device",
+    onSort: (() -> Unit)? = null,
+    sortLabel: String = "Newest first",
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = SdzSpace.lg, vertical = SdzSpace.lg),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.Bottom,
+    var showMore by rememberSaveable { mutableStateOf(false) }
+    Column(
+        modifier.fillMaxWidth().testTag("review-dock").navigationBarsPadding().padding(top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        SdzCircleAction(
-            icon = SdzIcons.Undo,
-            label = "Undo",
-            accent = SdzColor.TextSecondary,
-            onClick = onUndo,
-            diameter = SdzTouch.minTarget,
-            enabled = enabled && undoEnabled,
-        )
-        SdzCircleAction(
-            icon = SdzIcons.Delete,
-            label = "Stage",
-            accent = SdzColor.Red,
-            onClick = onReclaim,
-            diameter = SdzTouch.primaryAction,
-            enabled = enabled,
-        )
-        SdzCircleAction(
-            icon = SdzIcons.Archive,
-            label = archiveLabel,
-            accent = SdzColor.Teal,
-            onClick = onArchive,
-            diameter = SdzTouch.secondaryAction,
-            enabled = enabled && archiveEnabled,
-        )
-        SdzCircleAction(
-            icon = SdzIcons.Keep,
-            label = "Keep",
-            accent = SdzColor.Azure,
-            onClick = onKeep,
-            diameter = SdzTouch.primaryAction,
-            enabled = enabled,
-            filled = true,
-        )
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SdzButton("Stage", onReclaim, Modifier.weight(1f).fillMaxHeight().testTag("stage-action").semantics { contentDescription = "Stage" }, style = SdzButtonStyle.Secondary, enabled = enabled)
+            SdzButton("Keep", onKeep, Modifier.weight(1f).fillMaxHeight().testTag("keep-action").semantics { contentDescription = "Keep" }, enabled = enabled)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TextButton(onClick = onUndo, enabled = undoEnabled, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("undo-action").semantics { contentDescription = "Undo" }) {
+                Text("Undo", style = SdzType.Label)
+            }
+            TextButton(onClick = { showMore = true }, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("more-action")) {
+                Text("More", style = SdzType.Label)
+            }
+        }
+        Text(status, style = SdzType.Numeric, color = SdzColor.TextSecondary, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("decision-status"), textAlign = TextAlign.Center)
+    }
+    if (showMore) {
+        ModalBottomSheet(onDismissRequest = { showMore = false }, containerColor = SdzColor.Surface1, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("More actions", style = SdzType.Subtitle)
+                Text(if (archiveLabel == "Archive") "Archive queues an upload to Google Photos. Local cleanup stays locked until backup and restore are verified." else "Star excludes this item from future scans.", style = SdzType.BodySmall, color = SdzColor.TextSecondary)
+                SdzButton(archiveLabel, { showMore = false; onArchive() }, Modifier.fillMaxWidth(), style = SdzButtonStyle.Secondary, enabled = enabled && archiveEnabled)
+                if (onSort != null) SdzButton("Sort: $sortLabel", { showMore = false; onSort() }, Modifier.fillMaxWidth(), style = SdzButtonStyle.Secondary, enabled = enabled)
+            }
+        }
     }
 }
-
 /**
  * First-run coachmark. Shown once, dismissible, and it teaches the gesture
  * mapping in the same words and colours the row uses — so the lesson and the
@@ -126,16 +94,17 @@ fun DeckCoachmark(
             Column(
                 modifier = Modifier
                     .padding(SdzSpace.xxl)
+                    .verticalScroll(rememberScrollState())
                     .clip(RoundedCornerShape(SdzRadius.xl))
                     .background(SdzColor.Surface3)
                     .padding(SdzSpace.xl),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(SdzSpace.lg),
             ) {
-                Text("Three ways to decide", style = SdzType.Title, color = SdzColor.Phosphor)
+                Text("Review at your pace", style = SdzType.Title, color = SdzColor.Phosphor)
                 CoachLine(
                     icon = SdzIcons.Delete,
-                    accent = SdzColor.Red,
+                    accent = SdzColor.Sage,
                     gesture = "Swipe left",
                     meaning = "Stage for review. Your original stays on this device.",
                 )

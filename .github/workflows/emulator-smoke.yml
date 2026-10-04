@@ -9,9 +9,23 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
+  wait-for-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Reserve one heavy job at a time
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python scripts/ci_wait_verify_job.py "$EXACT_HEAD" --repository "$GITHUB_REPOSITORY"
   launch:
+    needs: wait-for-verify
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -34,6 +48,7 @@ jobs:
           api-level: 35
           target: google_apis
           arch: x86_64
+          cores: 2
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: bash scripts/ci_review_journey.sh
       - uses: actions/upload-artifact@v4

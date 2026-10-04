@@ -48,7 +48,7 @@ try:
   assert re.search(rf'Screenshot_fixture_{i}\.png.*_size=(?!NULL|0\b)\d+',media), 'Committed synthetic image missing from MediaStore'
  steps.append('three positive-size synthetic images committed via MediaStore')
  start();capture('01-dashboard');steps.append('permissions and dashboard')
- click(r'Start reviewing|Browse library', scroll=True)
+ click(r'Start review|Browse library', scroll=True)
  if any('Got it' in n.get('text','') for n in nodes()):click(r'Got it')
  click(r'^Keep\b');click(r'^Undo\b');steps.append('keep and undo')
  click(r'^Stage\b');click(r'^Undo\b');click(r'^Stage\b');steps.append('stage, undo, stage again')

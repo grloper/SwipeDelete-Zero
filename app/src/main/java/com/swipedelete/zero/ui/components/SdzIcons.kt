@@ -1,6 +1,9 @@
 package com.swipedelete.zero.ui.components
 
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import com.swipedelete.zero.R
@@ -17,6 +20,7 @@ import com.swipedelete.zero.R
  * any form of colour-vision deficiency.
  */
 object SdzIcons {
+    val Settings: Painter @Composable get() = rememberVectorPainter(Icons.Rounded.Settings)
     val Keep: Painter @Composable get() = painterResource(R.drawable.ic_action_keep)
     val Reclaim: Painter @Composable get() = painterResource(R.drawable.ic_action_trash)
     val Delete: Painter @Composable get() = painterResource(R.drawable.ic_action_trash)

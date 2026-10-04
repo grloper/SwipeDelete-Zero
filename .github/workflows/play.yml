@@ -52,12 +52,37 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Test exact canonical APK on isolated emulator
+      - name: Install runtime recording decoder
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Capture studio screens and motion from exact APK
+        # Each runner owns a separate disposable AVD; all heavy work stays serial.
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
           target: google_apis
           arch: x86_64
+          avd-name: swipe-studio
+          cores: 2
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash scripts/ci_studio_evidence.sh
+      - name: Package original studio pixels and verify recording
+        if: always()
+        run: python scripts/ci_package_studio.py
+      - name: Upload early studio screen and motion evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: SwipeRise-studio-review
+          path: swipe-studio-review.zip
+          retention-days: 7
+          if-no-files-found: error
+      - name: Test exact canonical APK safety smoke on isolated emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          cores: 2
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: python scripts/ci_record.py emulator-smoke python scripts/ci_smoke.py
       - name: Generate canonical reports and verified archive

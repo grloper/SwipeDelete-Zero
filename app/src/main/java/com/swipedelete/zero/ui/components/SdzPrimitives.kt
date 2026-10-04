@@ -1,7 +1,8 @@
 package com.swipedelete.zero.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +32,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.swipedelete.zero.ui.theme.SdzColor
@@ -108,8 +111,8 @@ fun SdzButton(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.97f else 1f,
-        animationSpec = spring(stiffness = 900f),
+        targetValue = if (pressed) 0.99f else 1f,
+        animationSpec = tween(SdzMotion.Instant),
         label = "button-press",
     )
     val shape = RoundedCornerShape(SdzRadius.md)
@@ -119,14 +122,14 @@ fun SdzButton(
     val borderColor: Color?
     when (style) {
         SdzButtonStyle.Primary -> {
-            container = SdzColor.Azure; content = SdzColor.OnAccent; borderColor = null
+            container = SdzColor.Phosphor; content = SdzColor.OnAccent; borderColor = null
         }
         SdzButtonStyle.Secondary -> {
-            container = SdzColor.Surface3; content = SdzColor.Phosphor; borderColor = null
+            container = SdzColor.Surface1; content = SdzColor.Phosphor; borderColor = SdzColor.Boundary
         }
         SdzButtonStyle.Tertiary -> {
             container = Color.Transparent; content = SdzColor.TextSecondary
-            borderColor = SdzColor.Hairline
+            borderColor = SdzColor.Boundary
         }
         SdzButtonStyle.Destructive -> {
             container = Color.Transparent; content = SdzColor.Safelight
@@ -137,18 +140,19 @@ fun SdzButton(
 
     Row(
         modifier = modifier
-            .defaultMinSize(minHeight = SdzTouch.minTarget)
+            .defaultMinSize(minHeight = SdzTouch.primaryAction)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(shape)
             .background(container.copy(alpha = container.alpha * alpha))
             .then(
-                if (borderColor != null) Modifier.border(1.5.dp, borderColor.copy(alpha = alpha), shape)
+                if (borderColor != null) Modifier.border(1.dp, borderColor.copy(alpha = alpha), shape)
                 else Modifier
             )
             .clickable(
                 interactionSource = interaction,
                 indication = null,
                 enabled = enabled,
+                role = androidx.compose.ui.semantics.Role.Button,
                 onClick = onClick,
             )
             .padding(horizontal = SdzSpace.xl, vertical = SdzSpace.md),
@@ -182,7 +186,7 @@ fun SdzCircleAction(
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.9f else 1f,
-        animationSpec = spring(stiffness = 800f),
+        animationSpec = tween(SdzMotion.Instant),
         label = "action-press",
     )
     val alpha = if (enabled) 1f else 0.35f
@@ -246,7 +250,7 @@ fun SdzIconButton(
             .size(SdzTouch.minTarget)
             .clip(RoundedCornerShape(SdzRadius.pill))
             .clickable(onClick = onClick)
-            .semantics { contentDescription = label },
+            .semantics { contentDescription = label; role = androidx.compose.ui.semantics.Role.Button },
         contentAlignment = Alignment.Center,
     ) {
         Icon(painter = icon, contentDescription = null, tint = tint, modifier = Modifier.size(glyphSize))
@@ -262,14 +266,17 @@ fun SdzChip(
     accent: Color = SdzColor.Phosphor,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(SdzRadius.pill)
+    val shape = RoundedCornerShape(SdzRadius.md)
+    val background by animateColorAsState(if (selected) SdzColor.Surface2 else SdzColor.Surface0, tween(SdzMotion.Quick), label = "selection-surface")
+    val boundary by animateColorAsState(if (selected) SdzColor.Sage else SdzColor.Boundary, tween(SdzMotion.Quick), label = "selection-boundary")
     Box(
         modifier = modifier
-            .defaultMinSize(minHeight = SdzTouch.minTarget)
+            .defaultMinSize(minHeight = SdzTouch.primaryAction)
             .clip(shape)
-            .background(if (selected) accent.copy(alpha = 0.14f) else Color.Transparent)
-            .border(1.dp, if (selected) accent.copy(alpha = 0.55f) else SdzColor.Hairline, shape)
+            .background(background)
+            .border(1.dp, boundary, shape)
             .clickable(onClick = onClick)
+            .semantics { this.selected = selected; role = androidx.compose.ui.semantics.Role.Tab }
             .padding(horizontal = SdzSpace.lg, vertical = SdzSpace.sm),
         contentAlignment = Alignment.Center,
     ) {

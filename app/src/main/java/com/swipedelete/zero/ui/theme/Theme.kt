@@ -20,7 +20,7 @@ import androidx.core.view.WindowCompat
  * meaning that `primary`/`secondary` do not.
  */
 private val SdzDarkScheme = darkColorScheme(
-    primary = SdzColor.Azure,
+    primary = SdzColor.Phosphor,
     onPrimary = SdzColor.OnAccent,
     primaryContainer = SdzColor.AzureDim,
     onPrimaryContainer = SdzColor.Azure,
@@ -32,6 +32,8 @@ private val SdzDarkScheme = darkColorScheme(
 
     tertiary = SdzColor.Teal,
     onTertiary = SdzColor.OnAccent,
+    tertiaryContainer = SdzColor.Surface2,
+    onTertiaryContainer = SdzColor.Phosphor,
 
     error = SdzColor.Safelight,
     onError = SdzColor.OnAccent,
@@ -49,7 +51,7 @@ private val SdzDarkScheme = darkColorScheme(
     surfaceContainer = SdzColor.Surface2,
     surfaceContainerHigh = SdzColor.Surface3,
     surfaceContainerHighest = SdzColor.Surface4,
-    outline = SdzColor.TextTertiary,
+    outline = SdzColor.Boundary,
     outlineVariant = SdzColor.Hairline,
     scrim = SdzColor.Scrim,
 )
@@ -77,6 +79,11 @@ fun SwipeDeleteZeroTheme(
     MaterialTheme(
         colorScheme = SdzDarkScheme,
         typography = SdzTypography,
-        content = content,
+        content = {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.material3.LocalContentColor provides SdzColor.Phosphor,
+                content = content,
+            )
+        },
     )
 }

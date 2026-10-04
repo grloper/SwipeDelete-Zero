@@ -11,6 +11,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,6 +22,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.ui.PlayerView
@@ -49,12 +55,14 @@ fun MediaPreview(
     item: MediaItem,
     modifier: Modifier = Modifier,
     playerState: TopCardPlayerState? = null,
+    contentScale: ContentScale = ContentScale.Crop,
 ) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+    var previewState by remember(item.contentUri) { mutableStateOf("Loading preview") }
+    Box(modifier = modifier.semantics { stateDescription = previewState }, contentAlignment = Alignment.Center) {
         val request = ImageRequest.Builder(LocalContext.current)
             .data(item.contentUri)
             .scale(Scale.FILL)
-            .crossfade(true)
+            .crossfade(false)
             .apply {
                 if (item.isVideo) decoderFactory(VideoFrameDecoder.Factory())
             }
@@ -63,7 +71,9 @@ fun MediaPreview(
         AsyncImage(
             model = request,
             contentDescription = item.displayName,
-            contentScale = ContentScale.Crop,
+            contentScale = contentScale,
+            onSuccess = { previewState = "Preview ready" },
+            onError = { previewState = "Preview unavailable" },
             modifier = Modifier.fillMaxSize(),
         )
 

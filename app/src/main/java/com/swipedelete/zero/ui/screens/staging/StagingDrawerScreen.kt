@@ -607,32 +607,12 @@ internal fun PurgeCta(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (enabled) SdzColor.Red else SdzColor.TextSecondary.copy(alpha = 0.4f))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 18.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                painter = SdzIcons.Delete,
-                contentDescription = null,
-                tint = if (enabled) SdzColor.OnAccent else SdzColor.TextSecondary,
-                modifier = Modifier.size(20.dp),
-            )
-            Text(
-                text = if (mode == ExecutionMode.OS_TRASH_30_DAY)
-                    "Move to Android Trash" else "Delete and Free Up " + bytes.toReadableSize(),
-                color = if (enabled) SdzColor.OnAccent else SdzColor.TextSecondary,
-                fontWeight = FontWeight.Black,
-                style = MaterialTheme.typography.titleMedium,
-            )
-        }
-    }
+    com.swipedelete.zero.ui.components.SdzButton(
+        label = if (mode == ExecutionMode.OS_TRASH_30_DAY)
+            "Move to Android Trash" else "Delete and Free Up " + bytes.toReadableSize(),
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        style = com.swipedelete.zero.ui.components.SdzButtonStyle.Destructive,
+        enabled = enabled,
+    )
 }
