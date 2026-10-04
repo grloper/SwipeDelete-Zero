@@ -44,13 +44,14 @@ class StudioVisualEvidenceTest {
         capturePracticeEvidence("swipe-$label-$screen", tags.map { tag ->
             contrastRegion(tag, compose.onNodeWithTag(tag, useUnmergedTree = true),
                 background = when (tag) { "queue-label" -> Color.rgb(37,41,37); "queue-sheet-title", "queue-lock" -> Color.rgb(26,29,27); else -> Color.rgb(16,18,17) },
-                foreground = if (tag in setOf("review-progress", "access-label", "queue-lock")) Color.rgb(181,186,180) else Color.rgb(244,245,242))
+                foreground = if (tag in setOf("review-progress", "access-label")) Color.rgb(181,186,180) else Color.rgb(244,245,242))
         })
     }
     @Test fun dashboardReviewQueueAndRecreation() {
         val label = InstrumentationRegistry.getArguments().getString("visualLabel")
         assumeTrue("Dedicated independent visual matrix", label != null)
         seedStudioPhotographs()
+        val output = File(context.getExternalFilesDir(null), "practice-evidence").apply { mkdirs() }
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
             await("start-review")
             compose.waitUntil(30_000) { compose.onNodeWithTag("start-review").isEnabled() }
@@ -64,11 +65,22 @@ class StudioVisualEvidenceTest {
             val access = compose.onNodeWithTag("manage-access").assertIsDisplayed().getUnclippedBoundsInRoot()
             val accessLabel = compose.onNodeWithTag("access-label", useUnmergedTree = true).assertIsDisplayed()
             val labelBounds = accessLabel.getUnclippedBoundsInRoot()
-            assertTrue("Wrapped access text clears the rounded button edges", labelBounds.left.value >= access.left.value + 8f && labelBounds.right.value <= access.right.value - 8f)
             val accessLayouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
             accessLabel.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(accessLayouts) }
-            assertFalse("Access label remains readable at the configured font scale", accessLayouts.single().hasVisualOverflow)
+            val accessLayout = accessLayouts.single()
+            val accessDiagnostic = JSONObject().apply {
+                put("width_px", accessLayout.size.width); put("height_px", accessLayout.size.height)
+                put("paragraph_width_px", accessLayout.multiParagraph.width); put("paragraph_height_px", accessLayout.multiParagraph.height)
+                put("constraints", accessLayout.layoutInput.constraints.toString())
+                put("button_bounds_dp", org.json.JSONArray(listOf(access.left.value, access.top.value, access.right.value, access.bottom.value)))
+                put("text_bounds_dp", org.json.JSONArray(listOf(labelBounds.left.value, labelBounds.top.value, labelBounds.right.value, labelBounds.bottom.value)))
+                put("overflow_width", accessLayout.didOverflowWidth); put("overflow_height", accessLayout.didOverflowHeight)
+                put("line_count", accessLayout.lineCount); put("font_scale", context.resources.configuration.fontScale)
+            }
+            File(output, "swipe-$label-access-layout.json").writeText(accessDiagnostic.toString(2))
             capture(label!!, "dashboard", "dashboard-title", "access-label")
+            assertTrue("Wrapped access text clears the rounded button edges", labelBounds.left.value >= access.left.value + 8f && labelBounds.right.value <= access.right.value - 8f)
+            assertFalse("Access label remains readable at the configured font scale: $accessDiagnostic", accessLayout.hasVisualOverflow)
             compose.onNodeWithTag("start-review").performClick()
             await("review-progress")
             compose.waitUntil(30_000) { compose.onNodeWithTag("stage-action").isEnabled() }
@@ -136,12 +148,6 @@ class StudioVisualEvidenceTest {
             assertTrue("Final dashboard action is fully inside the reserved scroll viewport", finalRow.top >= list.top && finalRow.bottom <= list.bottom)
             assertTrue("Last dashboard note clears the queue bar", finalNote.bottom <= queue.top)
             capture(label, "dashboard-end", "queue-label")
-            compose.onNodeWithTag("queue-bar").performClick()
-            compose.onNodeWithText("Review queue").assertIsDisplayed()
-            compose.onAllNodes(hasText("Cleanup is unavailable", substring = true)).onLast().assertIsDisplayed()
-            capture(label, "queue-sheet", "queue-sheet-title", "queue-lock")
-            compose.onNodeWithText("Unstage all").performClick()
-            val output = File(context.getExternalFilesDir(null), "practice-evidence").apply { mkdirs() }
             File(output, "swipe-$label-geometry.json").writeText(JSONObject().apply {
                 put("density", context.resources.displayMetrics.density)
                 put("font_scale", context.resources.configuration.fontScale)
@@ -161,6 +167,11 @@ class StudioVisualEvidenceTest {
                 put("queue_reserved", true); put("rapid_callbacks", 10); put("admitted", 1)
                 put("recreation_persisted", true); put("stage_keep_undo", true)
             }.toString(2))
+            compose.onNodeWithTag("queue-bar").performClick()
+            compose.onNodeWithText("Review queue").assertIsDisplayed()
+            compose.onAllNodes(hasText("Cleanup is unavailable", substring = true)).onLast().assertIsDisplayed()
+            capture(label, "queue-sheet", "queue-sheet-title", "queue-lock")
+            compose.onNodeWithText("Unstage all").performClick()
         }
     }
     private fun SemanticsNodeInteraction.isEnabled() = runCatching { assertIsEnabled(); true }.getOrDefault(false)

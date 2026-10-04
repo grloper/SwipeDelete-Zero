@@ -169,7 +169,7 @@ fun StagingSheet(
             }
             if (state.count > 0) {
                 state.cleanupLockExplanation?.let { explanation ->
-                    Text(explanation, color = SdzColor.TextSecondary,
+                    Text(explanation, color = SdzColor.Phosphor,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).testTag("queue-lock"))
                 }
