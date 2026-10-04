@@ -167,12 +167,78 @@ class StudioVisualEvidenceTest {
                 put("queue_reserved", true); put("rapid_callbacks", 10); put("admitted", 1)
                 put("recreation_persisted", true); put("stage_keep_undo", true)
             }.toString(2))
+            val originalsBeforeQueue = studioOriginalHashes()
             compose.onNodeWithTag("queue-bar").performClick()
             compose.onNodeWithText("Review queue").assertIsDisplayed()
-            compose.onAllNodes(hasText("Cleanup is unavailable", substring = true)).onLast().assertIsDisplayed()
-            capture(label, "queue-sheet", "queue-sheet-title", "queue-lock")
+            capture(label, "queue-sheet-top", "queue-sheet-title")
+            val queueCount = compose.onNodeWithTag("queue-count", useUnmergedTree = true).fetchSemanticsNode().config[SemanticsProperties.Text].single().text
+            val queueViewport = compose.onNodeWithTag("queue-list").getUnclippedBoundsInRoot()
+            val title = compose.onNodeWithTag("queue-sheet-title", useUnmergedTree = true).getUnclippedBoundsInRoot()
+            val unstageAll = compose.onNodeWithTag("queue-unstage-all").assertIsDisplayed().getUnclippedBoundsInRoot()
+            assertTrue("Queue title fully visible", title.top >= queueViewport.top && title.bottom <= queueViewport.bottom)
+            assertTrue("Unstage all target >=52dp", unstageAll.bottom.value - unstageAll.top.value >= 52f)
+            val dialogAppearance = JSONObject()
+            instrumentation.runOnMainSync {
+                fun descendants(view: android.view.View): List<android.view.View> = listOf(view) +
+                    if (view is android.view.ViewGroup) (0 until view.childCount).flatMap { descendants(view.getChildAt(it)) } else emptyList()
+                val provider = android.view.inspector.WindowInspector.getGlobalWindowViews()
+                    .flatMap { descendants(it) }.filterIsInstance<androidx.compose.ui.window.DialogWindowProvider>().single()
+                val controller = androidx.core.view.WindowCompat.getInsetsController(provider.window, provider.window.decorView)
+                dialogAppearance.put("light_status_bar_appearance", controller.isAppearanceLightStatusBars)
+                dialogAppearance.put("light_navigation_bar_appearance", controller.isAppearanceLightNavigationBars)
+                assertFalse("Dark sheet needs light status icons", controller.isAppearanceLightStatusBars)
+                assertFalse("Dark sheet needs light navigation icons", controller.isAppearanceLightNavigationBars)
+            }
+            val cleanupPositions = JSONObject()
+            for (mode in listOf("queue-mode-permanent", "queue-mode-trash")) {
+                compose.onNodeWithTag("queue-list").performScrollToKey("mode")
+                compose.onNodeWithTag(mode).performScrollTo().assertIsDisplayed().performClick().assertIsSelected()
+                val modeBounds = compose.onNodeWithTag(mode).getUnclippedBoundsInRoot()
+                assertTrue("Queue mode target >=52dp", modeBounds.bottom.value - modeBounds.top.value >= 52f)
+                compose.onNodeWithTag("queue-list").performScrollToKey("cleanup")
+                compose.onNodeWithTag("queue-cleanup").performScrollTo().assertIsDisplayed()
+                val lock = compose.onNodeWithTag("queue-lock", useUnmergedTree = true).assertIsDisplayed().getUnclippedBoundsInRoot()
+                val cleanup = compose.onNodeWithTag("queue-cleanup-action").assertIsDisplayed().assertIsNotEnabled().getUnclippedBoundsInRoot()
+                assertTrue("Whole warning clears the scroll boundary", lock.top >= queueViewport.top && lock.bottom <= queueViewport.bottom)
+                assertTrue("Locked cleanup action fully reachable", cleanup.top >= lock.bottom && cleanup.bottom <= queueViewport.bottom)
+                assertTrue("Cleanup target >=52dp", cleanup.bottom.value - cleanup.top.value >= 52f)
+                compose.onAllNodes(hasText("Cleanup is unavailable", substring = true), useUnmergedTree = true).assertCountEquals(1)
+                cleanupPositions.put(mode, JSONObject().apply {
+                    put("lock_bounds_dp", org.json.JSONArray(listOf(lock.left.value, lock.top.value, lock.right.value, lock.bottom.value)))
+                    put("action_bounds_dp", org.json.JSONArray(listOf(cleanup.left.value, cleanup.top.value, cleanup.right.value, cleanup.bottom.value)))
+                    put("disabled", true)
+                })
+            }
+            capture(label, "queue-sheet-bottom", "queue-lock")
+            assertEquals("Queue controls never change originals", originalsBeforeQueue, studioOriginalHashes())
+            compose.onNodeWithTag("queue-list").performScrollToIndex(0)
+            assertEquals("Mode selection preserves queue", queueCount, compose.onNodeWithTag("queue-count", useUnmergedTree = true).fetchSemanticsNode().config[SemanticsProperties.Text].single().text)
+            File(output, "swipe-$label-queue-layout.json").writeText(JSONObject().apply {
+                put("viewport_dp", org.json.JSONArray(listOf(queueViewport.left.value, queueViewport.top.value, queueViewport.right.value, queueViewport.bottom.value)))
+                put("dialog", dialogAppearance); put("modes", cleanupPositions)
+                put("original_hashes_unchanged", originalsBeforeQueue.size); put("queue_unchanged", true)
+            }.toString(2))
             compose.onNodeWithText("Unstage all").performClick()
         }
     }
     private fun SemanticsNodeInteraction.isEnabled() = runCatching { assertIsEnabled(); true }.getOrDefault(false)
+    private fun studioOriginalHashes(): Map<String, String> {
+        val resolver = context.contentResolver
+        val collection = android.provider.MediaStore.Images.Media.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        return buildMap {
+            resolver.query(collection, arrayOf(android.provider.MediaStore.MediaColumns._ID),
+                "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?", arrayOf("Studio_fixture_%"), null)!!.use { rows ->
+                while (rows.moveToNext()) {
+                    val uri = android.content.ContentUris.withAppendedId(collection, rows.getLong(0))
+                    val digest = java.security.MessageDigest.getInstance("SHA-256")
+                    resolver.openInputStream(uri)!!.use { input ->
+                        val buffer = ByteArray(65536)
+                        while (true) { val read = input.read(buffer); if (read < 0) break; digest.update(buffer, 0, read) }
+                    }
+                    put(uri.toString(), digest.digest().joinToString("") { "%02x".format(it) })
+                }
+            }
+            assertEquals("All synthetic originals remain", 12, size)
+        }
+    }
 }

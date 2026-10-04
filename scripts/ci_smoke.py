@@ -10,6 +10,22 @@ def capture(name):
  (SC/(name+'.png')).write_bytes(adb('exec-out','screencap','-p'))
  return ET.fromstring(raw)
 def nodes(): return list(capture('latest').iter('node'))
+
+def scroll_to(pattern, direction='down', max_scrolls=8):
+ """Reach an actual lazy-list control without assuming it is initially composed."""
+ for attempt in range(max_scrolls+1):
+  tree=capture('latest')
+  if any(re.search(pattern,(n.get('text','')+' '+n.get('content-desc','')).strip()) for n in tree.iter('node')):
+   return tree
+  if attempt == max_scrolls: break
+  scrollables=[n for n in tree.iter('node') if n.get('scrollable')=='true']
+  assert scrollables, 'No scroll surface while seeking: '+pattern
+  x1,y1,x2,y2=map(int,re.findall(r'\d+',scrollables[-1].get('bounds')))
+  top=y1+(y2-y1)//4;bottom=y2-(y2-y1)//4
+  start,end=(bottom,top) if direction=='down' else (top,bottom)
+  adb('shell','input','swipe',str((x1+x2)//2),str(start),str((x1+x2)//2),str(end),'450')
+  time.sleep(1)
+ raise AssertionError('Missing scroll-reachable control: '+pattern)
 def click(pattern, timeout=20, scroll=False):
  deadline=time.time()+timeout
  scrolls=0
@@ -54,10 +70,13 @@ try:
  click(r'^Stage\b');click(r'^Undo\b');click(r'^Stage\b');steps.append('stage, undo, stage again')
  capture('02-review');click(r'^Back\b')
  click(r'Review [1-9].*staged files');capture('03-staging')
+ scroll_to(r'Cleanup is unavailable')
  assert any('Cleanup is unavailable' in n.get('text','') for n in nodes()), 'Safety lock explanation missing'
  # Both selection modes may change, but neither execution control can be enabled.
  for mode in ['Permanent Delete','30-Day OS Trash']:
-  click(mode, scroll=True)
+  scroll_to(mode, direction='up')
+  click(mode)
+  scroll_to(r'Move to Android Trash|Delete and Free Up')
   tree=capture('04-lock-'+('permanent' if mode.startswith('Permanent') else 'trash'))
   parents={child:parent for parent in tree.iter() for child in parent}
   controls=[n for n in tree.iter('node') if ('Move to Android Trash' in n.get('text','') or 'Delete and Free Up' in n.get('text',''))]
