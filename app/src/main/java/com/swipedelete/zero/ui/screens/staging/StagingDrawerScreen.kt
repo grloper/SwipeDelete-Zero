@@ -275,7 +275,35 @@ internal fun StagedRow(
     item: StagedFileEntity,
     onPreview: () -> Unit,
     onRestore: () -> Unit,
+    stackActions: Boolean = false,
 ) {
+    if (stackActions) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onPreview).padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                StagedThumbnail(item, Modifier.size(64.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(item.displayName, color = SdzColor.Phosphor,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        style = com.swipedelete.zero.ui.theme.SdzType.Row)
+                    Text("${item.mediaType} · ${item.sizeBytes.toReadableSize()}",
+                        color = SdzColor.TextSecondary, style = com.swipedelete.zero.ui.theme.SdzType.Numeric)
+                    if (item.sourceDeckId == PhotosArchive.VERIFIED_SOURCE_DECK) {
+                        Text("Google Photos item found · Original bytes unproven",
+                            color = SdzColor.TextSecondary, style = com.swipedelete.zero.ui.theme.SdzType.BodySmall)
+                    }
+                }
+            }
+            com.swipedelete.zero.ui.components.SdzButton("Unstage", onClick = onRestore,
+                style = com.swipedelete.zero.ui.components.SdzButtonStyle.Secondary,
+                modifier = Modifier.fillMaxWidth())
+        }
+        return
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -607,32 +635,12 @@ internal fun PurgeCta(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (enabled) SdzColor.Red else SdzColor.TextSecondary.copy(alpha = 0.4f))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 18.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                painter = SdzIcons.Delete,
-                contentDescription = null,
-                tint = if (enabled) SdzColor.OnAccent else SdzColor.TextSecondary,
-                modifier = Modifier.size(20.dp),
-            )
-            Text(
-                text = if (mode == ExecutionMode.OS_TRASH_30_DAY)
-                    "Move to Android Trash" else "Delete and Free Up " + bytes.toReadableSize(),
-                color = if (enabled) SdzColor.OnAccent else SdzColor.TextSecondary,
-                fontWeight = FontWeight.Black,
-                style = MaterialTheme.typography.titleMedium,
-            )
-        }
-    }
+    com.swipedelete.zero.ui.components.SdzButton(
+        label = if (mode == ExecutionMode.OS_TRASH_30_DAY)
+            "Move to Android Trash" else "Delete and Free Up " + bytes.toReadableSize(),
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        style = com.swipedelete.zero.ui.components.SdzButtonStyle.Destructive,
+        enabled = enabled,
+    )
 }

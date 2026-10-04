@@ -52,28 +52,7 @@ fun SdzWordmark(
             modifier = Modifier.size(markSize),
         )
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "SWIPE",
-                    style = TextStyle(
-                        fontFamily = DisplayFamily,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = (markSize.value * 0.5f).sp,
-                        letterSpacing = (markSize.value * 0.055f).sp,
-                    ),
-                    color = tint.copy(alpha = 0.72f),
-                )
-                Text(
-                    text = "RISE",
-                    style = TextStyle(
-                        fontFamily = DisplayFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = (markSize.value * 0.5f).sp,
-                        letterSpacing = (markSize.value * 0.055f).sp,
-                    ),
-                    color = tint,
-                )
-            }
+            Text("SwipeRise", style = SdzType.Row, color = tint)
             if (showTagline) {
                 Text(
                     text = "Review. Back up. Stay in control.",

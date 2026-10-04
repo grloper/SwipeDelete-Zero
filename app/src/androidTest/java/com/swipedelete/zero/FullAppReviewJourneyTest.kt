@@ -28,7 +28,7 @@ class FullAppReviewJourneyTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
     private val originals = linkedMapOf<Uri, String>()
-    private val progress = Regex("\\d+/\\d+ swiped")
+    private val progress = Regex("\\d+/\\d+ reviewed")
 
     @Before fun requireSyntheticEmulator() {
         check(Build.HARDWARE in setOf("ranchu", "goldfish")) {
@@ -41,12 +41,12 @@ class FullAppReviewJourneyTest {
         seedOriginals()
         grantPhotos()
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
-            awaitText("Start reviewing")
+            awaitText("Start review")
             val stagedBefore = rowCount("staged_files")
             val keptBefore = rowCount("kept_files")
             repeat(30) { cycle ->
-                compose.onNodeWithText("Start reviewing").performClick()
-                compose.waitUntil(30_000) { runCatching { progressText().substringAfter('/').substringBefore(' ').toInt() > 0 && compose.onAllNodesWithText("Loading.").fetchSemanticsNodes().isEmpty() }.getOrDefault(false) }
+                compose.onNodeWithText("Start review").performClick()
+                compose.waitUntil(30_000) { runCatching { progressText().substringAfter('/').substringBefore(' ').toInt() > 0 && compose.onAllNodesWithText("Loading…").fetchSemanticsNodes().isEmpty() }.getOrDefault(false) }
                 if (compose.onAllNodesWithText("Got it").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithText("Got it").performClick()
                 val initial = cursor()
                 compose.onNodeWithContentDescription("Stage").performClick()
@@ -58,19 +58,22 @@ class FullAppReviewJourneyTest {
                 assertTrue("No deletion claim during staging", compose.onAllNodes(hasText("files removed", substring = true)).fetchSemanticsNodes().isEmpty())
                 evidence("cycle-$cycle")
                 compose.onNodeWithContentDescription("Back").performClick()
-                awaitText("Start reviewing")
+                awaitText("Start review")
                 if (cycle == 14) {
                     scenario.recreate()
-                    awaitText("Start reviewing")
+                    awaitText("Start review")
                 }
                 assertOriginalHashes()
             }
             // A persisted review action must survive recreation; the staging entry stays reachable.
             scenario.recreate()
-            awaitText("Start reviewing")
+            awaitText("Start review")
             val staged = hasContentDescription("Review", substring = true) and hasContentDescription("staged files", substring = true)
             compose.waitUntil(15_000) { compose.onAllNodes(staged).fetchSemanticsNodes().isNotEmpty() }
             compose.onAllNodes(staged).onFirst().performClick()
+            compose.waitUntil(15_000) { compose.onAllNodesWithTag("queue-unstage-all").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("queue-list").performScrollToKey("cleanup")
+            compose.onNodeWithTag("queue-cleanup").performScrollTo()
             compose.waitUntil(15_000) { compose.onAllNodes(hasText("Cleanup is unavailable", substring = true)).fetchSemanticsNodes().isNotEmpty() }
             compose.onAllNodes(hasText("Cleanup is unavailable", substring = true)).onFirst().assertIsDisplayed()
             assertEquals(stagedBefore + 15, rowCount("staged_files"))
@@ -91,7 +94,7 @@ class FullAppReviewJourneyTest {
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use {
             awaitText("Your library, your call")
             compose.onNodeWithText("Choose photos").assertIsDisplayed()
-            assertTrue(compose.onAllNodesWithText("Start reviewing").fetchSemanticsNodes().isEmpty())
+            assertTrue(compose.onAllNodesWithText("Start review").fetchSemanticsNodes().isEmpty())
             evidence("permission-denied")
         }
     }
@@ -100,13 +103,13 @@ class FullAppReviewJourneyTest {
         org.junit.Assume.assumeTrue(InstrumentationRegistry.getArguments().getString("permissionJourney") == "granted")
         grantPhotos()
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use {
-            awaitText("Start reviewing")
+            awaitText("Start review")
             restoreAndAssertCheckpoint()
-            compose.onNodeWithText("Start reviewing").assertIsEnabled().performClick()
+            compose.onNodeWithText("Start review").assertIsEnabled().performClick()
             compose.waitUntil(30_000) {
                 runCatching {
                     val total = progressText().substringAfter('/').substringBefore(' ').toInt()
-                    total > cursor() && compose.onAllNodesWithText("Loading.").fetchSemanticsNodes().isEmpty()
+                    total > cursor() && compose.onAllNodesWithText("Loading…").fetchSemanticsNodes().isEmpty()
                 }.getOrDefault(false)
             }
             if (compose.onAllNodesWithText("Got it").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithText("Got it").performClick()
@@ -114,14 +117,14 @@ class FullAppReviewJourneyTest {
             compose.onNodeWithContentDescription("Keep").assertIsEnabled()
             evidence("permission-regranted")
             compose.onNodeWithContentDescription("Back").performClick()
-            awaitText("Start reviewing")
+            awaitText("Start review")
             restoreAndAssertCheckpoint()
         }
     }
 
     private fun awaitText(text: String) = compose.waitUntil(30_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     private fun progressText(): String {
-        val text = compose.onAllNodes(hasText("swiped", substring = true)).fetchSemanticsNodes()
+        val text = compose.onAllNodes(hasText("reviewed", substring = true)).fetchSemanticsNodes()
             .flatMap { if (it.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Text)) it.config[androidx.compose.ui.semantics.SemanticsProperties.Text] else emptyList() }
             .map { it.text }.single { progress.matches(it) }
         return text

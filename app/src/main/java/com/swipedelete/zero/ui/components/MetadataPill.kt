@@ -58,48 +58,10 @@ fun MetadataPill(
         }
     }
 
-    val highImpact = item.isVideo && (
-        item.sizeBytes >= HIGH_IMPACT_BYTES ||
-            (videoMeta?.bitrateBps ?: 0) >= HIGH_IMPACT_BITRATE ||
-            resolutionClass(item.width, item.height) == "4K"
-        )
-    val borderColor = if (highImpact) SdzColor.Amber.copy(alpha = 0.75f) else SdzColor.Hairline
-
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(
-                Brush.horizontalGradient(
-                    listOf(
-                        SdzColor.Surface0.copy(alpha = 0.72f),
-                        SdzColor.Surface1.copy(alpha = 0.62f),
-                    )
-                )
-            )
-            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        if (highImpact) {
-            Icon(
-                Icons.Rounded.Whatshot,
-                contentDescription = "Large storage impact",
-                tint = SdzColor.Amber,
-                modifier = Modifier.size(14.dp),
-            )
-        }
-        parts.forEachIndexed { index, text ->
-            Text(
-                text = text,
-                color = when {
-                    index == 0 && highImpact -> SdzColor.Amber
-                    index == 0 -> SdzColor.TextSecondary
-                    else -> SdzColor.Phosphor
-                },
-                fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Medium,
-                style = MaterialTheme.typography.labelMedium,
-            )
-        }
-    }
+    Text(
+        text = parts.joinToString(" · "),
+        modifier = modifier.padding(vertical = 8.dp),
+        color = SdzColor.TextSecondary,
+        style = com.swipedelete.zero.ui.theme.SdzType.Numeric,
+    )
 }

@@ -3,6 +3,8 @@ package com.swipedelete.zero.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -74,6 +76,7 @@ fun SwipeableCard(
         val density = LocalDensity.current
         val scope = rememberCoroutineScope()
         val haptics = rememberSdzHaptics()
+        val latestOnSwiped by rememberUpdatedState(onSwiped)
 
         val widthPx = with(density) { maxWidth.toPx() }
         val heightPx = with(density) { maxHeight.toPx() }
@@ -114,32 +117,25 @@ fun SwipeableCard(
         fun flingOut(direction: SwipeDirection, velocityX: Float, velocityY: Float) {
             if (committed != 0f) return
             committed = 1f
+            val accepted = latestOnSwiped(direction)
+            if (!accepted) {
+                committed = 0f
+                scope.launch {
+                    launch { offsetX.animateTo(0f, springBackSpec()) }
+                    offsetY.animateTo(0f, springBackSpec())
+                }
+                return
+            }
             haptics.commit(direction)
             scope.launch {
-                val exitSpec = spring<Float>(
-                    dampingRatio = 1f,
-                    stiffness = 180f,
-                    visibilityThreshold = 1f,
-                )
                 val targetX = when (direction) {
-                    SwipeDirection.LEFT -> -widthPx * 1.5f
-                    SwipeDirection.RIGHT -> widthPx * 1.5f
+                    SwipeDirection.LEFT -> -widthPx * 1.25f
+                    SwipeDirection.RIGHT -> widthPx * 1.25f
                     else -> offsetX.value
                 }
-                val targetY = if (direction == SwipeDirection.UP) -heightPx * 1.5f else offsetY.value
-                // Secondary axis drifts with its release velocity for a natural arc.
-                kotlinx.coroutines.coroutineScope {
-                    launch { offsetX.animateTo(targetX, exitSpec, initialVelocity = velocityX) }
-                    launch { offsetY.animateTo(targetY, exitSpec, initialVelocity = velocityY) }
-                }
-                if (!onSwiped(direction)) {
-                    // Admission may have changed while this exit animation ran.
-                    committed = 0f
-                    kotlinx.coroutines.coroutineScope {
-                        launch { offsetX.animateTo(0f, springBackSpec()) }
-                        launch { offsetY.animateTo(0f, springBackSpec()) }
-                    }
-                }
+                val targetY = if (direction == SwipeDirection.UP) -heightPx * 1.25f else offsetY.value
+                launch { offsetX.animateTo(targetX, tween(240), initialVelocity = velocityX) }
+                offsetY.animateTo(targetY, tween(240), initialVelocity = velocityY)
             }
         }
 
@@ -152,7 +148,7 @@ fun SwipeableCard(
         }
 
         // Width-relative rotation so tablets don't over-rotate.
-        val rotation = ((dragX / widthPx) * 16f).coerceIn(-16f, 16f)
+        val rotation = ((dragX / widthPx) * 3f).coerceIn(-3f, 3f)
 
         // Progressive-haptic stage: 0 idle, 1 half-way tick fired, 2 threshold armed.
         var hapticStage by remember { mutableIntStateOf(0) }
@@ -166,15 +162,10 @@ fun SwipeableCard(
                     translationY = offsetY.value
                     rotationZ = rotation
                     transformOrigin = TransformOrigin(0.5f, 0.85f)
-                    val lift = 1f + 0.03f * dragProgress
-                    scaleX = lift
-                    scaleY = lift
-                    shadowElevation = (8 + 16 * dragProgress).dp.toPx()
                 }
-                .edgeGlow(leftGlow, rightGlow, upGlow, upAccent)
-                .clip(RoundedCornerShape(28.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(SdzColor.Surface1)
-                .border(1.dp, SdzColor.Hairline, RoundedCornerShape(28.dp))
+                .border(1.dp, SdzColor.Hairline, RoundedCornerShape(16.dp))
                 .pointerInput(item.id, enabled) {
                     if (!enabled) return@pointerInput
                     val velocityTracker = VelocityTracker()
@@ -260,10 +251,7 @@ private fun DefaultCardContent(item: MediaItem, leftGlow: Float, rightGlow: Floa
     }
 }
 
-private fun springBackSpec() = spring<Float>(
-    dampingRatio = Spring.DampingRatioMediumBouncy,
-    stiffness = Spring.StiffnessLow,
-)
+private fun springBackSpec() = tween<Float>(180)
 
 /** Draws the proportional coral/emerald/gold(or cyan) backlight around the card. */
 internal fun Modifier.edgeGlow(

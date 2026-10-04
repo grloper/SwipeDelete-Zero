@@ -1,6 +1,15 @@
 package com.swipedelete.zero.ui.screens.dashboard
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.testTag
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -112,7 +121,7 @@ internal fun photoReviewPermissions(sdk: Int): Array<String> = when {
  * Buckets and sprints are no longer two unrelated stacked sections: they are
  * two *lenses* on the same library, stated as such and switched with a toggle.
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     onOpenDeck: (Deck) -> Unit,
@@ -134,6 +143,7 @@ fun DashboardScreen(
 
     var lensName by rememberSaveable { mutableStateOf(Lens.CONTENT.name) }
     val lens = Lens.valueOf(lensName)
+    var showAccess by rememberSaveable { mutableStateOf(false) }
     var showStaging by rememberSaveable { mutableStateOf(false) }
     val currentShowStaging by rememberUpdatedState(showStaging)
     var completedPurge by remember { mutableStateOf<Pair<Long, Int>?>(null) }
@@ -183,191 +193,86 @@ fun DashboardScreen(
     }
 
     val sections = remember(state.decks) { LibrarySections.from(state.decks) }
-
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(SdzColor.Surface0),
-    ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding(),
-            contentPadding = PaddingValues(
-                start = SdzSpace.xl,
-                end = SdzSpace.xl,
-                top = SdzSpace.md,
-                bottom = SdzSpace.h4 * 2 +
-                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
-            ),
-            verticalArrangement = Arrangement.spacedBy(SdzSpace.lg),
-        ) {
-            item("brand") {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SdzWordmark(markSize = 26.dp)
-                    Box(
-                        modifier = Modifier
-                            .size(SdzTouch.minTarget)
-                            .clip(RoundedCornerShape(SdzRadius.pill))
-                            .clickable(onClick = onOpenSettings)
-                            .semantics { contentDescription = "Settings" },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = SdzIcons.Duplicates,
-                            contentDescription = null,
-                            tint = SdzColor.TextSecondary,
-                            modifier = Modifier.size(20.dp),
-                        )
+    val available = remember(state.decks) { state.decks.flatMap { it.remainingItems }.distinctBy { it.id } }
+    val entries = remember(sections, lens, state.hasAnalysis, state.analysisState) {
+        if (lens == Lens.DATE) sections.dateLenses()
+        else (sections.contentLenses(state.hasAnalysis || state.analysisState == AnalysisRunState.DONE) + sections.dateLenses())
+            .sortedByDescending { it.remainingCount > 0 }
+    }
+    BoxWithConstraints(Modifier.fillMaxSize().background(SdzColor.Surface0).testTag("dashboard-screen")) {
+        val gutter = if (maxWidth >= 400.dp) 20.dp else 16.dp
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            LazyColumn(
+                modifier = Modifier.weight(1f).testTag("dashboard-list"),
+                contentPadding = PaddingValues(start = gutter, end = gutter, top = 4.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item("brand") {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        SdzWordmark(markSize = 24.dp)
+                        com.swipedelete.zero.ui.components.SdzIconButton(SdzIcons.Settings, "Settings", onOpenSettings)
                     }
                 }
-            }
-
-            if (!state.hasMediaAccess) {
-                item("permission") {
-                    SdzSurface(level = SdzLevel.Raised, contentPadding = SdzSpace.xl) {
-                        Text("Your library, your call", style = SdzType.Subtitle, color = SdzColor.Phosphor)
-                        Text(
-                            "Choose photos to review. Videos and audio are optional and are not requested here. " +
-                                "Review happens on this device. " +
-                                (if (com.swipedelete.zero.BuildConfig.SUPPORTS_PHOTOS_ARCHIVE)
-                                    "Google Photos backup is optional. Cleanup is unavailable in this test build. "
-                                else "Local cleanup requires your confirmation. ") +
-                                "You can choose selected photos on supported Android versions.",
-                            style = SdzType.BodySmall,
-                            color = SdzColor.TextSecondary,
-                        )
-                        SdzButton(
-                            label = "Choose photos",
-                            onClick = { permissionLauncher.launch(photoReviewPermissions(Build.VERSION.SDK_INT)) },
-                            style = SdzButtonStyle.Primary,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                if (!state.hasMediaAccess) {
+                    item("permission") {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text("Your library, your call", style = SdzType.Title, color = SdzColor.Phosphor)
+                            Text("Choose photos to review on this device. Selected photos are supported on recent Android versions. Videos and audio are optional.", style = SdzType.Body, color = SdzColor.TextSecondary)
+                            SdzButton("Choose photos", { permissionLauncher.launch(photoReviewPermissions(Build.VERSION.SDK_INT)) }, Modifier.fillMaxWidth())
+                            Text("Staging keeps the original. Cleanup stays locked until backup and restore are verified.", style = SdzType.BodySmall, color = SdzColor.TextSecondary)
+                        }
                     }
-                }
-            } else {
-            // THE ONE ACTION.
-            item("primary-action") {
-                PrimaryCallToAction(
-                    loading = state.loading,
-                    candidateCount = state.candidateCount,
-                    candidateBytes = state.headlineReclaimableBytes,
-                    onStart = { sections.suggestedDeck()?.let(onOpenDeck) },
-                    enabled = sections.suggestedDeck() != null,
-                )
-            }
-
-            item("access-scope") {
-                if (loadError != null) {
-                    Text(loadError ?: "", color = SdzColor.TextSecondary)
-                    SdzButton(label = "Retry", onClick = { viewModel.loadDecks(forceRefresh = true) }, style = SdzButtonStyle.Secondary)
-                } else if (!state.loading && state.decks.isEmpty()) {
-                    Text("No review cards in the current selection. Choose other photos or scan again.", style = SdzType.BodySmall, color = SdzColor.TextSecondary)
-                }
-                Text("${state.accessDescription}. Changing selection refreshes this review list.",
-                    style = SdzType.BodySmall, color = SdzColor.TextSecondary)
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(SdzSpace.sm),
-                    verticalArrangement = Arrangement.spacedBy(SdzSpace.sm),
-                ) {
-                    androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Choose photos", maxLines = 1) }
-                    androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(if (Build.VERSION.SDK_INT >= 33)
-                        arrayOf(android.Manifest.permission.READ_MEDIA_VIDEO) else photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Videos", maxLines = 1) }
-                    androidx.compose.material3.TextButton(onClick = { permissionLauncher.launch(if (Build.VERSION.SDK_INT >= 33)
-                        arrayOf(android.Manifest.permission.READ_MEDIA_AUDIO) else photoReviewPermissions(Build.VERSION.SDK_INT)) }) { Text("Audio", maxLines = 1) }
-                }
-            }
-            if (lens == Lens.CONTENT) {
-                item("content-scan") {
-                    ContentScanPanel(state = state, onScan = viewModel::scanNow)
-                }
-            }
-
-            // Storage overview.
-            item("storage") {
-                SdzSurface(level = SdzLevel.Raised, contentPadding = SdzSpace.xl) {
-                    StorageMeter(
-                        usedBytes = state.usedStorageBytes,
-                        freeBytes = state.freeStorageBytes,
-                        totalBytes = state.totalStorageBytes,
-                        reclaimableBytes = state.stagedBytes,
-                    )
-                }
-            }
-
-            item("lens") {
-                Column(verticalArrangement = Arrangement.spacedBy(SdzSpace.sm)) {
-                    SdzSectionHeader("Your library")
-                    Text(
-                        "The same photos, seen two ways.",
-                        style = SdzType.BodySmall,
-                        color = SdzColor.TextSecondary,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(SdzSpace.sm)) {
-                        SdzChip("By content", lens == Lens.CONTENT) { lensName = Lens.CONTENT.name }
-                        SdzChip("By date", lens == Lens.DATE) { lensName = Lens.DATE.name }
+                } else {
+                    item("primary-action") {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(if (available.any { it.isVideo }) "Review your media" else "Review your photos", style = SdzType.Title, color = SdzColor.Phosphor, modifier = Modifier.testTag("dashboard-title"))
+                            Text(if (state.loading) "Loading your selection…" else "${available.size} items ready to review", style = SdzType.BodySmall, color = SdzColor.TextSecondary)
+                            SdzButton("Start review", { sections.suggestedDeck()?.let(onOpenDeck) }, Modifier.fillMaxWidth().testTag("start-review"), enabled = !state.loading && sections.suggestedDeck() != null)
+                        }
                     }
+                    item("access-scope") {
+                        TextButton(onClick = { showAccess = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("manage-access"), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
+                            Text((if (state.accessDescription == "Selected visual media only") "Selected photos only" else "Allowed media only") + " · Manage access", style = SdzType.BodySmall, color = SdzColor.TextSecondary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().testTag("access-label"))
+                        }
+                        if (loadError != null) {
+                            Text(loadError ?: "", style = SdzType.BodySmall, color = SdzColor.TextSecondary)
+                            SdzButton("Retry", { viewModel.loadDecks(forceRefresh = true) }, style = SdzButtonStyle.Secondary)
+                        } else if (!state.loading && state.decks.isEmpty()) {
+                            Text("No review cards in this selection. Manage access to choose other photos.", style = SdzType.BodySmall, color = SdzColor.TextSecondary)
+                        }
+                    }
+                    item("lens") {
+                        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SdzChip("All groups", lens == Lens.CONTENT, Modifier.weight(1f).fillMaxHeight().testTag("all-groups-tab")) { lensName = Lens.CONTENT.name }
+                            SdzChip("By date", lens == Lens.DATE, Modifier.weight(1f).fillMaxHeight().testTag("date-groups-tab")) { lensName = Lens.DATE.name }
+                        }
+                    }
+                    if (state.loading) items(3) { SkeletonRow() }
+                    else items(entries, key = { it.id }) { entry ->
+                        LibraryRow(entry, state.isScanning) { entry.deck?.let(onOpenDeck) }
+                    }
+                    if (lens == Lens.CONTENT) item("content-scan") { ContentScanPanel(state, viewModel::scanNow) }
                 }
             }
-
-            when {
-                state.loading -> items(3) { SkeletonRow() }
-
-                lens == Lens.CONTENT -> items(
-                    sections.contentLenses(state.hasAnalysis || state.analysisState == AnalysisRunState.DONE),
-                    key = { it.id },
-                ) { entry ->
-                    LibraryRow(
-                        entry = entry,
-                        scanning = state.isScanning,
-                        onOpen = { entry.deck?.let(onOpenDeck) },
-                    )
-                }
-
-                else -> items(sections.dateLenses(), key = { it.id }) { entry ->
-                    LibraryRow(
-                        entry = entry,
-                        scanning = false,
-                        onOpen = { entry.deck?.let(onOpenDeck) },
-                    )
+            // Reserved layout space, never an overlay over the library.
+            if (state.stagedCount > 0) StagingBar(state.stagedCount, state.stagedBytes, { showStaging = true }, Modifier.padding(horizontal = gutter, vertical = 8.dp).testTag("queue-bar"))
+        }
+        if (showAccess) {
+            ModalBottomSheet(onDismissRequest = { showAccess = false }, containerColor = SdzColor.Surface1, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
+                Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("Media access", style = SdzType.Subtitle, color = SdzColor.Phosphor)
+                    Text("Choose which media Android allows this app to review. Changing access refreshes your library.", style = SdzType.BodySmall, color = SdzColor.TextSecondary)
+                    SdzButton("Choose photos", { showAccess = false; permissionLauncher.launch(photoReviewPermissions(Build.VERSION.SDK_INT)) }, Modifier.fillMaxWidth())
+                    SdzButton("Allow videos", { showAccess = false; permissionLauncher.launch(if (Build.VERSION.SDK_INT >= 33) arrayOf(android.Manifest.permission.READ_MEDIA_VIDEO) else photoReviewPermissions(Build.VERSION.SDK_INT)) }, Modifier.fillMaxWidth(), style = SdzButtonStyle.Secondary)
+                    SdzButton("Allow audio", { showAccess = false; permissionLauncher.launch(if (Build.VERSION.SDK_INT >= 33) arrayOf(android.Manifest.permission.READ_MEDIA_AUDIO) else photoReviewPermissions(Build.VERSION.SDK_INT)) }, Modifier.fillMaxWidth(), style = SdzButtonStyle.Secondary)
                 }
             }
-            }
         }
-
-        AnimatedVisibility(
-            visible = state.stagedCount > 0,
-            enter = slideInVertically { it } + fadeIn(),
-            exit = slideOutVertically { it } + fadeOut(),
-            modifier = Modifier.align(Alignment.BottomCenter),
-        ) {
-            StagingBar(
-                stagedCount = state.stagedCount,
-                stagedBytes = state.stagedBytes,
-                onClick = { showStaging = true },
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .padding(SdzSpace.xl),
-            )
-        }
-
-        if (showStaging) {
-            StagingSheet(
-                viewModel = stagingViewModel,
-                onDismiss = { showStaging = false },
-                onOpenBackupSetup = {
-                    showStaging = false
-                    onOpenSettings()
-                },
-                completedPurge = completedPurge,
-                onCelebrationFinished = { completedPurge = null },
-            )
-        }
+        if (showStaging) StagingSheet(
+            viewModel = stagingViewModel, onDismiss = { showStaging = false },
+            onOpenBackupSetup = { showStaging = false; onOpenSettings() },
+            completedPurge = completedPurge, onCelebrationFinished = { completedPurge = null },
+        )
     }
 }
 
@@ -498,7 +403,7 @@ private data class LibrarySections(
 @Composable
 private fun ContentScanPanel(state: DashboardUiState, onScan: () -> Unit) {
     SdzSurface(level = SdzLevel.Raised, contentPadding = SdzSpace.xl) {
-        Text("CONTENT SCAN", style = SdzType.Overline, color = SdzColor.TextTertiary)
+        Text("On-device scan", style = SdzType.Overline, color = SdzColor.TextTertiary)
         Text(
             text = when {
                 state.isScanning -> "Scanning your library…"
@@ -514,7 +419,7 @@ private fun ContentScanPanel(state: DashboardUiState, onScan: () -> Unit) {
             text = when {
                 state.isScanning -> "Checking accessible photos and videos for duplicates, blur and text. You can keep browsing."
                 state.analysisState == AnalysisRunState.FAILED -> "The scan did not finish. Tap below to try again."
-                state.analysisState == AnalysisRunState.DONE -> "Review the results in By content below. Scan again after adding photos or changing media access."
+                state.analysisState == AnalysisRunState.DONE -> "Review the results in All groups. Scan again after adding photos or changing media access."
                 else -> "Find duplicates, blurry photos and text across the media you allow. One tap checks all content categories on this device."
             },
             style = SdzType.BodySmall,
@@ -535,59 +440,11 @@ private fun ContentScanPanel(state: DashboardUiState, onScan: () -> Unit) {
                 else -> "Scan all content"
             },
             onClick = onScan,
-            style = SdzButtonStyle.Primary,
+            style = SdzButtonStyle.Secondary,
             enabled = !state.isScanning && !state.loading,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("dashboard-end-action"),
         )
-        Text("Scanning does not delete files.", style = SdzType.LabelSmall, color = SdzColor.TextTertiary)
-    }
-}
-
-@Composable
-private fun PrimaryCallToAction(
-    loading: Boolean,
-    candidateCount: Int,
-    candidateBytes: Long,
-    onStart: () -> Unit,
-    enabled: Boolean,
-) {
-    SdzSurface(level = SdzLevel.Card, contentPadding = SdzSpace.xl) {
-        Text("START HERE", style = SdzType.Overline, color = SdzColor.TextTertiary)
-        AnimatedVisibility(visible = !loading && candidateCount == 0, enter = fadeIn(), exit = fadeOut()) {
-            Image(
-                painter = painterResource(com.swipedelete.zero.R.drawable.ic_empty_review),
-                contentDescription = null,
-                modifier = Modifier.size(72.dp),
-            )
-        }
-        Text(
-            text = when {
-                loading -> "Sorting your library…"
-                candidateCount == 0 -> "Ready when you are"
-                else -> "Review $candidateCount flagged files"
-            },
-            style = SdzType.Subtitle,
-            color = SdzColor.Phosphor,
-        )
-        Text(
-            text = when {
-                loading -> "This takes a moment on a large library."
-                candidateCount == 0 -> "Scan all content above to look for matches, or add photos to review."
-                else -> "${candidateBytes.toReadableSize()} could come back, de-duplicated."
-            },
-            style = SdzType.BodySmall,
-            color = SdzColor.TextSecondary,
-        )
-        Spacer(Modifier.height(SdzSpace.xs))
-        if (enabled) {
-            SdzButton(
-                label = "Start reviewing",
-                onClick = onStart,
-                style = SdzButtonStyle.Primary,
-                enabled = !loading,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        Text("Scanning does not delete files.", style = SdzType.LabelSmall, color = SdzColor.TextTertiary, modifier = Modifier.testTag("dashboard-end"))
     }
 }
 
@@ -616,15 +473,13 @@ private fun LibraryRow(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(SdzSpace.xxs)) {
                 Text(
                     entry.title,
-                    style = SdzType.Subtitle,
+                    style = SdzType.Row,
                     color = if (interactive) SdzColor.Phosphor else SdzColor.TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     // Same two facts, same order, every row, always.
                     text = if (entry.needsScan) {
-                        if (scanning) "Waiting for scan results…" else "Use Scan all content above"
+                        if (scanning) "Waiting for scan results…" else "Scan to find matches"
                     } else "${entry.remainingCount} left · ${entry.remainingBytes.toReadableSize()}",
                     style = SdzType.Numeric,
                     color = SdzColor.TextSecondary,
@@ -658,7 +513,7 @@ private fun RowCover(entry: LibraryEntry) {
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(entry.coverUri)
                     .size(160)
-                    .crossfade(true)
+                    .crossfade(false)
                     .decoderFactory(VideoFrameDecoder.Factory())
                     .build(),
                 contentDescription = null,
@@ -696,16 +551,9 @@ private fun ProgressTrack(progress: Float) {
 
 @Composable
 private fun SkeletonRow() {
-    val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "skeleton")
-    val alpha by pulse.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.6f,
-        animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
-        label = "skeleton-alpha",
-    )
     SdzSurface(level = SdzLevel.Card, contentPadding = SdzSpace.md) {
         Row(
-            modifier = Modifier.graphicsLayer { this.alpha = alpha },
+            modifier = Modifier,
             horizontalArrangement = Arrangement.spacedBy(SdzSpace.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -735,11 +583,7 @@ private fun SkeletonRow() {
     }
 }
 
-/**
- * The staging bar. Amber, because it is reclaimable space — not red. It is a
- * safe, reversible review queue, and dressing it as danger was one of the
- * clearest colour-meaning collisions in the old build.
- */
+/** One full-width queue action keeps large text out of narrow side columns. */
 @Composable
 private fun StagingBar(
     stagedCount: Int,
@@ -747,38 +591,23 @@ private fun StagingBar(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
+            .heightIn(min = 52.dp)
             .clip(RoundedCornerShape(SdzRadius.lg))
             .background(SdzColor.Surface4)
-            .clickable(onClick = onClick)
-            .padding(horizontal = SdzSpace.xl, vertical = SdzSpace.lg)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
             .semantics {
                 contentDescription =
                     "Review $stagedCount staged files, ${stagedBytes.toReadableSize()} kept locally"
             },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(SdzSpace.md),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Icon(
-            painter = SdzIcons.Reclaim,
-            contentDescription = null,
-            tint = SdzColor.Amber,
-            modifier = Modifier.size(22.dp),
-        )
-        Column(Modifier.weight(1f)) {
-            Text(
-                "Review ${stagedBytes.toReadableSize()} staged",
-                style = SdzType.Label,
-                color = SdzColor.Phosphor,
-            )
-            Text(
-                if (stagedCount == 1) "1 file staged" else "$stagedCount files staged",
-                style = SdzType.BodySmall,
-                color = SdzColor.TextSecondary,
-            )
-        }
-        Text("Review", style = SdzType.Label, color = SdzColor.Amber, textAlign = TextAlign.End)
+        Text("Review queue · $stagedCount", style = SdzType.Label, color = SdzColor.Phosphor,
+            modifier = Modifier.fillMaxWidth().testTag("queue-label"))
+        Text("Originals kept", style = SdzType.BodySmall, color = SdzColor.TextSecondary,
+            modifier = Modifier.fillMaxWidth())
     }
 }

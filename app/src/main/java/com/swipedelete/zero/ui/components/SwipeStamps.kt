@@ -47,17 +47,17 @@ fun SwipeStamps(
     rightGlow: Float,
     upGlow: Float,
     modifier: Modifier = Modifier,
-    archiveLabel: String = "ARCHIVE",
+    archiveLabel: String = "Archive",
 ) {
     val glow = maxOf(leftGlow, rightGlow, upGlow)
     val dominant: Pair<String, Pair<Painter, Color>>? = when {
         glow <= 0.08f -> null
         glow == leftGlow && leftGlow >= rightGlow && leftGlow >= upGlow ->
-            "DELETE" to (SdzIcons.Delete to SdzColor.Red)
+            "Stage" to (SdzIcons.Delete to SdzColor.Phosphor)
         glow == rightGlow && rightGlow >= leftGlow && rightGlow >= upGlow ->
-            "KEEP" to (SdzIcons.Keep to SdzColor.Azure)
+            "Keep" to (SdzIcons.Keep to SdzColor.Phosphor)
         glow == upGlow ->
-            archiveLabel to (SdzIcons.Archive to SdzColor.Teal)
+            archiveLabel to (SdzIcons.Archive to SdzColor.Phosphor)
         else -> null
     }
 
@@ -93,20 +93,16 @@ private fun CenteredStamp(
     // lightest touch; the remaining range maps to 0..1 visibility.
     val visible by animateFloatAsState(
         targetValue = ((glow - 0.08f) / 0.92f).coerceIn(0f, 1f),
+        animationSpec = androidx.compose.animation.core.tween(100),
         label = "stamp-alpha",
-    )
-    val scale by animateFloatAsState(
-        targetValue = 0.85f + 0.35f * visible,
-        label = "stamp-scale",
     )
 
     Row(
         modifier = Modifier
             .alpha(visible)
-            .scale(scale)
             .clip(RoundedCornerShape(SdzRadius.lg))
-            .background(SdzColor.Surface0.copy(alpha = 0.66f))
-            .border(3.dp, color, RoundedCornerShape(SdzRadius.lg))
+            .background(SdzColor.Surface0)
+            .border(1.dp, SdzColor.Boundary, RoundedCornerShape(SdzRadius.lg))
             .padding(horizontal = SdzSpace.xl, vertical = SdzSpace.lg),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(SdzSpace.md),
@@ -115,14 +111,12 @@ private fun CenteredStamp(
             painter = icon,
             contentDescription = null,
             tint = color,
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier.size(24.dp),
         )
         Text(
             text = text,
             color = color,
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = (-0.5).sp,
+            style = SdzType.Label,
         )
     }
 }

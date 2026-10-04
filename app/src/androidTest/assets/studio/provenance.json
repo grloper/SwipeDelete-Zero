@@ -1,0 +1,17 @@
+{
+  "source": "Original built-in image generation; no source photograph, paid asset or external account",
+  "generated_utc": "2026-10-03/2026-10-04",
+  "scope": "Android instrumentation fixtures only; not bundled with the production application. Runtime UI evidence is separately captured from the real app.",
+  "files": [
+    {
+      "file": "coast.png",
+      "sha256": "60d9b8c625d6d196c558b602bcd75ba8ef77a2756c7a73993d77df8a35eeea99",
+      "prompt": "Use case: photorealistic-natural. Asset type: original synthetic photo fixture for an Android photo-review app, not a UI or mockup. Create one realistic casual smartphone photograph of a quiet rocky Mediterranean shoreline on an overcast morning, gentle blue-gray water, pale stone foreground, a little natural coastal vegetation. Portrait 4:5 composition, natural exposure and fine real-world texture, no dramatic HDR or stylization. No people, no buildings, no personal objects, no signs, no text, no logos, no watermark, no phone frame and no interface. The entire image must be the single photograph."
+    },
+    {
+      "file": "citrus.png",
+      "sha256": "389adfc91dd3720e68182eeb22ca17d9d20a2aac7f5dadf918ca57526ede9db6",
+      "prompt": "Use case: photorealistic-natural. Asset type: original synthetic photo fixture for an Android photo-review app, not a UI or mockup. Create one realistic casual smartphone photograph of three fresh oranges and one half orange on a plain cream ceramic plate on a linen tablecloth, soft daylight from a nearby window. Portrait 4:5 composition, natural exposure, realistic tiny surface imperfections and shadows. No people, no hands, no private items, no packages, no text, no logos, no watermark, no phone frame and no interface. The entire image must be one photograph."
+    }
+  ]
+}

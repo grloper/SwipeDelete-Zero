@@ -31,6 +31,41 @@ class ReviewViewModelConcurrencyTest {
     private fun item(id: Long) = MediaItem(id, Uri.parse("content://media/external/images/media/$id"),
         "$id.jpg", "image/jpeg", MediaType.IMAGE, 100L, 0L)
 
+    @Test fun `undo restores a fresh gesture generation for a still exiting card`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val decks = mock(DeckRepository::class.java)
+            val staging = mock(StagingRepository::class.java)
+            val backup = mock(BackupRepository::class.java)
+            val stats = mock(StatsStore::class.java)
+            val photos = mock(PhotosArchive::class.java)
+            val deck = Deck("first", DeckKind.SCREENSHOTS, "First", "", listOf(item(1), item(2)))
+            `when`(decks.getDeck("first")).thenReturn(deck)
+            `when`(stats.coachmarkSeen).thenReturn(flowOf(true))
+            `when`(photos.queue).thenReturn(flowOf(emptyMap()))
+            `when`(backup.observeBackedUpUris()).thenReturn(flowOf(emptyList()))
+            val sound = ReviewSound(RuntimeEnvironment.getApplication()).apply { setEnabled(false) }
+            val vm = SwipeEngineViewModel(decks, staging, mock(ExclusionRepository::class.java), backup,
+                photos, mock(VideoMetadataExtractor::class.java), mock(MediaAnalysisDao::class.java),
+                mock(MediaPreloader::class.java), stats, sound, SavedStateHandle(mapOf(Routes.ARG_DECK_ID to "first")))
+            runCurrent()
+            val before = vm.state.value.cardResetToken
+            assertTrue(vm.onSwipe(SwipeDirection.LEFT))
+            runCurrent()
+            assertEquals(1, vm.state.value.cursor)
+            vm.undo()
+            runCurrent()
+            assertEquals(0, vm.state.value.cursor)
+            assertTrue(vm.state.value.cardResetToken > before)
+            assertNull(vm.state.value.lastAction)
+            assertTrue(vm.onSwipe(SwipeDirection.RIGHT))
+            runCurrent()
+            assertEquals(1, vm.state.value.cursor)
+            verify(staging, times(1)).restore(deck.items[0].contentUri.toString())
+            verify(backup, times(1)).recordKept(deck.items[0], false)
+        } finally { Dispatchers.resetMain() }
+    }
+
     @Test fun `delayed stage rejects mixed gestures and deck load then clears cross deck undo`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         try {
