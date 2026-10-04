@@ -71,7 +71,7 @@ class FullAppReviewJourneyTest {
             val staged = hasContentDescription("Review", substring = true) and hasContentDescription("staged files", substring = true)
             compose.waitUntil(15_000) { compose.onAllNodes(staged).fetchSemanticsNodes().isNotEmpty() }
             compose.onAllNodes(staged).onFirst().performClick()
-            compose.waitUntil(15_000) { compose.onAllNodesWithTag("queue-list").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(15_000) { compose.onAllNodesWithTag("queue-unstage-all").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("queue-list").performScrollToKey("cleanup")
             compose.onNodeWithTag("queue-cleanup").performScrollTo()
             compose.waitUntil(15_000) { compose.onAllNodes(hasText("Cleanup is unavailable", substring = true)).fetchSemanticsNodes().isNotEmpty() }

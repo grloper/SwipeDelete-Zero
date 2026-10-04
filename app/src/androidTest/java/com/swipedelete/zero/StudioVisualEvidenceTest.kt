@@ -169,6 +169,7 @@ class StudioVisualEvidenceTest {
             }.toString(2))
             val originalsBeforeQueue = studioOriginalHashes()
             compose.onNodeWithTag("queue-bar").performClick()
+            await("queue-unstage-all")
             compose.onNodeWithText("Review queue").assertIsDisplayed()
             capture(label, "queue-sheet-top", "queue-sheet-title")
             val queueCount = compose.onNodeWithTag("queue-count", useUnmergedTree = true).fetchSemanticsNode().config[SemanticsProperties.Text].single().text
