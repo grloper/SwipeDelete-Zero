@@ -26,7 +26,7 @@ class StudioVisualEvidenceTest {
     private fun capture(label: String, screen: String, vararg tags: String) {
         compose.waitForIdle()
         capturePracticeEvidence("swipe-$label-$screen", tags.map { tag ->
-            contrastRegion(tag, compose.onNodeWithTag(tag, useUnmergedTree = true), foreground = if (tag == "review-progress") Color.rgb(181,186,180) else Color.rgb(244,245,242))
+            contrastRegion(tag, compose.onNodeWithTag(tag, useUnmergedTree = true), foreground = if (tag == "review-progress" || tag == "access-label") Color.rgb(181,186,180) else Color.rgb(244,245,242))
         })
     }
     @Test fun dashboardReviewQueueAndRecreation() {
@@ -36,7 +36,14 @@ class StudioVisualEvidenceTest {
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
             await("start-review")
             compose.waitUntil(30_000) { compose.onNodeWithTag("start-review").isEnabled() }
-            capture(label!!, "dashboard", "dashboard-title")
+            val access = compose.onNodeWithTag("manage-access").assertIsDisplayed().getUnclippedBoundsInRoot()
+            val accessLabel = compose.onNodeWithTag("access-label", useUnmergedTree = true).assertIsDisplayed()
+            val labelBounds = accessLabel.getUnclippedBoundsInRoot()
+            assertTrue("Wrapped access text clears the rounded button edges", labelBounds.left.value >= access.left.value + 8f && labelBounds.right.value <= access.right.value - 8f)
+            val accessLayouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+            accessLabel.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(accessLayouts) }
+            assertFalse("Access label remains readable at the configured font scale", accessLayouts.single().hasVisualOverflow)
+            capture(label!!, "dashboard", "dashboard-title", "access-label")
             compose.onNodeWithTag("start-review").performClick()
             await("review-progress")
             compose.waitUntil(30_000) { compose.onNodeWithTag("stage-action").isEnabled() }

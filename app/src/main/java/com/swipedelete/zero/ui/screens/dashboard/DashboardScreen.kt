@@ -231,8 +231,8 @@ fun DashboardScreen(
                         }
                     }
                     item("access-scope") {
-                        TextButton(onClick = { showAccess = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("manage-access"), contentPadding = PaddingValues(vertical = 4.dp)) {
-                            Text((if (state.accessDescription == "Selected visual media only") "Selected photos only" else "Allowed media only") + " · Manage access", style = SdzType.BodySmall, color = SdzColor.TextSecondary)
+                        TextButton(onClick = { showAccess = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("manage-access"), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
+                            Text((if (state.accessDescription == "Selected visual media only") "Selected photos only" else "Allowed media only") + " · Manage access", style = SdzType.BodySmall, color = SdzColor.TextSecondary, modifier = Modifier.testTag("access-label"))
                         }
                         if (loadError != null) {
                             Text(loadError ?: "", style = SdzType.BodySmall, color = SdzColor.TextSecondary)
